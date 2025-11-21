@@ -1,7 +1,62 @@
 [project]
 name = "sam"
 version = "0.1.0"
-description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
+
+[dependency-groups]
+dev = ["pre-commit>=4.4.0", "ruff>=0.14.6"]
+
+[build-system]
+requires = ["setuptools>=73.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+# Tell setuptools where to find packages
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["/src*"]
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py311"
+line-length = 170
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F401", # unused imports
+
+    "I", # isort
+    "N", # PEP8 naming conventions
+
+    "ARG", # flake8-unused-arguments
+
+    "ANN", # type annotations
+    "UP",  # pyupgrade, updates code to latest Python version
+    "RUF", # ruff-specific rules
+    "PT",  # pytest style
+    "ICN", # import-cost
+]
+ignore = [
+    "E501",   # line too long (handled by line-length)
+    "N817",   #
+    "RUF005",
+    "RUF012",
+    "RUF013",
+    "ANN002", # missing type annotation for *args
+    "ANN003", # missing type annotation for **kwargs
+    "ARG002", # unused argument
+]
+
+# Auto-fix settings
+fixable = ["ALL"]
+unfixable = []
+
+# Import organization
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+split-on-trailing-comma = true
+
+[tool.ruff.format]
