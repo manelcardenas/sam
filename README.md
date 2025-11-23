@@ -41,8 +41,6 @@ This opens a web interface where you can:
 uv run python tests/test_integration.py
 ```
 
-## 🔑 Key Features
-
 ## 🗄️ Data Storage
 
 ### Current: In-Memory

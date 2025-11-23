@@ -31,6 +31,7 @@ def main() -> None:
         print(f"✅ Recipe found: {retrieved_recipe.title}\n")
     else:
         print("❌ Recipe not found\n")
+        return
 
     # Test 3: List all recipes
     print("Test 3: Listing all recipes...")

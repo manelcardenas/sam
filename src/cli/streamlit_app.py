@@ -4,14 +4,6 @@ from src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes
 from src.domain.entities import Recipe
 from src.infra.adapters.repos import InMemoryRecipeRepository
 
-# Page config
-st.set_page_config(
-    page_title="Recipe Manager",
-    page_icon="🍳",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
 
 # Initialize repository in session state (singleton pattern)
 # This ensures data persists across Streamlit reruns
@@ -195,7 +187,7 @@ def main() -> None:
                     with col1:
                         if st.button("🗑️ Delete Recipe", type="primary"):
                             delete_recipe_uc.execute(recipe_id)
-                            st.success(f"✅ Recipe '{recipe.title}' deleted successfully!")
+                            st.toast(f"✅ Recipe '{recipe.title}' deleted successfully!", icon="✅")
                             st.rerun()
 
                     with col2:
