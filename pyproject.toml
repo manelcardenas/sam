@@ -3,7 +3,10 @@ name = "sam"
 version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "email-validator>=2.3.0",
+    "pydantic>=2.12.4",
+]
 
 [dependency-groups]
 dev = ["pre-commit>=4.4.0", "ruff>=0.14.6"]
@@ -16,7 +19,7 @@ build-backend = "setuptools.build_meta"
 # Tell setuptools where to find packages
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["/src*"]
+include = ["src*"]
 
 # Ruff configuration
 [tool.ruff]
