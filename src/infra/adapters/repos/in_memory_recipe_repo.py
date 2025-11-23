@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from src.domain.entities import Recipe
 from src.domain.ports import RecipeRepository
@@ -26,10 +26,12 @@ class InMemoryRecipeRepository(RecipeRepository):
 
     def update_recipe(self, recipe: Recipe) -> Recipe:
         if recipe.id not in self.table:
-            raise ValueError("Recipe not found")
+            raise KeyError(f"Recipe with id {recipe.id} not found")
 
-        recipe.updated_at = datetime.now().isoformat()
-        self.table[recipe.id] = recipe.model_dump()
+        recipe_data = recipe.model_dump()
+        # Update timestamp in UTC (AWS best practice)
+        recipe_data["updated_at"] = datetime.now(UTC).isoformat()
+        self.table[recipe.id] = recipe_data
 
         return Recipe(**self.table[recipe.id])
 

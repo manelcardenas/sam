@@ -4,7 +4,8 @@ from src.infra.adapters.repos import InMemoryRecipeRepository
 
 
 def main() -> None:
-    print("🍳 Recipe Manager - Local Test\n")
+    print("🍳 Recipe Manager - Local Test")
+    print("=" * 60)
 
     # Setup: Create repository and use case
     repo = InMemoryRecipeRepository()
@@ -13,7 +14,9 @@ def main() -> None:
     # Test 1: Create a recipe
     print("Test 1: Creating a recipe...")
     recipe = Recipe(
-        title="Chocolate Chip Cookies", description="Classic homemade cookies", ingredients=["2 cups flour", "1 cup sugar", "1 cup chocolate chips", "2 eggs"]
+        title="Chocolate Chip Cookies",
+        description="Classic homemade cookies",
+        ingredients=["2 cups flour", "1 cup sugar", "1 cup chocolate chips", "2 eggs"],
     )
 
     created_recipe = create_recipe_use_case.execute(recipe)
@@ -55,6 +58,7 @@ def main() -> None:
     else:
         print("❌ Recipe still exists\n")
 
+    print("=" * 60)
     print("🎉 All tests completed!")
 
 

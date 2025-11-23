@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 
-# UUID1 COUDL B USED IF THE ID
+# UUID1 COULD BE USED IF THE ID
 
 
 class User(BaseModel):
