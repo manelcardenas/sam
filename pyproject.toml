@@ -6,57 +6,25 @@ requires-python = ">=3.13"
 dependencies = ["email-validator>=2.3.0", "pydantic>=2.12.4"]
 
 [dependency-groups]
-dev = ["pre-commit>=4.4.0", "ruff>=0.14.6", "streamlit>=1.51.0"]
+dev = ["pre-commit>=4.4.0", "ruff>=0.14.6"]
+frontend = ["streamlit>=1.51.0"]
 
 [build-system]
 requires = ["setuptools>=73.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-
-# Tell setuptools where to find packages
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*"]
+include = ["backend*"]
 
-# Ruff configuration
+# Ruff - fast linter and formatter
 [tool.ruff]
-target-version = "py313"
 line-length = 170
+target-version = "py313"
 
-[tool.ruff.lint]
-select = [
-    "E",    # pycodestyle errors
-    "F401", # unused imports
+lint.select = ["ANN", "ARG", "E", "F", "I", "ICN", "N", "RUF", "PT", "W", "UP"]
+lint.ignore = ["ANN002", "ANN003", "E501", "E203"]
+lint.exclude = [".venv", "__pycache__", ".git"]
 
-    "I", # isort
-    "N", # PEP8 naming conventions
-
-    "ARG", # flake8-unused-arguments
-
-    "ANN", # type annotations
-    "UP",  # pyupgrade, updates code to latest Python version
-    "RUF", # ruff-specific rules
-    "PT",  # pytest style
-    "ICN", # import-cost
-]
-ignore = [
-    "E501",   # line too long (handled by line-length)
-    "N817",   #
-    "RUF005",
-    "RUF012",
-    "RUF013",
-    "ANN002", # missing type annotation for *args
-    "ANN003", # missing type annotation for **kwargs
-    "ARG002", # unused argument
-]
-
-# Auto-fix settings
-fixable = ["ALL"]
-unfixable = []
-
-# Import organization
-[tool.ruff.lint.isort]
-force-sort-within-sections = true
-split-on-trailing-comma = true
-
+# Code formatting
 [tool.ruff.format]

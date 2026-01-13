@@ -1,6 +1,6 @@
 # Recipe Manager
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -10,47 +10,31 @@
 ### Installation
 
 ```bash
-# Clone the repository
-git clone <your-repo-url>
+git clone <repository-url>
 cd sam
-
-# Install dependencies (including dev dependencies)
+cp .env.example .env
 uv sync --all-groups
 ```
 
-## 🧪 Development
+## Development
 
-### Run Streamlit UI (Local Development)
+### Run Streamlit UI
 
 ```bash
-uv run streamlit run src/cli/streamlit_app.py
+uv run streamlit run frontend/cli/streamlit_app.py
 ```
 
-This opens a web interface where you can:
-
-- 📋 List all recipes
-- ➕ Add new recipes
-- ✏️ Update existing recipes
-- 🗑️ Delete recipes
-
-**Note**: Streamlit is a **dev dependency** - only used for local testing. Data is stored in-memory and resets on restart.
-
-### Run Integration Tests
+### Run Tests
 
 ```bash
 uv run python tests/test_integration.py
 ```
 
-## 🗄️ Data Storage
+## Project Structure
 
-### Current: In-Memory
-
-- Used for local development and testing
-- Data resets on app restart
-- No external dependencies
-
-### Future: DynamoDB
-
-- Swap `InMemoryRecipeRepository` with `DynamoDBRecipeRepository`
-- No changes to domain or application layers
-- Clean architecture makes this swap trivial
+```
+sam/
+├── backend/src/       # Domain, use cases, infrastructure
+├── frontend/cli/      # Streamlit dev UI
+└── tests/             # Integration tests
+```

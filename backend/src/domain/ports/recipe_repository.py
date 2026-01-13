@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.domain.entities import Recipe
+from backend.src.domain.entities import Recipe
 
 
 class RecipeRepository(ABC):

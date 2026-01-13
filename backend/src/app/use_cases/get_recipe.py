@@ -1,5 +1,5 @@
-from src.domain.entities import Recipe
-from src.domain.ports import RecipeRepository
+from backend.src.domain.entities import Recipe
+from backend.src.domain.ports import RecipeRepository
 
 
 class GetRecipe:
