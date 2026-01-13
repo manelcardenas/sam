@@ -1,6 +1,6 @@
 # Recipe Manager
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -9,59 +9,32 @@
 
 ### Installation
 
-1. Clone the repository
-
-   ```bash
-   git clone <repository-url>
-   cd sam
-   ```
-
-2. Set up environment variables
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Then edit the `.env` file to add your OpenAI API key.
-
-3. Install dependencies
-   ```bash
-   uv sync --dev
-   ```
-
-## 🧪 Development
-
-### Run Streamlit UI (Local Development)
-
 ```bash
-uv run streamlit run src/cli/streamlit_app.py
+git clone <repository-url>
+cd sam
+cp .env.example .env
+uv sync --all-groups
 ```
 
-This opens a web interface where you can:
+## Development
 
-- 📋 List all recipes
-- ➕ Add new recipes
-- ✏️ Update existing recipes
-- 🗑️ Delete recipes
+### Run Streamlit UI
 
-**Note**: Streamlit is a **dev dependency** - only used for local testing. Data is stored in-memory and resets on restart.
+```bash
+uv run streamlit run frontend/cli/streamlit_app.py
+```
 
-### Run Integration Tests
+### Run Tests
 
 ```bash
 uv run python tests/test_integration.py
 ```
 
-## 🗄️ Data Storage
+## Project Structure
 
-### Current: In-Memory
-
-- Used for local development and testing
-- Data resets on app restart
-- No external dependencies
-
-### Future: DynamoDB
-
-- Swap `InMemoryRecipeRepository` with `DynamoDBRecipeRepository`
-- No changes to domain or application layers
-- Clean architecture makes this swap trivial
+```
+sam/
+├── backend/src/       # Domain, use cases, infrastructure
+├── frontend/cli/      # Streamlit dev UI
+└── tests/             # Integration tests
+```

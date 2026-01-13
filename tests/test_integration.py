@@ -1,6 +1,6 @@
-from src.app.use_cases.create_recipe import CreateRecipe
-from src.domain.entities import Recipe
-from src.infra.adapters.repos import InMemoryRecipeRepository
+from backend.src.app.use_cases.create_recipe import CreateRecipe
+from backend.src.domain.entities import Recipe
+from backend.src.infra.adapters.repos import InMemoryRecipeRepository
 
 
 def main() -> None:

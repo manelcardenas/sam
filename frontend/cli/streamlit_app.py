@@ -1,8 +1,8 @@
 import streamlit as st
 
-from src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes, UpdateRecipes
-from src.domain.entities import Recipe
-from src.infra.adapters.repos import InMemoryRecipeRepository
+from backend.src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes, UpdateRecipes
+from backend.src.domain.entities import Recipe
+from backend.src.infra.adapters.repos import InMemoryRecipeRepository
 
 
 # Initialize repository in session state (singleton pattern)
