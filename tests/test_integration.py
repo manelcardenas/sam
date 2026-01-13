@@ -42,14 +42,14 @@ def main() -> None:
     print("Test 4: Updating the recipe...")
     retrieved_recipe.description = "Updated: The best chocolate chip cookies ever!"
     updated_recipe = repo.update_recipe(retrieved_recipe)
-    print(f"✅ Recipe updated")
+    print("✅ Recipe updated")
     print(f"   New description: {updated_recipe.description}")
     print(f"   Updated at: {updated_recipe.updated_at}\n")
 
     # Test 5: Delete the recipe
     print("Test 5: Deleting the recipe...")
     repo.delete_recipe(created_recipe.id)
-    print(f"✅ Recipe deleted\n")
+    print("✅ Recipe deleted\n")
 
     # Verify deletion
     print("Test 6: Verifying deletion...")

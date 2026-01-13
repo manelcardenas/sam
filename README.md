@@ -9,14 +9,25 @@
 
 ### Installation
 
-```bash
-# Clone the repository
-git clone <your-repo-url>
-cd sam
+1. Clone the repository
 
-# Install dependencies (including dev dependencies)
-uv sync --all-groups
-```
+   ```bash
+   git clone <repository-url>
+   cd sam
+   ```
+
+2. Set up environment variables
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Then edit the `.env` file to add your OpenAI API key.
+
+3. Install dependencies
+   ```bash
+   uv sync --dev
+   ```
 
 ## 🧪 Development
 
