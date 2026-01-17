@@ -13,7 +13,10 @@ sam/
 │   ├── domain/            # Core business logic
 │   │   ├── entities/      # Pydantic models (Recipe, User)
 │   │   └── ports/         # Abstract interfaces (repositories)
-│   └── infra/adapters/    # Implementations (DynamoDB, in-memory)
+│   ├── infra/
+│   │   ├── adapters/      # Repository implementations (DynamoDB, in-memory)
+│   │   └── controllers/   # HTTP controllers (FastAPI routes)
+│   └── main.py            # FastAPI app factory
 ├── frontend/cli/          # Streamlit dev UI
 ├── tests/                 # Integration tests
 └── pyproject.toml         # Dependencies and tooling config
@@ -33,6 +36,9 @@ uv run python tests/test_integration.py
 
 # Lint and format (auto-fix)
 uv run ruff check . --fix && uv run ruff format .
+
+# Run FastAPI server (local development)
+uv run uvicorn backend.src.main:app --reload
 
 # Run Streamlit UI
 uv run streamlit run frontend/cli/streamlit_app.py
