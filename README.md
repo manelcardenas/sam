@@ -24,6 +24,12 @@ uv sync --all-groups
 uv run streamlit run frontend/cli/streamlit_app.py
 ```
 
+### Run BE server
+
+````bash
+uv run uvicorn backend.src.main:app --reload
+```
+
 ### Run Tests
 
 ```bash
@@ -38,3 +44,4 @@ sam/
 ├── frontend/cli/      # Streamlit dev UI
 └── tests/             # Integration tests
 ```
+````
