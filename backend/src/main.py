@@ -1,7 +1,7 @@
 from fastapi import APIRouter, FastAPI
 from mangum import Mangum
 
-from backend.src.infra.adapters.repos import InMemoryRecipeRepository
+from backend.src.infra.adapters.repos import DynamoDBRecipeRepository
 from backend.src.infra.controllers import RecipeController
 
 
@@ -9,7 +9,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Recipe API")
 
     # Initialize repository (will switch to DynamoDB in production)
-    recipe_repository = InMemoryRecipeRepository()
+    recipe_repository = DynamoDBRecipeRepository()
 
     # Create router and register controllers
     router = APIRouter()
