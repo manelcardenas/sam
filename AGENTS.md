@@ -4,62 +4,82 @@ Guidelines for AI coding agents working in this repository.
 
 ## Project Overview
 
-Recipe Manager - A clean architecture Python application with separated backend/frontend.
+Recipe Manager - A clean architecture FastAPI application for managing recipes.
+
+**Architecture:** Domain → Use Cases → Infrastructure (ports & adapters pattern)
 
 ```
 sam/
-├── backend/src/           # Backend code (domain, use cases, infrastructure)
-│   ├── app/use_cases/     # Application layer - business operations
-│   ├── domain/            # Core business logic
-│   │   ├── entities/      # Pydantic models (Recipe, User)
-│   │   └── ports/         # Abstract interfaces (repositories)
+├── backend/src/
+│   ├── domain/           # Core business logic (no external dependencies)
+│   │   ├── entities/     # Pydantic models (Recipe)
+│   │   └── ports/        # Abstract interfaces (RecipeRepository)
+│   ├── app/use_cases/    # Application layer - orchestrates domain logic
 │   ├── infra/
-│   │   ├── adapters/      # Repository implementations (DynamoDB, in-memory)
-│   │   └── controllers/   # HTTP controllers (FastAPI routes)
-│   └── main.py            # FastAPI app factory
-├── frontend/cli/          # Streamlit dev UI
-├── tests/                 # Integration tests
-└── pyproject.toml         # Dependencies and tooling config
+│   │   ├── adapters/     # Interface implementations (InMemory, DynamoDB)
+│   │   └── controllers/  # HTTP controllers (FastAPI routes)
+│   └── main.py           # FastAPI app factory + Lambda handler
+├── frontend/admin/       # Streamlit UI (not in active use)
+├── tests/
+│   ├── unit/             # Use case tests (InMemory repo)
+│   └── integration/      # HTTP API tests
+└── pyproject.toml        # Dependencies and tooling config
 ```
 
 ## Build/Test Commands
 
 ```bash
-# Install all dependencies
-uv sync --group dev --group frontend
-
-# Install backend only (no streamlit)
+# Install dependencies
 uv sync --group dev
 
 # Run all tests
-uv run python tests/test_integration.py
+uv run pytest tests/ -v
+
+# Run specific test file
+uv run pytest tests/unit/test_use_cases.py -v
+
+# Run specific test class
+uv run pytest tests/unit/test_use_cases.py::TestCreateRecipe -v
+
+# Run single test
+uv run pytest tests/unit/test_use_cases.py::TestCreateRecipe::test_creates_recipe_successfully -v
+
+# Run with coverage
+uv run pytest tests/ --cov=backend/src --cov-report=html
 
 # Lint and format (auto-fix)
 uv run ruff check . --fix && uv run ruff format .
 
-# Run FastAPI server (local development)
-uv run uvicorn backend.src.main:app --reload
+# Check only (no changes)
+uv run ruff check . && uv run ruff format --check .
 
-# Run Streamlit UI
-uv run streamlit run frontend/cli/streamlit_app.py
-
-# Pre-commit hooks
-uv run pre-commit install
+# Run pre-commit hooks
 uv run pre-commit run --all-files
+uv run pre-commit install  # Install git hooks
+
+# Run FastAPI server (local - InMemory)
+uv run uvicorn backend.src.main:app --reload --port 9000
+
+# Run with Docker (DynamoDB Local)
+docker compose up
+docker compose down
+
+# View API docs
+open http://localhost:9000/docs
 ```
 
 ## Code Style
 
-### Ruff Configuration (pyproject.toml)
+### Ruff Configuration
 
-- **Line length**: 170 characters
-- **Target**: Python 3.13
-- **Enabled rules**: ANN, ARG, E, F, I, ICN, N, RUF, PT, W, UP
-- **Ignored**: ANN002, ANN003 (no type hints for *args/**kwargs), E501, E203
+- **Line length:** 170 characters
+- **Target:** Python 3.13
+- **Enabled rules:** ANN, ARG, E, F, I, ICN, N, RUF, PT, W, UP
+- **Ignored:** ANN002, ANN003 (no type hints for *args/**kwargs), E501, E203
 
 ### Import Order (isort via Ruff)
 
-Standard library → Third-party → Local imports
+Standard library → Third-party → Local imports, with blank lines between groups:
 
 ```python
 import uuid
@@ -74,22 +94,25 @@ from backend.src.domain.ports import RecipeRepository
 
 ### Type Hints
 
-Required on all functions and methods:
+**Required on all functions and methods.** Use modern Python 3.13 syntax:
 
 ```python
 def execute(self, recipe: Recipe) -> Recipe:
     return self.repository.add_recipe(recipe)
 
-def get_recipe(self, recipe_id: str) -> Recipe | None:
+def get_recipe(self, recipe_id: str) -> Recipe | None:  # Use | not Optional
     return self.table.get(recipe_id)
+
+def list_recipes(self) -> list[Recipe]:  # Use list[] not List[]
+    return [Recipe(**data) for data in self.table.values()]
 ```
 
 ### Naming Conventions (PEP8)
 
-- **Classes**: PascalCase (`CreateRecipe`, `RecipeRepository`)
-- **Functions/methods**: snake_case (`get_recipe`, `list_recipes`)
-- **Variables**: snake_case (`recipe_data`, `created_at`)
-- **Constants**: UPPER_SNAKE_CASE (`MAX_RETRIES`, `DEFAULT_TIMEOUT`)
+- **Classes:** PascalCase (`CreateRecipe`, `RecipeRepository`)
+- **Functions/methods:** snake_case (`get_recipe`, `list_recipes`)
+- **Variables:** snake_case (`recipe_data`, `created_at`)
+- **Constants:** UPPER_SNAKE_CASE (`MAX_RETRIES`, `DEFAULT_TIMEOUT`)
 
 ### Pydantic Models
 
@@ -106,10 +129,11 @@ class Recipe(BaseModel):
 
 ### Timestamps
 
-Always use UTC with ISO format:
+**Always use UTC with ISO format:**
 
 ```python
 from datetime import UTC, datetime
+
 timestamp = datetime.now(UTC).isoformat()
 # NOT: datetime.now().isoformat() or datetime.utcnow().isoformat()
 ```
@@ -123,6 +147,21 @@ def delete_recipe(self, recipe_id: str) -> None:
     if recipe_id not in self.table:
         raise KeyError(f"Recipe with id {recipe_id} not found")
     del self.table[recipe_id]
+```
+
+Use `HTTPException` in controllers:
+
+```python
+from fastapi import HTTPException, status
+
+def get_recipe(self, recipe_id: str) -> Recipe:
+    recipe = use_case.execute(recipe_id)
+    if recipe is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Recipe with id {recipe_id} not found"
+        )
+    return recipe
 ```
 
 ### Module Exports
@@ -142,8 +181,10 @@ __all__ = ["CreateRecipe", "DeleteRecipe"]
 
 1. **Domain** (`backend/src/domain/`): Pure business logic, no external dependencies
 2. **Application** (`backend/src/app/use_cases/`): Orchestrates domain logic
-3. **Infrastructure** (`backend/src/infra/`): External adapters (DB, APIs)
-4. **Presentation** (`frontend/`): UI layer
+3. **Infrastructure** (`backend/src/infra/`): External adapters (DB, HTTP)
+4. **Presentation** (`frontend/`): UI layer (future React app)
+
+**Dependency rule:** Inner layers never depend on outer layers.
 
 ### Dependency Injection
 
@@ -160,7 +201,7 @@ class CreateRecipe:
 
 ### Repository Pattern
 
-Interface in `domain/ports/`, implementation in `infra/adapters/`:
+Interface in `domain/ports/`, implementations in `infra/adapters/`:
 
 ```python
 # Port (interface)
@@ -173,7 +214,20 @@ class RecipeRepository(ABC):
 class InMemoryRecipeRepository(RecipeRepository):
     def add_recipe(self, recipe: Recipe) -> Recipe:
         self.table[recipe.id] = recipe.model_dump()
-        return Recipe(**self.table[recipe.id])  # New instance, not reference
+        return Recipe(**self.table[recipe.id])  # New instance to prevent mutations
+```
+
+## Environment Variables
+
+Switch between repositories using `USE_DYNAMODB`:
+
+```python
+# backend/src/main.py
+use_dynamodb = os.getenv("USE_DYNAMODB", "false").lower() == "true"
+if use_dynamodb:
+    recipe_repository = DynamoDBRecipeRepository()
+else:
+    recipe_repository = InMemoryRecipeRepository()
 ```
 
 ## Pre-commit Hooks

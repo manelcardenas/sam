@@ -1,75 +1,73 @@
 # Recipe Manager
 
-## Getting Started
-
-### Prerequisites
-
-- Python 3.13+
-- [uv](https://github.com/astral-sh/uv) package manager
-- Docker (optional, for containerized development)
-
-### Installation
+### Local Development (Fast)
 
 ```bash
-git clone <repository-url>
-cd sam
-cp .env.example .env
+# Install dependencies
 uv sync --group dev
+# To sync everything
+uv sync --all-groups
+
+# Run API server
+uv run uvicorn backend.src.main:app --reload --port 9000
+
+# Visit API docs
+open http://localhost:9000/docs
 ```
 
-## Development
+Uses in-memory storage (data lost on restart). Perfect for rapid iteration.
 
-### Run API Server (Local)
-
-```bash
-uv run uvicorn backend.src.main:app --reload
-```
-
-### Run Tests
+### Docker (Integration Testing)
 
 ```bash
-uv run python tests/test_integration.py
-```
-
-## Docker
-
-### Quick Start
-
-```bash
-# 1. Build the containers
-docker compose build
-
-# 2. Start the services (API + DynamoDB Local)
+# Start API + DynamoDB Local
 docker compose up
 
-# 3. In another terminal, verify it's running
-curl http://localhost:9000/health
-# Expected: {"status":"ok","service":"recipes"}
+# Visit API docs
+open http://localhost:9000/docs
+
+# Stop
+docker compose down
 ```
 
-### Common Commands
+Uses DynamoDB Local. Data persists until containers removed.
+
+## API Endpoints
+
+| Method | Endpoint        | Description      |
+| ------ | --------------- | ---------------- |
+| GET    | `/health`       | Health check     |
+| GET    | `/recipes`      | List all recipes |
+| POST   | `/recipes`      | Create recipe    |
+| GET    | `/recipes/{id}` | Get recipe by ID |
+| PUT    | `/recipes/{id}` | Update recipe    |
+| DELETE | `/recipes/{id}` | Delete recipe    |
+
+Interactive docs: **http://localhost:9000/docs**
+
+## Testing
 
 ```bash
-# Start in background (detached)
-docker compose up -d
+# Run all tests
+uv run pytest tests/ -v
 
-# View logs
-docker compose logs -f api
-
-# Stop all services
-docker compose down
-
-# Rebuild after code changes
-docker compose up --build
+# Run with coverage
+uv run pytest tests/ --cov=backend/src
 ```
 
-## Project Structure
+Tests use InMemory repository (no Docker required).
 
+## Code Quality
+
+```bash
+# Lint and format
+uv run ruff check . --fix && uv run ruff format .
+
+# Pre-commit hooks
+uv run pre-commit install
+uv run pre-commit run --all-files
 ```
-sam/
-├── backend/src/       # Domain, use cases, infrastructure
-├── frontend/          # Frontend
-├── tests/             # Integration tests
-├── docker-compose.yml # Local development orchestration
-└── .env.example       # Environment template
-```
+
+## Documentation
+
+See `docs/guide.md` for complete developer guide.
