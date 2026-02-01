@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
-from backend.src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes, UpdateRecipes
-from backend.src.domain.entities import Recipe
-from backend.src.domain.ports import RecipeRepository
-from backend.src.infra.controllers.schemas import CreateRecipeRequest, UpdateRecipeRequest
+from src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes, UpdateRecipes
+from src.domain.entities import Recipe
+from src.domain.ports import RecipeRepository
+from src.infra.controllers.schemas import CreateRecipeRequest, UpdateRecipeRequest
 
 
 class HealthResponse(BaseModel):
