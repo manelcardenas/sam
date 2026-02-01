@@ -1,4 +1,4 @@
-from backend.src.domain.ports import RecipeRepository
+from src.domain.ports import RecipeRepository
 
 
 class DeleteRecipe:
