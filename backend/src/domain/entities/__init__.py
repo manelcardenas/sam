@@ -1,4 +1,4 @@
-from backend.src.domain.entities.recipe import Recipe
-from backend.src.domain.entities.user import User
+from src.domain.entities.recipe import Recipe
+from src.domain.entities.user import User
 
 __all__ = ["Recipe", "User"]
