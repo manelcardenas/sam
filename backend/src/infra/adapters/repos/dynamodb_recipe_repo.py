@@ -2,6 +2,7 @@ import os
 from datetime import UTC, datetime
 
 import boto3
+
 from src.domain.entities.recipe import Recipe
 from src.domain.ports import RecipeRepository
 
