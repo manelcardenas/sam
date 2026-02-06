@@ -1,0 +1,52 @@
+name: Deploy Recipe Manager API
+
+on:
+  push:
+    branches: [main] # Auto-deploy when PR merged to main
+  workflow_dispatch: # Manual trigger button
+
+permissions:
+  id-token: write # ⚠️ Required for OIDC
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: "infra/package-lock.json"
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-3
+          role-session-name: GitHubActions-RecipeManager
+
+      - name: Install CDK dependencies
+        run: |
+          cd infra
+          npm ci
+
+      - name: Deploy Lambda API Stack
+        run: |
+          cd infra
+          npx cdk deploy RecipeManagerLambdaApiStack \
+            --require-approval never \
+            --outputs-file outputs.json
+
+      - name: Display API endpoint
+        run: |
+          cd infra
+          cat outputs.json
+          echo "✅ Deployment complete!"
+          echo "API Endpoint: $(jq -r '.RecipeManagerLambdaApiStack.ApiEndpoint' outputs.json)"
