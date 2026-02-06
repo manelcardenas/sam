@@ -1,8 +1,7 @@
 import pytest
-
-from backend.src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes, UpdateRecipes
-from backend.src.domain.entities import Recipe
-from backend.src.infra.adapters.repos import InMemoryRecipeRepository
+from src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes, UpdateRecipes
+from src.domain.entities import Recipe
+from src.infra.adapters.repos import InMemoryRecipeRepository
 
 
 @pytest.fixture

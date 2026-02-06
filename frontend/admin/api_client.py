@@ -1,8 +1,7 @@
 import os
 
 import httpx
-
-from backend.src.domain.entities import Recipe
+from src.domain.entities import Recipe
 
 
 class RecipeAPIClient:
@@ -28,7 +27,11 @@ class RecipeAPIClient:
         """Create a new recipe."""
         response = self.client.post(
             "/recipes",
-            json={"title": title, "description": description, "ingredients": ingredients},
+            json={
+                "title": title,
+                "description": description,
+                "ingredients": ingredients,
+            },
         )
         response.raise_for_status()
         return Recipe(**response.json())
@@ -45,7 +48,11 @@ class RecipeAPIClient:
         """Update an existing recipe."""
         response = self.client.put(
             f"/recipes/{recipe_id}",
-            json={"title": title, "description": description, "ingredients": ingredients},
+            json={
+                "title": title,
+                "description": description,
+                "ingredients": ingredients,
+            },
         )
         response.raise_for_status()
         return Recipe(**response.json())

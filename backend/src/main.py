@@ -3,8 +3,8 @@ import os
 from fastapi import APIRouter, FastAPI
 from mangum import Mangum
 
-from backend.src.infra.adapters.repos import DynamoDBRecipeRepository, InMemoryRecipeRepository
-from backend.src.infra.controllers import RecipeController
+from src.infra.adapters.repos import DynamoDBRecipeRepository, InMemoryRecipeRepository
+from src.infra.controllers import RecipeController
 
 
 def create_app() -> FastAPI:

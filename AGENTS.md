@@ -75,7 +75,7 @@ open http://localhost:9000/docs
 - **Line length:** 170 characters
 - **Target:** Python 3.13
 - **Enabled rules:** ANN, ARG, E, F, I, ICN, N, RUF, PT, W, UP
-- **Ignored:** ANN002, ANN003 (no type hints for *args/**kwargs), E501, E203
+- **Ignored:** ANN002, ANN003 (no type hints for \*args/\*\*kwargs), E501, E203
 
 ### Import Order (isort via Ruff)
 
@@ -88,8 +88,8 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
-from backend.src.domain.entities import Recipe
-from backend.src.domain.ports import RecipeRepository
+from src.domain.entities import Recipe
+from src.domain.ports import RecipeRepository
 ```
 
 ### Type Hints
@@ -169,8 +169,8 @@ def get_recipe(self, recipe_id: str) -> Recipe:
 Always define `__all__` in `__init__.py`:
 
 ```python
-from backend.src.app.use_cases.create_recipe import CreateRecipe
-from backend.src.app.use_cases.delete_recipe import DeleteRecipe
+from src.app.use_cases.create_recipe import CreateRecipe
+from src.app.use_cases.delete_recipe import DeleteRecipe
 
 __all__ = ["CreateRecipe", "DeleteRecipe"]
 ```

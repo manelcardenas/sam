@@ -26,5 +26,6 @@ repos:
     rev: v0.14.9
     hooks:
       - id: ruff-check
-        args: [--fix]
+        args: [--fix, --config=backend/pyproject.toml]
       - id: ruff-format
+        args: [--config=backend/pyproject.toml]

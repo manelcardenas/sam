@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-from backend.src.domain.entities import Recipe
-from backend.src.domain.ports import RecipeRepository
+from src.domain.entities import Recipe
+from src.domain.ports import RecipeRepository
 
 
 class InMemoryRecipeRepository(RecipeRepository):

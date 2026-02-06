@@ -2,9 +2,8 @@ import os
 from datetime import UTC, datetime
 
 import boto3
-
-from backend.src.domain.entities.recipe import Recipe
-from backend.src.domain.ports import RecipeRepository
+from src.domain.entities.recipe import Recipe
+from src.domain.ports import RecipeRepository
 
 
 class DynamoDBRecipeRepository(RecipeRepository):
