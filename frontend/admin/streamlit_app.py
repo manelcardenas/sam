@@ -108,7 +108,12 @@ def main() -> None:
                             else:
                                 new_ingredients = [ing.strip() for ing in new_ingredients_text.split("\n") if ing.strip()]
                                 try:
-                                    updated_recipe = api.update_recipe(recipe_id, new_title, new_description, new_ingredients)
+                                    updated_recipe = api.update_recipe(
+                                        recipe_id,
+                                        new_title,
+                                        new_description,
+                                        new_ingredients,
+                                    )
                                     st.success(f"Recipe '{updated_recipe.title}' updated successfully!")
                                     st.balloons()
                                 except Exception as e:
