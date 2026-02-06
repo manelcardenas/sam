@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+# Python
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.ruff_cache
+.mypy_cache
+# Environment
+.env
+.env.*
+!.env.example
+# IDE
+.vscode
+.idea
+# Documentation
+*.md
+docs/
+# Tests
+tests/
+# Infrastructure
+infra/
+cdk.out/
+# Docker (don't copy these into the image)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+# Misc
+*.log
+.DS_Store
