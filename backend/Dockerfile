@@ -15,16 +15,16 @@ ENV PORT=9000
 ENV HOST=0.0.0.0
 ENV USE_DYNAMODB=false
 
-WORKDIR /app
+WORKDIR /app/backend
 
-# Copy dependency files first
-COPY pyproject.toml uv.lock ./
+# Copy dependency files first (from backend subdirectory in build context)
+COPY backend/pyproject.toml backend/uv.lock ./
 
 ## Install production dependencies only
 RUN uv sync --frozen --no-dev
 
-COPY backend/ ./backend/
+COPY backend/ ./
 
 EXPOSE ${PORT}
 
-CMD uv run uvicorn backend.src.main:app --host ${HOST} --port ${PORT}
+CMD uv run uvicorn src.main:app --host ${HOST} --port ${PORT}
