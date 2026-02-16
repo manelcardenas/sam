@@ -5,6 +5,7 @@ import { GithubOidcProviderStack } from "../lib/foundation/github-oidc-provider-
 import { CiRoleStack } from "../lib/foundation/ci-role-stack";
 import { DynamoDBStack } from "../lib/infrastructure/dynamodb-stack";
 import { LambdaApiStack } from "../lib/application/lambda-api-stack";
+import { CognitoStack } from "../lib/foundation/cognito-stack";
 
 const app = new App();
 
@@ -17,8 +18,11 @@ const env = {
 new GithubOidcProviderStack(app, "RecipeManagerOidcProviderStack", { env });
 new CiRoleStack(app, "RecipeManagerCiRoleStack", { env });
 
+// Cognito for authentication (foundation layer)
+const cognitoStack = new CognitoStack(app, "RecipeManagerCognitoStack", { env });
+
 // Infrastructure (deploy when changes)
 new DynamoDBStack(app, "RecipeManagerDynamoDbStack", { env });
 
 // Application (deploy frequently via CI/CD)
-new LambdaApiStack(app, "RecipeManagerLambdaApiStack", { env });
+new LambdaApiStack(app, "RecipeManagerLambdaApiStack", { env }, cognitoStack);
