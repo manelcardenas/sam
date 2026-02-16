@@ -9,10 +9,19 @@ import {
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
 import { Constants } from "../utils/constants";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import { CognitoStack } from "../foundation/cognito-stack";
 
 export class LambdaApiStack extends Stack {
-  constructor(scope: App, id: string, props: StackProps) {
+  constructor(
+    scope: App,
+    id: string,
+    props: StackProps,
+    cognitoStack: CognitoStack,
+  ) {
     super(scope, id, props);
+
+    // Ensure Cognito stack is deployed before this stack
+    this.addDependency(cognitoStack);
 
     const constants = new Constants();
 
@@ -35,6 +44,8 @@ export class LambdaApiStack extends Stack {
       environment: {
         USE_DYNAMODB: "true",
         TABLE_NAME: table.tableName,
+        COGNITO_USER_POOL_ID: cognitoStack.userPool.userPoolId,
+        COGNITO_CLIENT_ID: cognitoStack.userPoolClient.userPoolClientId,
         //AWS_REGION: this.region,
       },
       bundling: {
