@@ -7,3 +7,5 @@ class TokenPayload(BaseModel):
     sub: str = Field(description="Subject (user ID)")
     email: str = Field(description="User email")
     exp: int = Field(description="Expiration time (timestamp)")
+
+    model_config = {"extra": "allow"}
