@@ -6,5 +6,3 @@ class User(BaseModel):
     id: str
     username: str
     email: EmailStr
-
-    model_config = {"extra": "allow"}

@@ -1,6 +1,8 @@
-import jwt
+import sys
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import exceptions as jwt_exceptions
 
 from src.infra.security.jwt_handler import JWTHandler
 from src.infra.security.schemas import TokenPayload
@@ -37,20 +39,22 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         # credentials.credentials contains the raw JWT token string
         token_payload = jwt_handler.decode_token(credentials.credentials)
         return token_payload
-    except jwt.exceptions.ExpiredSignatureError:
+    except jwt_exceptions.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    except jwt.exceptions.InvalidTokenError:
+    except jwt_exceptions.JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token signature",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except Exception as e:
-        # Catch-all for any other errors
+        # Log actual error for CloudWatch debugging
+        print(f"❌ Token validation error: {type(e).__name__}: {e}", file=sys.stderr)
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",

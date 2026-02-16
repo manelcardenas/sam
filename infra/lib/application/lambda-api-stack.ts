@@ -46,7 +46,7 @@ export class LambdaApiStack extends Stack {
         TABLE_NAME: table.tableName,
         COGNITO_USER_POOL_ID: cognitoStack.userPool.userPoolId,
         COGNITO_CLIENT_ID: cognitoStack.userPoolClient.userPoolClientId,
-        AWS_REGION: this.region,
+        //AWS_REGION: this.region,
       },
       bundling: {
         // CDK automatically bundles dependencies from pyproject.toml
