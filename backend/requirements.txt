@@ -1,52 +1,92 @@
 annotated-doc==0.0.4
+    # via fastapi
 annotated-types==0.7.0
+    # via pydantic
 anyio==4.12.1
+    # via
+    #   httpx
+    #   starlette
 boto3==1.42.31
+    # via sam (pyproject.toml)
 botocore==1.42.31
+    # via
+    #   boto3
+    #   s3transfer
 certifi==2026.1.4
+    # via
+    #   httpcore
+    #   httpx
 cffi==2.0.0
-cfgv==3.5.0
+    # via cryptography
 click==8.3.1
+    # via uvicorn
 cryptography==46.0.5
-distlib==0.4.0
+    # via python-jose
 dnspython==2.8.0
-dotenv==0.9.9
+    # via email-validator
 ecdsa==0.19.1
+    # via python-jose
 email-validator==2.3.0
+    # via sam (pyproject.toml)
 fastapi==0.128.0
-filelock==3.20.0
+    # via sam (pyproject.toml)
 h11==0.16.0
+    # via
+    #   httpcore
+    #   uvicorn
 httpcore==1.0.9
+    # via httpx
 httpx==0.28.1
-identify==2.6.15
+    # via sam (pyproject.toml)
 idna==3.11
-iniconfig==2.3.0
+    # via
+    #   anyio
+    #   email-validator
+    #   httpx
 jmespath==1.0.1
+    # via
+    #   boto3
+    #   botocore
 mangum==0.20.0
-nodeenv==1.9.1
-packaging==25.0
-platformdirs==4.5.0
-pluggy==1.6.0
-pre-commit==4.4.0
+    # via sam (pyproject.toml)
 pyasn1==0.6.2
+    # via
+    #   python-jose
+    #   rsa
 pycparser==3.0
+    # via cffi
 pydantic==2.12.4
+    # via
+    #   sam (pyproject.toml)
+    #   fastapi
 pydantic-core==2.41.5
-pygments==2.19.2
+    # via pydantic
 pyjwt==2.11.0
-pytest==9.0.2
+    # via sam (pyproject.toml)
 python-dateutil==2.9.0.post0
-python-dotenv==1.2.1
+    # via botocore
 python-jose==3.5.0
-pyyaml==6.0.3
+    # via sam (pyproject.toml)
 rsa==4.9.1
-ruff==0.14.6
+    # via python-jose
 s3transfer==0.16.0
--e file:///Users/manel/Documents/zth/sam/backend
+    # via boto3
 six==1.17.0
+    # via
+    #   ecdsa
+    #   python-dateutil
 starlette==0.50.0
+    # via fastapi
 typing-extensions==4.15.0
+    # via
+    #   fastapi
+    #   mangum
+    #   pydantic
+    #   pydantic-core
+    #   typing-inspection
 typing-inspection==0.4.2
+    # via pydantic
 urllib3==2.6.3
+    # via botocore
 uvicorn==0.40.0
-virtualenv==20.35.4
+    # via sam (pyproject.toml)
