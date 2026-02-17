@@ -10,8 +10,9 @@ Complete guide for implementing AWS Cognito authentication in the Recipe Manager
 2. [Architecture Overview](#architecture-overview)
 3. [Deployment Steps](#deployment-steps)
 4. [Testing Authentication](#testing-authentication)
-5. [Optional: API Gateway Authorizer](#optional-api-gateway-authorizer)
-6. [Troubleshooting](#troubleshooting)
+5. [Google Social Login](#google-social-login)
+6. [Optional: API Gateway Authorizer](#optional-api-gateway-authorizer)
+7. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -205,6 +206,189 @@ curl https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes \
    - Email
    - Status (CONFIRMED/UNCONFIRMED)
    - Created date
+
+---
+
+## Google Social Login
+
+### Why Add Google Social Login?
+
+**Benefits:**
+
+- ✅ **Better UX**: Users can sign in with their Google account (no password to remember)
+- ✅ **Higher conversion**: Social login reduces signup friction
+- ✅ **Verified emails**: Google guarantees email verification
+- ✅ **Still FREE**: Cognito social login is free within 50K MAU (monthly active users)
+
+**How it works:**
+
+1. User clicks "Sign in with Google" on your frontend
+2. Cognito redirects to Google OAuth consent screen
+3. User authorizes your app
+4. Google redirects back to Cognito with OAuth code
+5. Cognito exchanges code for Google user info
+6. Cognito creates/updates user in User Pool
+7. Cognito returns JWT token to your frontend
+8. Frontend uses JWT token to call your API (same as email/password flow)
+
+**Note:** The backend Lambda doesn't change - it still validates JWT tokens the same way. Google login just provides an alternative way for users to obtain those JWT tokens.
+
+---
+
+### Prerequisites
+
+**1. Create Google OAuth 2.0 Client**
+
+Go to: https://console.cloud.google.com/apis/credentials
+
+1. Create new project (or select existing)
+2. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
+3. Application type: **Web application**
+4. Name: `recipe-manager`
+5. Authorized redirect URIs:
+   ```
+   https://sam-recipe-manager.auth.eu-west-3.amazoncognito.com/oauth2/idpresponse
+   ```
+6. Click "Create"
+7. Copy **Client ID** and **Client Secret**
+
+---
+
+**2. Store Credentials in AWS SSM Parameter Store**
+
+**Why SSM?** Keeps secrets out of git and CDK code. The CDK stack references these parameters securely.
+
+**Important:** Use `String` type (not `SecureString`) because CloudFormation doesn't support referencing `SecureString` parameters in templates.
+
+```bash
+# Store Google Client ID
+aws ssm put-parameter \
+  --name /recipe-manager/google-client-id \
+  --value "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com" \
+  --type String \
+  --region eu-west-3
+
+# Store Google Client Secret
+aws ssm put-parameter \
+  --name /recipe-manager/google-client-secret \
+  --value "GOCSPX-your-secret-here" \
+  --type String \
+  --region eu-west-3
+```
+
+**Verify parameters created:**
+
+```bash
+aws ssm get-parameter --name /recipe-manager/google-client-id --region eu-west-3 --query 'Parameter.Value'
+aws ssm get-parameter --name /recipe-manager/google-client-secret --region eu-west-3 --query 'Parameter.Value'
+```
+
+---
+
+**3. Deploy Cognito Stack**
+
+The `CognitoStack` (`infra/lib/foundation/cognito-stack.ts`) now includes:
+
+- Google Identity Provider configuration (reads from SSM)
+- OAuth flows enabled (`code`, `implicit`)
+- OAuth scopes (`email`, `openid`, `profile`)
+- Callback URLs for frontend (localhost + production)
+- Cognito Hosted UI domain (`sam-recipe-manager`)
+
+---
+
+### Testing Google Login
+
+**Option 1: Using Cognito Hosted UI**
+
+Get your `CLIENT_ID` from CloudFormation outputs:
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name RecipeManagerCognitoStack \
+  --region eu-west-3 \
+  --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+  --output text
+```
+
+Visit this URL (replace `YOUR_CLIENT_ID`):
+
+```
+https://sam-recipe-manager.auth.eu-west-3.amazoncognito.com/login?client_id=YOUR_CLIENT_ID&response_type=code&redirect_uri=http://localhost:3000/auth/callback&scope=email+openid+profile
+```
+
+**What you'll see:**
+
+1. Cognito Hosted UI login page
+2. "Sign in with Google" button
+3. Google OAuth consent screen
+4. Redirect to `http://localhost:3000/auth/callback?code=...`
+
+**Note:** You'll need a frontend app running on `localhost:3000` to handle the callback and exchange the code for tokens. For now, you can just verify the Google login flow works (you'll see the authorization code in the URL).
+
+---
+
+**Option 2: Using AWS Amplify in Frontend**
+
+When you build your React/Next.js frontend, use AWS Amplify:
+
+```typescript
+import { Amplify } from "aws-amplify";
+import { signInWithRedirect } from "aws-amplify/auth";
+
+// Configure Amplify
+Amplify.configure({
+  Auth: {
+    Cognito: {
+      userPoolId: "eu-west-3_YOUR_POOL_ID",
+      userPoolClientId: "YOUR_CLIENT_ID",
+      loginWith: {
+        oauth: {
+          domain: "sam-recipe-manager.auth.eu-west-3.amazoncognito.com",
+          scopes: ["email", "openid", "profile"],
+          redirectSignIn: ["http://localhost:3000/auth/callback"],
+          redirectSignOut: ["http://localhost:3000"],
+          responseType: "code",
+        },
+      },
+    },
+  },
+});
+
+// Trigger Google login
+function handleGoogleLogin() {
+  signInWithRedirect({ provider: "Google" });
+}
+```
+
+---
+
+### Verify Google User in Cognito
+
+After successful Google login:
+
+1. Go to AWS Console → Cognito → User Pools → `recipe-manager-users`
+2. Click "Users" tab
+3. You'll see a new user with:
+   - **Username**: `google_<google-user-id>`
+   - **Email**: Your Google email
+   - **Email verified**: `true` (Google verified)
+   - **Status**: `CONFIRMED`
+
+---
+
+### Using Google Login Tokens with Your API
+
+**The JWT tokens from Google login work exactly the same as email/password tokens:**
+
+```bash
+# After Google login, frontend has IdToken
+# Use it to call your API
+curl https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes \
+  -H "Authorization: Bearer <ID_TOKEN_FROM_GOOGLE_LOGIN>"
+```
+
+Your Lambda validates the token the same way - it doesn't care if the user logged in with email/password or Google.
 
 ---
 
@@ -458,13 +642,13 @@ For high-traffic apps: Can be significant.
 - ✅ Lambda validates JWT tokens using RS256 public keys
 - ✅ Protected endpoints require valid Authorization header
 - ✅ Script to create test users and get tokens
+- ✅ Google Social Login (alternative to email/password)
+- ✅ API Gateway JWT Authorizer (validates tokens before Lambda invocation)
 - ✅ Ready for frontend integration
 
 **Optional enhancements:**
 
-- API Gateway Cognito Authorizer (for high-traffic apps)
 - Token refresh flow
-- Social login (Google, Facebook)
 - Multi-factor authentication (MFA)
 
 **Next steps:**
@@ -482,3 +666,4 @@ For high-traffic apps: Can be significant.
 - [AWS Amplify (Frontend)](https://docs.amplify.aws/)
 - [JWT Debugger](https://jwt.io/) - Decode tokens to inspect claims
 - [Cognito Pricing](https://aws.amazon.com/cognito/pricing/) - Free tier: 50K MAU
+- [Google OAuth 2.0](https://developers.google.com/identity/protocols/oauth2)
