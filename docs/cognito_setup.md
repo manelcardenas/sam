@@ -10,8 +10,9 @@ Complete guide for implementing AWS Cognito authentication in the Recipe Manager
 2. [Architecture Overview](#architecture-overview)
 3. [Deployment Steps](#deployment-steps)
 4. [Testing Authentication](#testing-authentication)
-5. [Optional: API Gateway Authorizer](#optional-api-gateway-authorizer)
-6. [Troubleshooting](#troubleshooting)
+5. [Google Social Login](#google-social-login)
+6. [Optional: API Gateway Authorizer](#optional-api-gateway-authorizer)
+7. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -84,37 +85,6 @@ The Cognito stack creates:
 - App client for authentication
 - Cognito domain for hosted UI
 
-**Deploy via GitHub Actions:**
-
-```bash
-git add .
-git commit -m "Add Cognito authentication"
-git push origin main
-```
-
-The workflow will automatically:
-
-1. Deploy `RecipeManagerCognitoStack`
-2. Deploy `RecipeManagerLambdaApiStack` (with Cognito env vars)
-
-**Or deploy manually:**
-
-```bash
-cd infra
-npx cdk deploy RecipeManagerCognitoStack --require-approval never
-```
-
-**Outputs you'll see:**
-
-```
-RecipeManagerCognitoStack.UserPoolId = eu-west-3_ABC123
-RecipeManagerCognitoStack.UserPoolClientId = 1a2b3c4d5e...
-RecipeManagerCognitoStack.UserPoolRegion = eu-west-3
-RecipeManagerCognitoStack.UserPoolDomain = sam-recipe-manager
-```
-
-Save these values - you'll need them for local development.
-
 ---
 
 ### Step 2: Deploy Lambda API with Cognito Integration
@@ -127,20 +97,6 @@ The Lambda stack now automatically receives Cognito configuration from the Cogni
 - Lambda code with `JWTHandler` for token validation
 - Protected endpoints require `Authorization: Bearer <token>`
 
-**Deploy via GitHub Actions:**
-
-The workflow deploys both stacks in order:
-
-1. Cognito stack first (foundation)
-2. Lambda API stack second (references Cognito outputs)
-
-**Or deploy manually:**
-
-```bash
-cd infra
-npx cdk deploy RecipeManagerLambdaApiStack --require-approval never
-```
-
 ---
 
 ### Step 3: Configure Local Development
@@ -148,23 +104,10 @@ npx cdk deploy RecipeManagerLambdaApiStack --require-approval never
 Create/update `.env` in project root:
 
 ```bash
-# API Configuration
-PORT=9000
-HOST=0.0.0.0
-
-# DynamoDB (for Docker)
-USE_DYNAMODB=true
-DYNAMODB_ENDPOINT=http://localhost:8000
-TABLE_NAME=recipes
-
-# AWS Configuration
-AWS_ACCESS_KEY_ID=local
-AWS_SECRET_ACCESS_KEY=local
-AWS_REGION=eu-west-3
-
+...
 # Cognito Configuration (from CDK outputs)
-COGNITO_USER_POOL_ID=cognito-user-pool-id    # ← Replace with your value
-COGNITO_CLIENT_ID=cognito-client-id  # ← Replace with your value
+COGNITO_USER_POOL_ID=cognito-user-pool-id
+COGNITO_CLIENT_ID=cognito-client-id
 ```
 
 **Get actual values:**
@@ -248,44 +191,6 @@ curl https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes \
 
 ---
 
-**3. Create recipe (auth required):**
-
-```bash
-curl -X POST https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes \
-  -H "Authorization: Bearer eyJraWQiOi..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Pasta Carbonara",
-    "description": "Classic Italian pasta dish",
-    "ingredients": ["pasta", "eggs", "bacon", "parmesan"]
-  }'
-```
-
----
-
-### Test with Postman
-
-**Setup:**
-
-1. Create new request: `GET https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes`
-2. Go to **Authorization** tab
-3. Type: **Bearer Token**
-4. Token: Paste the token from `create_test_user.sh` output
-5. Send request
-
-**Create a Postman environment:**
-
-```json
-{
-  "api_url": "https://YOUR-API.execute-api.eu-west-3.amazonaws.com",
-  "cognito_token": "eyJraWQiOi..."
-}
-```
-
-Then use: `{{api_url}}/recipes` with `{{cognito_token}}`
-
----
-
 ### View Users in AWS Console
 
 **Steps:**
@@ -301,6 +206,189 @@ Then use: `{{api_url}}/recipes` with `{{cognito_token}}`
    - Email
    - Status (CONFIRMED/UNCONFIRMED)
    - Created date
+
+---
+
+## Google Social Login
+
+### Why Add Google Social Login?
+
+**Benefits:**
+
+- ✅ **Better UX**: Users can sign in with their Google account (no password to remember)
+- ✅ **Higher conversion**: Social login reduces signup friction
+- ✅ **Verified emails**: Google guarantees email verification
+- ✅ **Still FREE**: Cognito social login is free within 50K MAU (monthly active users)
+
+**How it works:**
+
+1. User clicks "Sign in with Google" on your frontend
+2. Cognito redirects to Google OAuth consent screen
+3. User authorizes your app
+4. Google redirects back to Cognito with OAuth code
+5. Cognito exchanges code for Google user info
+6. Cognito creates/updates user in User Pool
+7. Cognito returns JWT token to your frontend
+8. Frontend uses JWT token to call your API (same as email/password flow)
+
+**Note:** The backend Lambda doesn't change - it still validates JWT tokens the same way. Google login just provides an alternative way for users to obtain those JWT tokens.
+
+---
+
+### Prerequisites
+
+**1. Create Google OAuth 2.0 Client**
+
+Go to: https://console.cloud.google.com/apis/credentials
+
+1. Create new project (or select existing)
+2. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
+3. Application type: **Web application**
+4. Name: `recipe-manager`
+5. Authorized redirect URIs:
+   ```
+   https://sam-recipe-manager.auth.eu-west-3.amazoncognito.com/oauth2/idpresponse
+   ```
+6. Click "Create"
+7. Copy **Client ID** and **Client Secret**
+
+---
+
+**2. Store Credentials in AWS SSM Parameter Store**
+
+**Why SSM?** Keeps secrets out of git and CDK code. The CDK stack references these parameters securely.
+
+**Important:** Use `String` type (not `SecureString`) because CloudFormation doesn't support referencing `SecureString` parameters in templates.
+
+```bash
+# Store Google Client ID
+aws ssm put-parameter \
+  --name /recipe-manager/google-client-id \
+  --value "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com" \
+  --type String \
+  --region eu-west-3
+
+# Store Google Client Secret
+aws ssm put-parameter \
+  --name /recipe-manager/google-client-secret \
+  --value "GOCSPX-your-secret-here" \
+  --type String \
+  --region eu-west-3
+```
+
+**Verify parameters created:**
+
+```bash
+aws ssm get-parameter --name /recipe-manager/google-client-id --region eu-west-3 --query 'Parameter.Value'
+aws ssm get-parameter --name /recipe-manager/google-client-secret --region eu-west-3 --query 'Parameter.Value'
+```
+
+---
+
+**3. Deploy Cognito Stack**
+
+The `CognitoStack` (`infra/lib/foundation/cognito-stack.ts`) now includes:
+
+- Google Identity Provider configuration (reads from SSM)
+- OAuth flows enabled (`code`, `implicit`)
+- OAuth scopes (`email`, `openid`, `profile`)
+- Callback URLs for frontend (localhost + production)
+- Cognito Hosted UI domain (`sam-recipe-manager`)
+
+---
+
+### Testing Google Login
+
+**Option 1: Using Cognito Hosted UI**
+
+Get your `CLIENT_ID` from CloudFormation outputs:
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name RecipeManagerCognitoStack \
+  --region eu-west-3 \
+  --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+  --output text
+```
+
+Visit this URL (replace `YOUR_CLIENT_ID`):
+
+```
+https://sam-recipe-manager.auth.eu-west-3.amazoncognito.com/login?client_id=YOUR_CLIENT_ID&response_type=code&redirect_uri=http://localhost:3000/auth/callback&scope=email+openid+profile
+```
+
+**What you'll see:**
+
+1. Cognito Hosted UI login page
+2. "Sign in with Google" button
+3. Google OAuth consent screen
+4. Redirect to `http://localhost:3000/auth/callback?code=...`
+
+**Note:** You'll need a frontend app running on `localhost:3000` to handle the callback and exchange the code for tokens. For now, you can just verify the Google login flow works (you'll see the authorization code in the URL).
+
+---
+
+**Option 2: Using AWS Amplify in Frontend**
+
+When you build your React/Next.js frontend, use AWS Amplify:
+
+```typescript
+import { Amplify } from "aws-amplify";
+import { signInWithRedirect } from "aws-amplify/auth";
+
+// Configure Amplify
+Amplify.configure({
+  Auth: {
+    Cognito: {
+      userPoolId: "eu-west-3_YOUR_POOL_ID",
+      userPoolClientId: "YOUR_CLIENT_ID",
+      loginWith: {
+        oauth: {
+          domain: "sam-recipe-manager.auth.eu-west-3.amazoncognito.com",
+          scopes: ["email", "openid", "profile"],
+          redirectSignIn: ["http://localhost:3000/auth/callback"],
+          redirectSignOut: ["http://localhost:3000"],
+          responseType: "code",
+        },
+      },
+    },
+  },
+});
+
+// Trigger Google login
+function handleGoogleLogin() {
+  signInWithRedirect({ provider: "Google" });
+}
+```
+
+---
+
+### Verify Google User in Cognito
+
+After successful Google login:
+
+1. Go to AWS Console → Cognito → User Pools → `recipe-manager-users`
+2. Click "Users" tab
+3. You'll see a new user with:
+   - **Username**: `google_<google-user-id>`
+   - **Email**: Your Google email
+   - **Email verified**: `true` (Google verified)
+   - **Status**: `CONFIRMED`
+
+---
+
+### Using Google Login Tokens with Your API
+
+**The JWT tokens from Google login work exactly the same as email/password tokens:**
+
+```bash
+# After Google login, frontend has IdToken
+# Use it to call your API
+curl https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes \
+  -H "Authorization: Bearer <ID_TOKEN_FROM_GOOGLE_LOGIN>"
+```
+
+Your Lambda validates the token the same way - it doesn't care if the user logged in with email/password or Google.
 
 ---
 
@@ -501,24 +589,6 @@ For high-traffic apps: Can be significant.
 
 ## Troubleshooting
 
-### Error: "COGNITO_USER_POOL_ID environment variable is required"
-
-**Cause:** Lambda doesn't have Cognito environment variables.
-
-**Fix:**
-
-1. Check CDK deployment logs - ensure Lambda stack deployed after Cognito stack
-2. Verify environment variables in AWS Console:
-   ```bash
-   aws lambda get-function-configuration \
-     --function-name recipe-manager-api \
-     --region eu-west-3 \
-     --query 'Environment.Variables'
-   ```
-3. Should see: `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `AWS_REGION`
-
----
-
 ### Error: "Public key not found in JWKS"
 
 **Cause:** Token is from wrong user pool or region mismatch.
@@ -564,46 +634,6 @@ For high-traffic apps: Can be significant.
 
 ---
 
-### Docker: "Connection refused" to localhost:9000
-
-**Cause:** Missing Cognito env vars in `docker-compose.yml`.
-
-**Fix:**
-Check `docker-compose.yml` has:
-
-```yaml
-environment:
-  - AWS_REGION=eu-west-3
-  - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}
-  - COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}
-```
-
-And `.env` file has actual values (not placeholders).
-
----
-
-### API returns 200 without Authorization header
-
-**Cause:** Old Lambda code still deployed (before Cognito migration).
-
-**Fix:**
-
-1. Check Lambda last modified date:
-   ```bash
-   aws lambda get-function \
-     --function-name recipe-manager-api \
-     --region eu-west-3 \
-     --query 'Configuration.LastModified'
-   ```
-2. Should be recent (after your Cognito changes)
-3. If old, redeploy:
-   ```bash
-   cd infra
-   npx cdk deploy RecipeManagerLambdaApiStack --require-approval never
-   ```
-
----
-
 ## Summary
 
 **What you have now:**
@@ -612,13 +642,13 @@ And `.env` file has actual values (not placeholders).
 - ✅ Lambda validates JWT tokens using RS256 public keys
 - ✅ Protected endpoints require valid Authorization header
 - ✅ Script to create test users and get tokens
+- ✅ Google Social Login (alternative to email/password)
+- ✅ API Gateway JWT Authorizer (validates tokens before Lambda invocation)
 - ✅ Ready for frontend integration
 
 **Optional enhancements:**
 
-- API Gateway Cognito Authorizer (for high-traffic apps)
 - Token refresh flow
-- Social login (Google, Facebook)
 - Multi-factor authentication (MFA)
 
 **Next steps:**
@@ -636,3 +666,4 @@ And `.env` file has actual values (not placeholders).
 - [AWS Amplify (Frontend)](https://docs.amplify.aws/)
 - [JWT Debugger](https://jwt.io/) - Decode tokens to inspect claims
 - [Cognito Pricing](https://aws.amazon.com/cognito/pricing/) - Free tier: 50K MAU
+- [Google OAuth 2.0](https://developers.google.com/identity/protocols/oauth2)
