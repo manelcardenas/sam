@@ -84,37 +84,6 @@ The Cognito stack creates:
 - App client for authentication
 - Cognito domain for hosted UI
 
-**Deploy via GitHub Actions:**
-
-```bash
-git add .
-git commit -m "Add Cognito authentication"
-git push origin main
-```
-
-The workflow will automatically:
-
-1. Deploy `RecipeManagerCognitoStack`
-2. Deploy `RecipeManagerLambdaApiStack` (with Cognito env vars)
-
-**Or deploy manually:**
-
-```bash
-cd infra
-npx cdk deploy RecipeManagerCognitoStack --require-approval never
-```
-
-**Outputs you'll see:**
-
-```
-RecipeManagerCognitoStack.UserPoolId = eu-west-3_ABC123
-RecipeManagerCognitoStack.UserPoolClientId = 1a2b3c4d5e...
-RecipeManagerCognitoStack.UserPoolRegion = eu-west-3
-RecipeManagerCognitoStack.UserPoolDomain = sam-recipe-manager
-```
-
-Save these values - you'll need them for local development.
-
 ---
 
 ### Step 2: Deploy Lambda API with Cognito Integration
@@ -127,20 +96,6 @@ The Lambda stack now automatically receives Cognito configuration from the Cogni
 - Lambda code with `JWTHandler` for token validation
 - Protected endpoints require `Authorization: Bearer <token>`
 
-**Deploy via GitHub Actions:**
-
-The workflow deploys both stacks in order:
-
-1. Cognito stack first (foundation)
-2. Lambda API stack second (references Cognito outputs)
-
-**Or deploy manually:**
-
-```bash
-cd infra
-npx cdk deploy RecipeManagerLambdaApiStack --require-approval never
-```
-
 ---
 
 ### Step 3: Configure Local Development
@@ -148,23 +103,10 @@ npx cdk deploy RecipeManagerLambdaApiStack --require-approval never
 Create/update `.env` in project root:
 
 ```bash
-# API Configuration
-PORT=9000
-HOST=0.0.0.0
-
-# DynamoDB (for Docker)
-USE_DYNAMODB=true
-DYNAMODB_ENDPOINT=http://localhost:8000
-TABLE_NAME=recipes
-
-# AWS Configuration
-AWS_ACCESS_KEY_ID=local
-AWS_SECRET_ACCESS_KEY=local
-AWS_REGION=eu-west-3
-
+...
 # Cognito Configuration (from CDK outputs)
-COGNITO_USER_POOL_ID=cognito-user-pool-id    # ← Replace with your value
-COGNITO_CLIENT_ID=cognito-client-id  # ← Replace with your value
+COGNITO_USER_POOL_ID=cognito-user-pool-id
+COGNITO_CLIENT_ID=cognito-client-id
 ```
 
 **Get actual values:**
@@ -245,44 +187,6 @@ curl https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes \
 
 # Expected: [] or list of recipes
 ```
-
----
-
-**3. Create recipe (auth required):**
-
-```bash
-curl -X POST https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes \
-  -H "Authorization: Bearer eyJraWQiOi..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Pasta Carbonara",
-    "description": "Classic Italian pasta dish",
-    "ingredients": ["pasta", "eggs", "bacon", "parmesan"]
-  }'
-```
-
----
-
-### Test with Postman
-
-**Setup:**
-
-1. Create new request: `GET https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes`
-2. Go to **Authorization** tab
-3. Type: **Bearer Token**
-4. Token: Paste the token from `create_test_user.sh` output
-5. Send request
-
-**Create a Postman environment:**
-
-```json
-{
-  "api_url": "https://YOUR-API.execute-api.eu-west-3.amazonaws.com",
-  "cognito_token": "eyJraWQiOi..."
-}
-```
-
-Then use: `{{api_url}}/recipes` with `{{cognito_token}}`
 
 ---
 
@@ -501,24 +405,6 @@ For high-traffic apps: Can be significant.
 
 ## Troubleshooting
 
-### Error: "COGNITO_USER_POOL_ID environment variable is required"
-
-**Cause:** Lambda doesn't have Cognito environment variables.
-
-**Fix:**
-
-1. Check CDK deployment logs - ensure Lambda stack deployed after Cognito stack
-2. Verify environment variables in AWS Console:
-   ```bash
-   aws lambda get-function-configuration \
-     --function-name recipe-manager-api \
-     --region eu-west-3 \
-     --query 'Environment.Variables'
-   ```
-3. Should see: `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `AWS_REGION`
-
----
-
 ### Error: "Public key not found in JWKS"
 
 **Cause:** Token is from wrong user pool or region mismatch.
@@ -561,46 +447,6 @@ For high-traffic apps: Can be significant.
    ./backend/scripts/create_test_user.sh myemail@example.com MyPassword123!
    ```
 2. Or implement token refresh in frontend (use refresh tokens)
-
----
-
-### Docker: "Connection refused" to localhost:9000
-
-**Cause:** Missing Cognito env vars in `docker-compose.yml`.
-
-**Fix:**
-Check `docker-compose.yml` has:
-
-```yaml
-environment:
-  - AWS_REGION=eu-west-3
-  - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}
-  - COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}
-```
-
-And `.env` file has actual values (not placeholders).
-
----
-
-### API returns 200 without Authorization header
-
-**Cause:** Old Lambda code still deployed (before Cognito migration).
-
-**Fix:**
-
-1. Check Lambda last modified date:
-   ```bash
-   aws lambda get-function \
-     --function-name recipe-manager-api \
-     --region eu-west-3 \
-     --query 'Configuration.LastModified'
-   ```
-2. Should be recent (after your Cognito changes)
-3. If old, redeploy:
-   ```bash
-   cd infra
-   npx cdk deploy RecipeManagerLambdaApiStack --require-approval never
-   ```
 
 ---
 
