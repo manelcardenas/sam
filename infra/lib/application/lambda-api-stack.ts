@@ -9,6 +9,7 @@ import {
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
 import { Constants } from "../utils/constants";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { CognitoStack } from "../foundation/cognito-stack";
 
 export class LambdaApiStack extends Stack {
@@ -30,6 +31,14 @@ export class LambdaApiStack extends Stack {
       this,
       "RecipesTable",
       constants.RECIPES_TABLE_NAME,
+    );
+    const authorizer = new HttpJwtAuthorizer(
+      "CognitoAuthorizer",
+      `https://cognito-idp.${this.region}.amazonaws.com/${cognitoStack.userPool.userPoolId}`,
+      {
+        jwtAudience: [cognitoStack.userPoolClient.userPoolClientId],
+        authorizerName: "recipe-manager-cognito-authorizer",
+      },
     );
 
     // Lambda function for API
@@ -93,17 +102,26 @@ export class LambdaApiStack extends Stack {
       recipeApi,
     );
 
-    // Add routes to API Gateway
+    // Health check (no auth)
     httpApi.addRoutes({
-      path: "/{proxy+}",
-      methods: [HttpMethod.ANY],
-      integration: integration,
+      path: "/health",
+      methods: [HttpMethod.GET],
+      integration,
+    });
+
+    // Recipe routes (auth required)
+    httpApi.addRoutes({
+      path: "/recipes",
+      methods: [HttpMethod.GET, HttpMethod.POST],
+      integration,
+      authorizer,
     });
 
     httpApi.addRoutes({
-      path: "/",
-      methods: [HttpMethod.ANY],
-      integration: integration,
+      path: "/recipes/{recipe_id}",
+      methods: [HttpMethod.GET, HttpMethod.PUT, HttpMethod.DELETE],
+      integration,
+      authorizer,
     });
 
     // Outputs
