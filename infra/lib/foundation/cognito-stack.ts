@@ -1,10 +1,21 @@
-import { Stack, StackProps, CfnOutput, RemovalPolicy } from "aws-cdk-lib";
+import {
+  Stack,
+  StackProps,
+  CfnOutput,
+  RemovalPolicy,
+  SecretValue,
+} from "aws-cdk-lib";
 import { Construct } from "constructs/lib/construct";
 import {
   AccountRecovery,
+  OAuthScope,
+  ProviderAttribute,
   UserPool,
   UserPoolClient,
+  UserPoolClientIdentityProvider,
+  UserPoolIdentityProviderGoogle,
 } from "aws-cdk-lib/aws-cognito";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 
 export class CognitoStack extends Stack {
   public readonly userPool: UserPool;
@@ -47,20 +58,71 @@ export class CognitoStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY, // will remove the user pool when the stack is deleted (Not good for production, but usefull for development and this project)
     });
 
-    // Create app client (for frontend to communicate with Cognito)
-    this.userPoolClient = this.userPool.addClient("WebClient", {
-      authFlows: {
-        userPassword: true, // Enable username/password authentication
-        userSrp: true, // Secure Remote Password protocol (optional, but recommended)
-      },
-      generateSecret: false,
-    });
+    // Retrieve Google OAuth credentials from SSM Parameter Store
+    const googleClientId = ssm.StringParameter.valueForStringParameter(
+      this,
+      "/recipe-manager/google-client-id",
+    );
 
+    const googleClientSecret = ssm.StringParameter.valueForStringParameter(
+      this,
+      "/recipe-manager/google-client-secret",
+      1, // version
+    );
+
+    // Configure Google Identity Provider
+    const googleProvider = new UserPoolIdentityProviderGoogle(
+      this,
+      "GoogleProvider",
+      {
+        userPool: this.userPool,
+        clientId: googleClientId,
+        clientSecretValue: SecretValue.unsafePlainText(googleClientSecret),
+        attributeMapping: {
+          email: ProviderAttribute.GOOGLE_EMAIL,
+          givenName: ProviderAttribute.GOOGLE_GIVEN_NAME,
+          familyName: ProviderAttribute.GOOGLE_FAMILY_NAME,
+        },
+        scopes: ["profile", "email", "openid"],
+      },
+    );
+
+    // Add Cognito domain for Hosted UI
     const domain = this.userPool.addDomain("CognitoDomain", {
       cognitoDomain: {
         domainPrefix: "sam-recipe-manager",
       },
     });
+
+    // Create app client with OAuth support (for frontend to communicate with Cognito)
+    this.userPoolClient = this.userPool.addClient("WebClient", {
+      authFlows: {
+        userPassword: true, // Enable username/password authentication
+        userSrp: true, // Secure Remote Password protocol
+      },
+      generateSecret: false,
+      oAuth: {
+        flows: {
+          authorizationCodeGrant: true,
+        },
+        scopes: [OAuthScope.EMAIL, OAuthScope.OPENID, OAuthScope.PROFILE],
+        callbackUrls: [
+          "http://localhost:3000/auth/callback", // Local development
+          "https://your-frontend-domain.com/auth/callback", // Production
+        ],
+        logoutUrls: [
+          "http://localhost:3000",
+          "https://your-frontend-domain.com",
+        ],
+      },
+      supportedIdentityProviders: [
+        UserPoolClientIdentityProvider.COGNITO,
+        UserPoolClientIdentityProvider.GOOGLE,
+      ],
+    });
+
+    // Ensure Google provider is created before client
+    this.userPoolClient.node.addDependency(googleProvider);
 
     // Outputs for frontend integration
     new CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });
