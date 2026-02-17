@@ -48,6 +48,7 @@ export class LambdaApiStack extends Stack {
       index: "src/main.py",
       handler: "handler", //Magum handler in main.py
       functionName: constants.RECIPE_API_FUNCTION_NAME,
+      description: "Recipe Manager API with Cognito JWT validation",
       timeout: Duration.seconds(30),
       memorySize: 512,
       environment: {
@@ -55,7 +56,6 @@ export class LambdaApiStack extends Stack {
         TABLE_NAME: table.tableName,
         COGNITO_USER_POOL_ID: cognitoStack.userPool.userPoolId,
         COGNITO_CLIENT_ID: cognitoStack.userPoolClient.userPoolClientId,
-        //AWS_REGION: this.region,
       },
       bundling: {
         // CDK automatically bundles dependencies from pyproject.toml

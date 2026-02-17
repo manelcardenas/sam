@@ -36,7 +36,7 @@ export class CognitoStack extends Stack {
       standardAttributes: {
         email: {
           required: true,
-          mutable: false,
+          mutable: true, // Must be true for Google Social Login
         },
         fullname: {
           required: false,
@@ -105,13 +105,18 @@ export class CognitoStack extends Stack {
         flows: {
           authorizationCodeGrant: true,
         },
-        scopes: [OAuthScope.EMAIL, OAuthScope.OPENID, OAuthScope.PROFILE],
+        scopes: [
+          OAuthScope.EMAIL,
+          OAuthScope.OPENID,
+          OAuthScope.PROFILE,
+          OAuthScope.COGNITO_ADMIN, // Required for fetchUserAttributes()
+        ],
         callbackUrls: [
-          "http://localhost:3000/auth/callback", // Local development
-          "https://your-frontend-domain.com/auth/callback", // Production
+          "http://localhost:8080", // Local development
+          "https://your-frontend-domain.com", // Production (update with actual domain)
         ],
         logoutUrls: [
-          "http://localhost:3000",
+          "http://localhost:8080",
           "https://your-frontend-domain.com",
         ],
       },
