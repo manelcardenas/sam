@@ -17,20 +17,20 @@ fi
 
 echo "📝 Creating user: $EMAIL"
 
-# Sign up user
+# Sign up user (ignore error if user already exists)
 aws cognito-idp sign-up \
     --client-id "$COGNITO_CLIENT_ID" \
     --username "$EMAIL" \
     --password "$PASSWORD" \
     --user-attributes Name=email,Value="$EMAIL" \
-    --region "$AWS_REGION" 2>/dev/null || echo "User may already exist"
+    --region "$AWS_REGION" 2>/dev/null || echo "ℹ️  User already exists, skipping creation..."
 
-# Confirm user (skip email verification)
+# Confirm user (skip email verification, ignore error if already confirmed)
 echo "✅ Confirming user (skipping email verification)..."
 aws cognito-idp admin-confirm-sign-up \
     --user-pool-id "$COGNITO_USER_POOL_ID" \
     --username "$EMAIL" \
-    --region "$AWS_REGION"
+    --region "$AWS_REGION" 2>&1 | grep -v "User cannot be confirmed" || echo "ℹ️  User already confirmed, continuing..."
 
 # Get token
 echo "🔑 Getting token..."
