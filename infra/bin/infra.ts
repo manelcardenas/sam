@@ -6,6 +6,7 @@ import { CiRoleStack } from "../lib/foundation/ci-role-stack";
 import { DynamoDBStack } from "../lib/infrastructure/dynamodb-stack";
 import { LambdaApiStack } from "../lib/application/lambda-api-stack";
 import { CognitoStack } from "../lib/foundation/cognito-stack";
+import { AmplifyStack } from "../lib/application/amplify-stack";
 
 const app = new App();
 
@@ -19,10 +20,26 @@ new GithubOidcProviderStack(app, "RecipeManagerOidcProviderStack", { env });
 new CiRoleStack(app, "RecipeManagerCiRoleStack", { env });
 
 // Cognito for authentication (foundation layer)
-const cognitoStack = new CognitoStack(app, "RecipeManagerCognitoStack", { env });
+// Note: After first Amplify deployment, add amplifyDomain to cdk.context.json
+// and redeploy Cognito to update OAuth callback URLs
+const amplifyDomain = app.node.tryGetContext("amplifyDomain");
+const cognitoStack = new CognitoStack(app, "RecipeManagerCognitoStack", {
+  env,
+  amplifyDomain,
+});
 
 // Infrastructure (deploy when changes)
 new DynamoDBStack(app, "RecipeManagerDynamoDbStack", { env });
 
 // Application (deploy frequently via CI/CD)
 new LambdaApiStack(app, "RecipeManagerLambdaApiStack", { env }, cognitoStack);
+
+// Frontend (Amplify)
+new AmplifyStack(
+  app,
+  "RecipeManagerAmplifyStack",
+  { env },
+  {
+    cognitoStack,
+  },
+);

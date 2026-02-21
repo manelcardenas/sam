@@ -19,6 +19,8 @@
   "context": {
     "githubOrg": "manelcardenas",
     "githubRepo": "sam",
+    "amplifyDomain": "https://main.digg8p5ivgpv8.amplifyapp.com",
+    "apiEndpoint": "https://xbm9t398cd.execute-api.eu-west-3.amazonaws.com",
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": [
