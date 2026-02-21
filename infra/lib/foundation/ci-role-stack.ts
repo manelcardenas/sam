@@ -145,7 +145,7 @@ export class CiRoleStack extends Stack {
                 `arn:aws:s3:::cdk-*-assets-${this.account}-${this.region}/*`,
               ],
             }),
-            // 7. SSM (read parameters)
+            // 7. SSM (read parameters + decrypt SecureString values)
             new PolicyStatement({
               sid: "SSMParameterRead",
               actions: ["ssm:GetParameter", "ssm:GetParameters"],
@@ -153,6 +153,47 @@ export class CiRoleStack extends Stack {
                 `arn:aws:ssm:${this.region}:${this.account}:parameter/cdk-bootstrap/*`,
                 `arn:aws:ssm:${this.region}:${this.account}:parameter/recipe-manager/*`,
               ],
+            }),
+            new PolicyStatement({
+              sid: "KMSDecryptSSM",
+              actions: ["kms:Decrypt"],
+              resources: [`arn:aws:kms:${this.region}:${this.account}:key/aws/ssm`],
+            }),
+            // 8. Amplify (frontend deployment)
+            new PolicyStatement({
+              sid: "AmplifyDeployment",
+              actions: [
+                "amplify:CreateApp",
+                "amplify:UpdateApp",
+                "amplify:DeleteApp",
+                "amplify:GetApp",
+                "amplify:ListApps",
+                "amplify:CreateBranch",
+                "amplify:UpdateBranch",
+                "amplify:DeleteBranch",
+                "amplify:GetBranch",
+                "amplify:ListBranches",
+                "amplify:StartJob",
+                "amplify:GetJob",
+                "amplify:TagResource",
+                "amplify:UntagResource",
+              ],
+              resources: [
+                `arn:aws:amplify:${this.region}:${this.account}:apps/*`,
+              ],
+            }),
+            // 9. IAM (Amplify service role)
+            new PolicyStatement({
+              sid: "AmplifyServiceRole",
+              actions: ["iam:CreateServiceLinkedRole"],
+              resources: [
+                `arn:aws:iam::${this.account}:role/aws-service-role/amplify.amazonaws.com/*`,
+              ],
+              conditions: {
+                StringLike: {
+                  "iam:AWSServiceName": "amplify.amazonaws.com",
+                },
+              },
             }),
           ],
         }),
