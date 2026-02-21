@@ -1,0 +1,9 @@
+{
+  "name": "sam-monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Monorepo root. Actual app is in frontend/. This package.json exists solely to satisfy AWS Amplify WEB_COMPUTE platform detection, which requires 'next' to be present at the repo root.",
+  "dependencies": {
+    "next": "*"
+  }
+}
