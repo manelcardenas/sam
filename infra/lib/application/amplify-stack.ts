@@ -92,11 +92,6 @@ frontend:
 `,
       environmentVariables: [
         {
-          // Belt-and-suspenders: also set AMPLIFY_MONOREPO_APP_ROOT for runtime env resolution.
-          name: "AMPLIFY_MONOREPO_APP_ROOT",
-          value: "frontend",
-        },
-        {
           name: "NEXT_PUBLIC_AWS_REGION",
           value: this.region,
         },
