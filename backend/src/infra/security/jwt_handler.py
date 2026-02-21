@@ -66,10 +66,14 @@ class JWTHandler:
         public_key = jwk.construct(key)
 
         # Decode and verify token
-        payload = jwt.decode(
-            token,
-            public_key,
-            algorithms=[self.algorithm],  # Cognito uses RS256
-            audience=self.client_id,  # Validate the audience (client ID)
-        )
-        return TokenPayload(**payload)
+        try:
+            payload = jwt.decode(
+                token,
+                public_key,
+                algorithms=[self.algorithm],  # Cognito uses RS256
+                audience=self.client_id,  # Validate the audience (client ID)
+                options={"verify_at_hash": False},  # Don't verify at_hash claim (not needed for access tokens)
+            )
+            return TokenPayload(**payload)
+        except Exception as e:
+            raise exceptions.JWTError(f"Token validation failed: {e}") from e
