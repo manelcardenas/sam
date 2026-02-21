@@ -13,6 +13,8 @@ import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { CognitoStack } from "../foundation/cognito-stack";
 
 export class LambdaApiStack extends Stack {
+  public readonly apiEndpoint: string;
+
   constructor(
     scope: App,
     id: string,
@@ -129,6 +131,8 @@ export class LambdaApiStack extends Stack {
       value: httpApi.apiEndpoint,
       description: "The endpoint of the Recipe Manager HTTP API",
     });
+
+    this.apiEndpoint = httpApi.apiEndpoint;
 
     new CfnOutput(this, "FunctionName", {
       value: recipeApi.functionName,

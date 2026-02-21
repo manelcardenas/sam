@@ -21,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20"
           cache: "npm"
           cache-dependency-path: "infra/package-lock.json"
 
@@ -44,9 +44,39 @@ jobs:
             --require-approval never \
             --outputs-file outputs.json
 
-      - name: Display API endpoint
+      - name: Deploy Amplify Frontend Stack
         run: |
           cd infra
-          cat outputs.json
+          GITHUB_TOKEN=$(aws ssm get-parameter \
+            --name /recipe-manager/github-token \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text \
+            --region eu-west-3)
+          npx cdk deploy RecipeManagerAmplifyStack \
+            --require-approval never \
+            --context githubToken="$GITHUB_TOKEN" \
+            --outputs-file outputs-amplify.json
+
+      - name: Trigger Amplify build
+        run: |
+          APP_ID=$(jq -r '.RecipeManagerAmplifyStack.AmplifyAppId' infra/outputs-amplify.json)
+          JOB_ID=$(aws amplify start-job \
+            --app-id "$APP_ID" \
+            --branch-name main \
+            --job-type RELEASE \
+            --query jobSummary.jobId \
+            --output text \
+            --region eu-west-3)
+          echo "Amplify build started: job $JOB_ID"
+          echo "AMPLIFY_JOB_ID=$JOB_ID" >> $GITHUB_ENV
+          echo "AMPLIFY_APP_ID=$APP_ID" >> $GITHUB_ENV
+
+      - name: Display deployment info
+        run: |
+          cd infra
           echo "✅ Deployment complete!"
-          echo "API Endpoint: $(jq -r '.RecipeManagerLambdaApiStack.ApiEndpoint' outputs.json)"
+          echo ""
+          echo "📡 API Endpoint: $(jq -r '.RecipeManagerLambdaApiStack.ApiEndpoint' outputs.json)"
+          echo "🌐 Frontend URL: $(jq -r '.RecipeManagerAmplifyStack.AmplifyAppUrl' outputs-amplify.json)"
+          echo "🆔 Amplify App ID: $(jq -r '.RecipeManagerAmplifyStack.AmplifyAppId' outputs-amplify.json)"

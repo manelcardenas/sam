@@ -17,11 +17,15 @@ import {
 } from "aws-cdk-lib/aws-cognito";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 
+interface CognitoStackProps extends StackProps {
+  amplifyDomain?: string; // Optional Amplify domain for OAuth callbacks
+}
+
 export class CognitoStack extends Stack {
   public readonly userPool: UserPool;
   public readonly userPoolClient: UserPoolClient;
 
-  constructor(scope: Construct, id: string, props: StackProps) {
+  constructor(scope: Construct, id: string, props: CognitoStackProps = {}) {
     super(scope, id, props);
 
     this.userPool = new UserPool(this, "RecipeManagerUserPool", {
@@ -95,6 +99,19 @@ export class CognitoStack extends Stack {
     });
 
     // Create app client with OAuth support (for frontend to communicate with Cognito)
+    const callbackUrls = [
+      "http://localhost:8080", // Local development
+    ];
+    const logoutUrls = [
+      "http://localhost:8080",
+    ];
+
+    // Add Amplify domain if provided
+    if (props.amplifyDomain) {
+      callbackUrls.push(props.amplifyDomain);
+      logoutUrls.push(props.amplifyDomain);
+    }
+
     this.userPoolClient = this.userPool.addClient("WebClient", {
       authFlows: {
         userPassword: true, // Enable username/password authentication
@@ -111,14 +128,8 @@ export class CognitoStack extends Stack {
           OAuthScope.PROFILE,
           OAuthScope.COGNITO_ADMIN, // Required for fetchUserAttributes()
         ],
-        callbackUrls: [
-          "http://localhost:8080", // Local development
-          "https://your-frontend-domain.com", // Production (update with actual domain)
-        ],
-        logoutUrls: [
-          "http://localhost:8080",
-          "https://your-frontend-domain.com",
-        ],
+        callbackUrls,
+        logoutUrls,
       },
       supportedIdentityProviders: [
         UserPoolClientIdentityProvider.COGNITO,
