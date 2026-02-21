@@ -3,7 +3,7 @@ frontend:
   phases:
     preBuild:
       commands:
-        - echo "PWD=$(pwd)" && ls -la
+        - npm install
         - npm ci --prefix frontend
     build:
       commands:

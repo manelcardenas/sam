@@ -180,6 +180,8 @@ export class CiRoleStack extends Stack {
               ],
               resources: [
                 `arn:aws:amplify:${this.region}:${this.account}:apps/*`,
+                `arn:aws:amplify:${this.region}:${this.account}:apps/*/branches/*`,
+                `arn:aws:amplify:${this.region}:${this.account}:apps/*/branches/*/jobs/*`,
               ],
             }),
             // 9. IAM (Amplify service role)
