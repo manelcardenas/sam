@@ -64,26 +64,22 @@ export class AmplifyStack extends Stack {
       description: "Recipe Manager Next.js frontend with Cognito authentication",
       repository: `https://github.com/${githubOrg}/${githubRepo}`,
       accessToken: githubToken, // GitHub PAT for repo access
-      platform: "WEB_COMPUTE", // SSR support for Next.js
-      // Fallback buildSpec stored in CloudFormation - uses simple frontend: format.
-      // The actual build is driven by amplify.yml in the repo root (which Amplify reads after
-      // cloning and overrides this). This stored spec must NOT use the `applications:` list
-      // format because Amplify tries to resolve `appRoot` as a filesystem path before cloning,
-      // causing a "Build path does not exist" error.
-      // Pre-clone monorepo detection is satisfied by:
-      //   1. A root package.json with "next" listed (satisfies WEB_COMPUTE Next.js check)
-      //   2. AMPLIFY_MONOREPO_APP_ROOT=frontend set via aws amplify update-app
+      platform: "WEB", // Static export - all pages are "use client", no SSR needed
+      // Fallback buildSpec stored in CloudFormation - overridden by amplify.yml in the repo.
+      // Uses static export (output: 'export' in next.config.ts) - all pages are "use client"
+      // so no SSR is needed. Artifacts come from frontend/out (not frontend/.next).
       buildSpec: `version: 1
 frontend:
   phases:
     preBuild:
       commands:
-        - cd frontend && npm ci
+        - npm install
+        - npm ci --prefix frontend
     build:
       commands:
-        - cd frontend && npm run build
+        - npm run build --prefix frontend
   artifacts:
-    baseDirectory: frontend/.next
+    baseDirectory: frontend/out
     files:
       - '**/*'
   cache:
