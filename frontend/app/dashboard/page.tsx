@@ -248,6 +248,7 @@ export default function DashboardPage() {
               recipes.map((recipe) => (
                 <div
                   key={recipe.id}
+                  onClick={() => startEdit(recipe)}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow p-6"
                 >
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
