@@ -16,6 +16,7 @@ export interface CreateRecipeInput {
   title: string;
   description: string;
   ingredients: string[];
+  food_type: "bebida" | "postre" | "comida" | "aperitivo";
 }
 
 async function getAuthToken(): Promise<string> {
