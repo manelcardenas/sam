@@ -18,6 +18,8 @@ def sample_recipe() -> Recipe:
         title="Test Recipe",
         description="A test recipe description",
         ingredients=["ingredient1", "ingredient2", "ingredient3"],
+        food_type="comida",
+        # created_by="user1",
     )
 
 
@@ -31,6 +33,8 @@ class TestCreateRecipe:
         assert result.title == "Test Recipe"
         assert result.description == "A test recipe description"
         assert result.ingredients == ["ingredient1", "ingredient2", "ingredient3"]
+        assert result.food_type == sample_recipe.food_type
+        # assert result.created_by == sample_recipe.created_by
 
     def test_created_recipe_is_retrievable(self, repository: InMemoryRecipeRepository, sample_recipe: Recipe) -> None:
         create_use_case = CreateRecipe(repository)
@@ -72,8 +76,8 @@ class TestListRecipes:
 
     def test_returns_all_recipes(self, repository: InMemoryRecipeRepository) -> None:
         create_use_case = CreateRecipe(repository)
-        recipe1 = Recipe(title="Recipe 1", description="Desc 1", ingredients=["a"])
-        recipe2 = Recipe(title="Recipe 2", description="Desc 2", ingredients=["b"])
+        recipe1 = Recipe(title="Recipe 1", description="Desc 1", ingredients=["a"], food_type="comida")  # created_by="user1"
+        recipe2 = Recipe(title="Recipe 2", description="Desc 2", ingredients=["b"], food_type="postre")  # created_by="user2"
 
         create_use_case.execute(recipe1)
         create_use_case.execute(recipe2)
@@ -97,6 +101,8 @@ class TestUpdateRecipes:
             title="Updated Title",
             description="Updated description",
             ingredients=["new_ingredient"],
+            food_type="comida",
+            # created_by="user1",
         )
         result = use_case.execute(updated_recipe)
 
@@ -112,6 +118,8 @@ class TestUpdateRecipes:
             title="Title",
             description="Desc",
             ingredients=["a"],
+            food_type="comida",
+            # created_by="user1",
         )
 
         with pytest.raises(KeyError):
