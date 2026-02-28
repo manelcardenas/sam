@@ -38,12 +38,12 @@ export default function DashboardPage() {
   const [activeView, setActiveView] = useState<"list" | "add" | "edit">("list");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [formData, setFormData] = useState<
-    CreateRecipeInput & { type: FoodType }
+    CreateRecipeInput & { food_type: FoodType }
   >({
     title: "",
     description: "",
     ingredients: [],
-    type: "comida",
+    food_type: "comida",
   });
   const [ingredientsText, setIngredientsText] = useState("");
 
@@ -156,7 +156,7 @@ export default function DashboardPage() {
       title: recipe.title,
       description: recipe.description,
       ingredients: recipe.ingredients,
-      type: (recipe.food_type as FoodType) ?? "comida",
+      food_type: (recipe.food_type as FoodType) ?? "comida",
     });
     setIngredientsText(recipe.ingredients.join("\n"));
     setActiveView("edit");
@@ -167,7 +167,7 @@ export default function DashboardPage() {
       title: "",
       description: "",
       ingredients: [],
-      type: "comida",
+      food_type: "comida",
     });
     setIngredientsText("");
     setSelectedRecipe(null);
@@ -394,10 +394,10 @@ export default function DashboardPage() {
                           key={value}
                           type="button"
                           onClick={() =>
-                            setFormData({ ...formData, type: value })
+                            setFormData({ ...formData, food_type: value })
                           }
                           className={`flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl border-2 font-medium text-sm transition-all duration-150 ${
-                            formData.type === value
+                            formData.food_type === value
                               ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 shadow-sm scale-105"
                               : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700"
                           }`}
