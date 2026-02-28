@@ -20,6 +20,15 @@ import {
   List,
 } from "lucide-react";
 
+const FOOD_TYPES = [
+  { value: "comida", label: "Comida", emoji: "🍽️" },
+  { value: "bebida", label: "Bebida", emoji: "🥤" },
+  { value: "postre", label: "Postre", emoji: "🍰" },
+  { value: "aperitivo", label: "Aperitivo", emoji: "🥗" },
+] as const;
+
+type FoodType = (typeof FOOD_TYPES)[number]["value"];
+
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -28,10 +37,13 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [activeView, setActiveView] = useState<"list" | "add" | "edit">("list");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-  const [formData, setFormData] = useState<CreateRecipeInput>({
+  const [formData, setFormData] = useState<
+    CreateRecipeInput & { type: FoodType }
+  >({
     title: "",
     description: "",
     ingredients: [],
+    type: "comida",
   });
   const [ingredientsText, setIngredientsText] = useState("");
 
@@ -72,7 +84,6 @@ export default function DashboardPage() {
       router.push("/");
     } catch (err) {
       console.error("Sign out error:", err);
-      // Force sign out even if there's an error
       router.push("/");
     }
   };
@@ -145,13 +156,19 @@ export default function DashboardPage() {
       title: recipe.title,
       description: recipe.description,
       ingredients: recipe.ingredients,
+      type: (recipe.food_type as FoodType) ?? "comida",
     });
     setIngredientsText(recipe.ingredients.join("\n"));
     setActiveView("edit");
   };
 
   const resetForm = () => {
-    setFormData({ title: "", description: "", ingredients: [] });
+    setFormData({
+      title: "",
+      description: "",
+      ingredients: [],
+      type: "comida",
+    });
     setIngredientsText("");
     setSelectedRecipe(null);
   };
@@ -245,58 +262,78 @@ export default function DashboardPage() {
                 </p>
               </div>
             ) : (
-              recipes.map((recipe) => (
-                <div
-                  key={recipe.id}
-                  onClick={() => startEdit(recipe)}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow p-6"
-                >
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                    {recipe.title}
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
-                    {recipe.description}
-                  </p>
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Ingredients:
-                    </p>
-                    <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                      {recipe.ingredients.slice(0, 3).map((ingredient, idx) => (
-                        <li key={idx} className="truncate">
-                          • {ingredient}
-                        </li>
-                      ))}
-                      {recipe.ingredients.length > 3 && (
-                        <li className="text-indigo-600 dark:text-indigo-400">
-                          + {recipe.ingredients.length - 3} more
-                        </li>
+              recipes.map((recipe) => {
+                const foodType = FOOD_TYPES.find(
+                  (f) => f.value === recipe.food_type,
+                );
+                return (
+                  <div
+                    key={recipe.id}
+                    onClick={() => startEdit(recipe)}
+                    className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow p-6 cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {recipe.title}
+                      </h3>
+                      {foodType && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 shrink-0 ml-2">
+                          {foodType.emoji} {foodType.label}
+                        </span>
                       )}
-                    </ul>
-                  </div>
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <span className="text-xs text-gray-500 dark:text-gray-500">
-                      {new Date(recipe.created_at).toLocaleDateString()}
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => startEdit(recipe)}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                        title="Edit recipe"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRecipe(recipe.id)}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                        title="Delete recipe"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
+                      {recipe.description}
+                    </p>
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Ingredients:
+                      </p>
+                      <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                        {recipe.ingredients
+                          .slice(0, 3)
+                          .map((ingredient, idx) => (
+                            <li key={idx} className="truncate">
+                              • {ingredient}
+                            </li>
+                          ))}
+                        {recipe.ingredients.length > 3 && (
+                          <li className="text-indigo-600 dark:text-indigo-400">
+                            + {recipe.ingredients.length - 3} more
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <span className="text-xs text-gray-500 dark:text-gray-500">
+                        {new Date(recipe.created_at).toLocaleDateString()}
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEdit(recipe);
+                          }}
+                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                          title="Edit recipe"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRecipe(recipe.id);
+                          }}
+                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                          title="Delete recipe"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -344,6 +381,32 @@ export default function DashboardPage() {
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                       placeholder="e.g., Chocolate Chip Cookies"
                     />
+                  </div>
+
+                  {/* Food Type Selector */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Type *
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {FOOD_TYPES.map(({ value, label, emoji }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() =>
+                            setFormData({ ...formData, type: value })
+                          }
+                          className={`flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl border-2 font-medium text-sm transition-all duration-150 ${
+                            formData.type === value
+                              ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 shadow-sm scale-105"
+                              : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          <span className="text-2xl">{emoji}</span>
+                          <span>{label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div>
