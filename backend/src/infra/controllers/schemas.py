@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -8,6 +10,8 @@ class CreateRecipeRequest(BaseModel):
     title: str
     description: str
     ingredients: list[str]
+    food_type: Literal["bebida", "postre", "comida", "aperitivo"]
+    # created_by: str  # user ID of the creator
 
 
 class UpdateRecipeRequest(BaseModel):
@@ -16,3 +20,5 @@ class UpdateRecipeRequest(BaseModel):
     title: str
     description: str
     ingredients: list[str]
+    food_type: Literal["bebida", "postre", "comida", "aperitivo"]
+    # created_by: str  # user ID of the creator
