@@ -30,14 +30,11 @@ class DynamoDBRecipeRepository(RecipeRepository):
         item = response.get("Item")
         if not item:
             return None
-        item.setdefault("food_type", "comida")
         return Recipe(**item)
 
     def list_recipes(self) -> list[Recipe]:
         response = self.table.scan()
         items = response.get("Items", [])
-        for item in items:
-            item.setdefault("food_type", "comida")
         return [Recipe(**item) for item in items]
 
     def update_recipe(self, recipe: Recipe) -> Recipe:
