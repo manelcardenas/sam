@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, signInWithRedirect, getCurrentUser } from "aws-amplify/auth";
 import { configureAmplify } from "@/lib/amplify";
-import { Chrome } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,7 +17,6 @@ export default function LoginPage() {
   useEffect(() => {
     configureAmplify();
 
-    // Check if user is already authenticated
     getCurrentUser()
       .then(() => {
         router.push("/dashboard");
@@ -165,7 +164,7 @@ export default function LoginPage() {
             disabled={loading}
             className="mt-6 w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <Chrome className="w-5 h-5" />
+            <FcGoogle className="w-5 h-5" /> {}
             Sign in with Google
           </button>
         </div>
