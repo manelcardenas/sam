@@ -135,6 +135,7 @@ class RecipeController:
             title=request.title,
             description=request.description,
             ingredients=request.ingredients,
+            food_type=request.food_type,
             created_at=existing_recipe.created_at,
         )
 
