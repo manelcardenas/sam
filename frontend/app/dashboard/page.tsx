@@ -4,181 +4,131 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser, signOut, fetchUserAttributes } from "aws-amplify/auth";
 import { configureAmplify } from "@/lib/amplify";
-import {
-  apiClient,
-  type Recipe,
-  type CreateRecipeInput,
-} from "@/lib/api-client";
-import {
-  LogOut,
-  Plus,
-  Edit,
-  Trash2,
-  ChefHat,
-  X,
-  Save,
-  List,
-} from "lucide-react";
+import { apiClient, type Recipe, type CreateRecipeInput } from "@/lib/api-client";
+import { FOOD_TYPES, type FoodType } from "@/lib/constants";
+import RecipeForm from "@/components/RecipeForm";
+import DeleteConfirmModal from "@/components/DeleteConfirmModal";
+import { LogOut, ChefHat, Plus, ArrowLeft, Edit, Trash2 } from "lucide-react";
 
-const FOOD_TYPES = [
-  { value: "comida", label: "Comida", emoji: "🍽️" },
-  { value: "bebida", label: "Bebida", emoji: "🥤" },
-  { value: "postre", label: "Postre", emoji: "🍰" },
-  { value: "aperitivo", label: "Aperitivo", emoji: "🥗" },
-] as const;
-
-type FoodType = (typeof FOOD_TYPES)[number]["value"];
+type View = "categories" | "recipes" | "detail" | "add" | "edit";
 
 export default function DashboardPage() {
   const router = useRouter();
+
+  // Auth / loading
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState("");
+
+  // Data
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [error, setError] = useState("");
-  const [activeView, setActiveView] = useState<"list" | "add" | "edit">("list");
+
+  // Navigation state
+  const [view, setView] = useState<View>("categories");
+  const [activeCategory, setActiveCategory] = useState<FoodType | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-  const [formData, setFormData] = useState<
-    CreateRecipeInput & { food_type: FoodType }
-  >({
-    title: "",
-    description: "",
-    ingredients: [],
-    food_type: "comida",
-  });
-  const [ingredientsText, setIngredientsText] = useState("");
+
+  // Delete modal
+  const [recipeToDelete, setRecipeToDelete] = useState<Recipe | null>(null);
+
+  // ── Auth ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     configureAmplify();
-    checkAuth();
+    (async () => {
+      try {
+        await getCurrentUser();
+        const attrs = await fetchUserAttributes();
+        setUserEmail(attrs.email ?? "User");
+        await loadRecipes();
+      } catch {
+        router.push("/");
+      } finally {
+        setLoading(false);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const checkAuth = async () => {
-    try {
-      await getCurrentUser();
-      const attributes = await fetchUserAttributes();
-      setUserEmail(attributes.email || "User");
-      await loadRecipes();
-    } catch (err) {
-      console.error("Not authenticated:", err);
-      router.push("/");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadRecipes = async () => {
-    try {
-      setError("");
-      const data = await apiClient.listRecipes();
-      setRecipes(data);
-    } catch (err) {
-      console.error("Error loading recipes:", err);
-      setError(err instanceof Error ? err.message : "Failed to load recipes");
-    }
-  };
 
   const handleSignOut = async () => {
     try {
       await signOut({ global: true });
-      router.push("/");
-    } catch (err) {
-      console.error("Sign out error:", err);
+    } finally {
       router.push("/");
     }
   };
 
-  const handleAddRecipe = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  // ── Data ────────────────────────────────────────────────────────────────────
 
+  const loadRecipes = async () => {
     try {
-      const ingredients = ingredientsText
-        .split("\n")
-        .map((i) => i.trim())
-        .filter((i) => i.length > 0);
-
-      await apiClient.createRecipe({
-        ...formData,
-        ingredients,
-      });
-
-      await loadRecipes();
-      setActiveView("list");
-      resetForm();
+      setError("");
+      setRecipes(await apiClient.listRecipes());
     } catch (err) {
-      console.error("Error creating recipe:", err);
-      setError(err instanceof Error ? err.message : "Failed to create recipe");
+      setError(err instanceof Error ? err.message : "Failed to load recipes");
     }
   };
 
-  const handleUpdateRecipe = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreate = async (data: CreateRecipeInput) => {
+    await apiClient.createRecipe(data);
+    await loadRecipes();
+    setView("categories");
+  };
+
+  const handleUpdate = async (data: CreateRecipeInput) => {
     if (!selectedRecipe) return;
-    setError("");
-
-    try {
-      const ingredients = ingredientsText
-        .split("\n")
-        .map((i) => i.trim())
-        .filter((i) => i.length > 0);
-
-      await apiClient.updateRecipe(selectedRecipe.id, {
-        ...formData,
-        ingredients,
-      });
-
-      await loadRecipes();
-      setActiveView("list");
-      resetForm();
-    } catch (err) {
-      console.error("Error updating recipe:", err);
-      setError(err instanceof Error ? err.message : "Failed to update recipe");
-    }
+    const updated = await apiClient.updateRecipe(selectedRecipe.id, data);
+    await loadRecipes();
+    setSelectedRecipe(updated);
+    setView("detail");
   };
 
-  const handleDeleteRecipe = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this recipe?")) return;
-    setError("");
-
-    try {
-      await apiClient.deleteRecipe(id);
-      await loadRecipes();
-    } catch (err) {
-      console.error("Error deleting recipe:", err);
-      setError(err instanceof Error ? err.message : "Failed to delete recipe");
-    }
-  };
-
-  const startEdit = (recipe: Recipe) => {
-    setSelectedRecipe(recipe);
-    setFormData({
-      title: recipe.title,
-      description: recipe.description,
-      ingredients: recipe.ingredients,
-      food_type: (recipe.food_type as FoodType) ?? "comida",
-    });
-    setIngredientsText(recipe.ingredients.join("\n"));
-    setActiveView("edit");
-  };
-
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      description: "",
-      ingredients: [],
-      food_type: "comida",
-    });
-    setIngredientsText("");
+  const handleDelete = async () => {
+    if (!recipeToDelete) return;
+    await apiClient.deleteRecipe(recipeToDelete.id);
+    setRecipeToDelete(null);
+    await loadRecipes();
+    // Return to category list, since the recipe is gone
     setSelectedRecipe(null);
+    setView("recipes");
   };
+
+  // ── Derived ─────────────────────────────────────────────────────────────────
+
+  const categoryRecipes = activeCategory
+    ? recipes.filter((r) => r.food_type === activeCategory)
+    : [];
+
+  const categoryMeta = FOOD_TYPES.find((f) => f.value === activeCategory);
+
+  // ── Navigation helpers ───────────────────────────────────────────────────────
+
+  const openCategory = (cat: FoodType) => {
+    setActiveCategory(cat);
+    setView("recipes");
+  };
+
+  const openRecipe = (recipe: Recipe) => {
+    setSelectedRecipe(recipe);
+    setView("detail");
+  };
+
+  const goBack = () => {
+    if (view === "edit") { setView("detail"); return; }
+    if (view === "detail") { setView("recipes"); return; }
+    if (view === "recipes") { setView("categories"); return; }
+    if (view === "add") { setView("categories"); return; }
+    setView("categories");
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto" />
+          <p className="mt-4 text-gray-500 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
@@ -186,295 +136,261 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <ChefHat className="w-8 h-8 text-indigo-600" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  SAM Recipe Manager
-                </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Welcome, {userEmail}
-                </p>
-              </div>
+      {/* ── Header ── */}
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {view !== "categories" && (
+              <button
+                onClick={goBack}
+                className="p-1.5 -ml-1 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                aria-label="Back"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            )}
+            <ChefHat className="w-7 h-7 text-indigo-600 shrink-0" />
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+                SAM Recipe Manager
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{userEmail}</p>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Add recipe — available from categories and recipe list */}
+            {(view === "categories" || view === "recipes") && (
+              <button
+                onClick={() => setView("add")}
+                className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                New
+              </button>
+            )}
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
             >
               <LogOut className="w-4 h-4" />
-              Sign Out
+              <span className="hidden sm:inline">Sign out</span>
             </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         {error && (
-          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg">
+          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="mb-6 flex gap-4">
-          <button
-            onClick={() => {
-              setActiveView("list");
-              resetForm();
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeView === "list"
-                ? "bg-indigo-600 text-white"
-                : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            }`}
-          >
-            <List className="w-4 h-4" />
-            All Recipes ({recipes.length})
-          </button>
-          <button
-            onClick={() => {
-              setActiveView("add");
-              resetForm();
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeView === "add"
-                ? "bg-indigo-600 text-white"
-                : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            }`}
-          >
-            <Plus className="w-4 h-4" />
-            Add Recipe
-          </button>
-        </div>
+        {/* ── CATEGORIES VIEW ── */}
+        {view === "categories" && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+              What are you looking for?
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              {FOOD_TYPES.map((cat) => {
+                const count = recipes.filter((r) => r.food_type === cat.value).length;
+                return (
+                  <button
+                    key={cat.value}
+                    onClick={() => openCategory(cat.value)}
+                    className="group flex flex-col items-start gap-3 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-700 transition-all duration-200 text-left"
+                  >
+                    <span className="text-4xl">{cat.emoji}</span>
+                    <div>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
+                        {cat.label}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {cat.description}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                        {count} {count === 1 ? "recipe" : "recipes"}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
-        {/* List View */}
-        {activeView === "list" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recipes.length === 0 ? (
-              <div className="col-span-full text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
-                <ChefHat className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 dark:text-gray-400 text-lg">
-                  No recipes yet. Add your first recipe!
+        {/* ── RECIPES LIST VIEW ── */}
+        {view === "recipes" && categoryMeta && (
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <span className="text-3xl">{categoryMeta.emoji}</span>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {categoryMeta.label}
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {categoryRecipes.length} {categoryRecipes.length === 1 ? "recipe" : "recipes"}
                 </p>
               </div>
+            </div>
+
+            {categoryRecipes.length === 0 ? (
+              <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+                <p className="text-4xl mb-3">{categoryMeta.emoji}</p>
+                <p className="text-gray-500 dark:text-gray-400">
+                  No {categoryMeta.label.toLowerCase()} recipes yet.
+                </p>
+                <button
+                  onClick={() => setView("add")}
+                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add one
+                </button>
+              </div>
             ) : (
-              recipes.map((recipe) => {
-                const foodType = FOOD_TYPES.find(
-                  (f) => f.value === recipe.food_type,
-                );
-                return (
-                  <div
-                    key={recipe.id}
-                    onClick={() => startEdit(recipe)}
-                    className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow p-6 cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+              <ul className="space-y-2">
+                {categoryRecipes.map((recipe) => (
+                  <li key={recipe.id}>
+                    <button
+                      onClick={() => openRecipe(recipe)}
+                      className="w-full flex items-center justify-between px-5 py-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-700 hover:shadow-sm transition-all text-left group"
+                    >
+                      <span className="font-medium text-gray-900 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
                         {recipe.title}
-                      </h3>
-                      {foodType && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 shrink-0 ml-2">
-                          {foodType.emoji} {foodType.label}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
-                      {recipe.description}
-                    </p>
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Ingredients:
-                      </p>
-                      <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                        {recipe.ingredients
-                          .slice(0, 3)
-                          .map((ingredient, idx) => (
-                            <li key={idx} className="truncate">
-                              • {ingredient}
-                            </li>
-                          ))}
-                        {recipe.ingredients.length > 3 && (
-                          <li className="text-indigo-600 dark:text-indigo-400">
-                            + {recipe.ingredients.length - 3} more
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <span className="text-xs text-gray-500 dark:text-gray-500">
-                        {new Date(recipe.created_at).toLocaleDateString()}
                       </span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEdit(recipe);
-                          }}
-                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                          title="Edit recipe"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteRecipe(recipe.id);
-                          }}
-                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                          title="Delete recipe"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-4">
+                        {recipe.ingredients.length} ingredients
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         )}
 
-        {/* Add/Edit Form */}
-        {(activeView === "add" || activeView === "edit") && (
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {activeView === "add" ? "Add New Recipe" : "Edit Recipe"}
-                </h2>
-                <button
-                  onClick={() => {
-                    setActiveView("list");
-                    resetForm();
-                  }}
-                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+        {/* ── RECIPE DETAIL VIEW ── */}
+        {view === "detail" && selectedRecipe && (() => {
+          const meta = FOOD_TYPES.find((f) => f.value === selectedRecipe.food_type);
+          return (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+              {/* Title bar */}
+              <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+                <div>
+                  {meta && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 mb-2">
+                      {meta.emoji} {meta.label}
+                    </span>
+                  )}
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {selectedRecipe.title}
+                  </h2>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Created {new Date(selectedRecipe.created_at).toLocaleDateString()} &middot; Updated {new Date(selectedRecipe.updated_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setView("edit")}
+                    className="p-2 rounded-lg text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                    title="Edit"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setRecipeToDelete(selectedRecipe)}
+                    className="p-2 rounded-lg text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
-              <form
-                onSubmit={
-                  activeView === "add" ? handleAddRecipe : handleUpdateRecipe
+              {/* Body */}
+              <div className="px-6 py-5 space-y-6">
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
+                    Description
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                    {selectedRecipe.description}
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
+                    Ingredients ({selectedRecipe.ingredients.length})
+                  </h3>
+                  <ul className="space-y-1.5">
+                    {selectedRecipe.ingredients.map((ingredient, idx) => (
+                      <li key={idx} className="flex items-start gap-2.5 text-gray-700 dark:text-gray-300">
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                        {ingredient}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── ADD FORM ── */}
+        {view === "add" && (
+          <div className="max-w-xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+              New Recipe
+            </h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+              <RecipeForm
+                initialData={
+                  activeCategory
+                    ? { title: "", description: "", ingredients: [], food_type: activeCategory }
+                    : undefined
                 }
-              >
-                <div className="space-y-4">
-                  <div>
-                    <label
-                      htmlFor="title"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                    >
-                      Recipe Title *
-                    </label>
-                    <input
-                      id="title"
-                      type="text"
-                      required
-                      value={formData.title}
-                      onChange={(e) =>
-                        setFormData({ ...formData, title: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                      placeholder="e.g., Chocolate Chip Cookies"
-                    />
-                  </div>
-
-                  {/* Food Type Selector */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Type *
-                    </label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {FOOD_TYPES.map(({ value, label, emoji }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() =>
-                            setFormData({ ...formData, food_type: value })
-                          }
-                          className={`flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl border-2 font-medium text-sm transition-all duration-150 ${
-                            formData.food_type === value
-                              ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 shadow-sm scale-105"
-                              : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          <span className="text-2xl">{emoji}</span>
-                          <span>{label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="description"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                    >
-                      Description *
-                    </label>
-                    <textarea
-                      id="description"
-                      required
-                      rows={3}
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          description: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                      placeholder="A brief description of your recipe..."
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="ingredients"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                    >
-                      Ingredients * (one per line)
-                    </label>
-                    <textarea
-                      id="ingredients"
-                      required
-                      rows={6}
-                      value={ingredientsText}
-                      onChange={(e) => setIngredientsText(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white font-mono text-sm"
-                      placeholder="2 cups flour&#10;1 cup sugar&#10;1 cup chocolate chips&#10;2 eggs"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-4 mt-6">
-                  <button
-                    type="submit"
-                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
-                  >
-                    <Save className="w-4 h-4" />
-                    {activeView === "add" ? "Add Recipe" : "Update Recipe"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveView("list");
-                      resetForm();
-                    }}
-                    className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
+                onSubmit={handleCreate}
+                onCancel={goBack}
+                submitLabel="Add Recipe"
+              />
             </div>
           </div>
         )}
-      </div>
+
+        {/* ── EDIT FORM ── */}
+        {view === "edit" && selectedRecipe && (
+          <div className="max-w-xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+              Edit Recipe
+            </h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+              <RecipeForm
+                initialData={{
+                  title: selectedRecipe.title,
+                  description: selectedRecipe.description,
+                  ingredients: selectedRecipe.ingredients,
+                  food_type: selectedRecipe.food_type,
+                }}
+                onSubmit={handleUpdate}
+                onCancel={goBack}
+                submitLabel="Save Changes"
+              />
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* ── DELETE MODAL ── */}
+      {recipeToDelete && (
+        <DeleteConfirmModal
+          recipeName={recipeToDelete.title}
+          onConfirm={handleDelete}
+          onCancel={() => setRecipeToDelete(null)}
+        />
+      )}
     </div>
   );
 }

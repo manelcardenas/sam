@@ -1,0 +1,159 @@
+"use client";
+
+import { useState } from "react";
+import { Save, X } from "lucide-react";
+import { FOOD_TYPES, type FoodType } from "@/lib/constants";
+import type { CreateRecipeInput } from "@/lib/api-client";
+
+interface RecipeFormProps {
+  initialData?: CreateRecipeInput;
+  onSubmit: (data: CreateRecipeInput) => Promise<void>;
+  onCancel: () => void;
+  submitLabel: string;
+}
+
+export default function RecipeForm({
+  initialData,
+  onSubmit,
+  onCancel,
+  submitLabel,
+}: RecipeFormProps) {
+  const [formData, setFormData] = useState<CreateRecipeInput>({
+    title: initialData?.title ?? "",
+    description: initialData?.description ?? "",
+    ingredients: initialData?.ingredients ?? [],
+    food_type: initialData?.food_type ?? "comida",
+  });
+  const [ingredientsText, setIngredientsText] = useState(
+    initialData?.ingredients.join("\n") ?? "",
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      const ingredients = ingredientsText
+        .split("\n")
+        .map((i) => i.trim())
+        .filter((i) => i.length > 0);
+      await onSubmit({ ...formData, ingredients });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+
+      <div>
+        <label
+          htmlFor="title"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+        >
+          Title *
+        </label>
+        <input
+          id="title"
+          type="text"
+          required
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+          className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+          placeholder="e.g. Lasaña de verduras"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+          Type *
+        </label>
+        <div className="grid grid-cols-4 gap-2">
+          {FOOD_TYPES.map(({ value, label, emoji }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() =>
+                setFormData({ ...formData, food_type: value as FoodType })
+              }
+              className={`flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl border-2 font-medium text-sm transition-all duration-150 ${
+                formData.food_type === value
+                  ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 shadow-sm scale-105"
+                  : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700"
+              }`}
+            >
+              <span className="text-2xl">{emoji}</span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label
+          htmlFor="description"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+        >
+          Description *
+        </label>
+        <textarea
+          id="description"
+          required
+          rows={3}
+          value={formData.description}
+          onChange={(e) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
+          className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white resize-none"
+          placeholder="A brief description..."
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="ingredients"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+        >
+          Ingredients * <span className="text-gray-400 font-normal">(one per line)</span>
+        </label>
+        <textarea
+          id="ingredients"
+          required
+          rows={6}
+          value={ingredientsText}
+          onChange={(e) => setIngredientsText(e.target.value)}
+          className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white font-mono text-sm resize-none"
+          placeholder={"2 cups flour\n1 cup sugar\n2 eggs"}
+        />
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
+        >
+          <Save className="w-4 h-4" />
+          {submitting ? "Saving..." : submitLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
+          <X className="w-4 h-4 inline mr-1" />
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
