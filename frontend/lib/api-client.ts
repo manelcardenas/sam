@@ -66,6 +66,11 @@ export class RecipeAPIClient {
       );
     }
 
+    // Handle 204 No Content (empty body)
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
     return response.json();
   }
 
