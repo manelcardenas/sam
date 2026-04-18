@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes, UpdateRecipes
+from src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes, UpdateRecipe
 from src.domain.entities import Recipe
 from src.domain.ports import RecipeRepository
 from src.infra.controllers.schemas import CreateRecipeRequest, UpdateRecipeRequest
@@ -139,7 +139,7 @@ class RecipeController:
             created_at=existing_recipe.created_at,
         )
 
-        update_use_case = UpdateRecipes(self.recipe_repository)
+        update_use_case = UpdateRecipe(self.recipe_repository)
         return update_use_case.execute(updated_recipe)
 
     def delete_recipe(self, recipe_id: str, current_user: TokenPayload = Depends(get_current_user)) -> None:

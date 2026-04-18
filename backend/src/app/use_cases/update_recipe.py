@@ -2,7 +2,7 @@ from src.domain.entities import Recipe
 from src.domain.ports import RecipeRepository
 
 
-class UpdateRecipes:
+class UpdateRecipe:
     def __init__(self, recipe_repository: RecipeRepository) -> None:
         self.recipe_repository = recipe_repository
 
