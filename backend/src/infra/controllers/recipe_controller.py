@@ -133,9 +133,13 @@ class RecipeController:
         updated_recipe = Recipe(
             id=recipe_id,
             title=request.title,
-            description=request.description,
+            instructions=request.instructions,
             ingredients=request.ingredients,
             food_type=request.food_type,
+            source_url=request.source_url,
+            prep_time_minutes=request.prep_time_minutes,
+            cook_time_minutes=request.cook_time_minutes,
+            created_by=existing_recipe.created_by,
             created_at=existing_recipe.created_at,
         )
 
