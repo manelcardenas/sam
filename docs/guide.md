@@ -1,260 +1,169 @@
-# Recipe Manager - Developer Guide
+# Recipe Manager — Developer Guide
 
-Complete guide for developing, testing, and deploying the Recipe Manager API.
-
-## Overview
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────-┐
-│                              CLIENTS                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  FrontEnd    │  │  Swagger UI  │  │    curl      │  │   Postman    │      │
-│  │  (Admin UI)  │  │   (Docs)     │  │              │  │              │      │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
-│         │                 │                 │                 │              │
-│         └─────────────────┴────────┬────────┴─────────────────┘              │
-│                                    │                                         │
-│                           HTTP (port 9000)                                   │
-│                                    │                                         │
-│                                    ▼                                         │
-│                          ┌─────────────────┐                                 │
-│                          │   FastAPI App   │                                 │
-│                          └────────┬────────┘                                 │
-│                                   │                                          │
-│                    USE_DYNAMODB=? │                                          │
-│                    ┌──────────────┴──────────────┐                           │
-│                    │                             │                           │
-│                    ▼                             ▼                           │
-│          ┌─────────────────┐          ┌─────────────────┐                    │
-│          │ InMemory Repo   │          │ DynamoDB Repo   │                    │
-│          │ (Dict in RAM)   │          │ (boto3 client)  │                    │
-│          └─────────────────┘          └────────┬────────┘                    │
-│                                                │                             │
-│                                                ▼                             │
-│                                     ┌─────────────────┐                      │
-│                                     │ DynamoDB Local  │                      │
-│                                     │ (Docker: 8000)  │                      │
-│                                     └─────────────────┘                      │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                          CLIENTS                             │
+│   Swagger UI   │   curl / Postman   │   React Frontend       │
+└────────────────────────────┬─────────────────────────────────┘
+                             │ HTTP (port 9000)
+                             ▼
+                    ┌─────────────────┐
+                    │   FastAPI App   │
+                    │  (+ Mangum for  │
+                    │    Lambda)      │
+                    └────────┬────────┘
+                             │
+                             ▼
+                  ┌──────────────────────┐
+                  │ PostgresRecipeRepo   │  ← production
+                  │ InMemoryRecipeRepo   │  ← unit tests only
+                  └──────────┬───────────┘
+                             │
+                             ▼
+                  ┌──────────────────────┐
+                  │  PostgreSQL          │
+                  │  (local Docker /     │
+                  │   Aurora Serverless) │
+                  └──────────────────────┘
 ```
 
-## Quick Start
+**Dependency rule:** Domain → Use Cases → Infrastructure. Inner layers never import from outer layers.
 
-```bash
-# Clone and install
-git clone <repository-url>
-cd sam
-cp .env.example .env
-uv sync --group dev
-
-# Run locally (InMemory, fast iteration)
-uv run uvicorn backend.src.main:app --reload --port 9000
-
-# Or run with Docker (DynamoDB Local, integration testing)
-docker compose up
-```
-
-Visit **http://localhost:9000/docs** for interactive API documentation.
+---
 
 ## Development Modes
 
-### Mode 1: Local (InMemory)
+### Mode 1: Local (Postgres via Docker)
 
-**Use for:** Unit tests, rapid iteration, no external dependencies
-
-**Storage:** Python dict (data lost on restart)
+**Use for:** Normal development and integration testing.
 
 ```bash
-# Start API
+# Start only the database
+docker compose up postgres -d
+
+# Run API with hot-reload
 uv run uvicorn backend.src.main:app --reload --port 9000
-
-# Test
-curl http://localhost:9000/health
-curl http://localhost:9000/recipes
 ```
 
-The `USE_DYNAMODB` environment variable defaults to `false`.
+The app connects to `localhost:5432` using credentials from the root `.env`.
 
-### Mode 2: Docker (DynamoDB Local)
+### Mode 2: Full Docker stack
 
-**Use for:** Integration testing, realistic DB behavior
-
-**Storage:** DynamoDB Local (persists until `docker compose down`)
+**Use for:** Simulating the production environment (migrations run automatically).
 
 ```bash
-# Start everything (API + DynamoDB + table init)
-docker compose up
-
-# In background
-docker compose up -d
-
-# View logs
+docker compose up        # postgres + migrate + api
+docker compose up -d     # background
 docker compose logs -f api
-
-# Stop
-docker compose down
-```
-
-The `docker-compose.yml` sets `USE_DYNAMODB=true` automatically.
-
----
-
-## Testing the API
-
-### Swagger UI (Recommended)
-
-Interactive API docs with live testing:
-
-- **Swagger UI**: http://localhost:9000/docs
-- **ReDoc**: http://localhost:9000/redoc
-
-Features: Try endpoints in browser, see schemas, no installation.
-
-### curl / Postman
-
-```bash
-# List recipes
-curl http://localhost:9000/recipes
-
-# Create recipe
-curl -X POST http://localhost:9000/recipes \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Pasta Carbonara",
-    "description": "Classic Italian pasta",
-    "ingredients": ["spaghetti", "eggs", "bacon", "parmesan"]
-  }'
-
-# Get recipe
-curl http://localhost:9000/recipes/{recipe_id}
-
-# Update recipe
-curl -X PUT http://localhost:9000/recipes/{recipe_id} \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Updated Title",
-    "description": "Updated description",
-    "ingredients": ["new", "ingredients"]
-  }'
-
-# Delete recipe
-curl -X DELETE http://localhost:9000/recipes/{recipe_id}
+docker compose down      # stop (data persists in named volume)
+docker compose down -v   # stop + wipe database
 ```
 
 ---
 
-## Running Tests
+## Database Migrations (Alembic)
 
-Unit tests use InMemory repository (no Docker required):
+Migrations live in `backend/alembic/versions/`.
 
 ```bash
-# Run all tests
+cd backend
+
+# After changing a SQLAlchemy model in src/infra/db/models.py:
+uv run alembic revision --autogenerate -m "add column X to recipes"
+
+# Review the generated file in alembic/versions/ before applying!
+
+# Apply to local postgres
+uv run alembic upgrade head
+
+# Roll back one migration
+uv run alembic downgrade -1
+
+# Show current version
+uv run alembic current
+```
+
+Alembic uses a sync psycopg2 connection (separate from the async runtime engine). Credentials are loaded automatically from the root `.env`.
+
+---
+
+## Seed Data
+
+```bash
+# postgres must be running
+uv run python -m backend.scripts.seed
+```
+
+Inserts 14 traditional Spanish recipes. The script is **idempotent** — it skips recipes whose title already exists in the DB.
+
+---
+
+## Testing
+
+Unit tests use `InMemoryRecipeRepository` — no Docker or database needed.
+
+```bash
 uv run pytest tests/ -v
-
-# Run specific test file
-uv run pytest tests/unit/test_use_cases.py -v
-
-# Run with coverage
 uv run pytest tests/ --cov=backend/src --cov-report=html
-```
-
-Integration tests (full HTTP):
-
-```bash
-uv run python tests/test_integration.py
-```
-
----
-
-## Code Quality
-
-```bash
-# Lint and auto-fix
-uv run ruff check . --fix
-
-# Format code
-uv run ruff format .
-
-# Run pre-commit hooks
-uv run pre-commit run --all-files
-
-# Install git hooks
-uv run pre-commit install
 ```
 
 ---
 
 ## Environment Variables
 
-| Variable                | Default     | Description                           |
-| ----------------------- | ----------- | ------------------------------------- |
-| `USE_DYNAMODB`          | `false`     | `true` = DynamoDB, `false` = InMemory |
-| `PORT`                  | `9000`      | API server port                       |
-| `HOST`                  | `0.0.0.0`   | API server host                       |
-| `TABLE_NAME`            | `recipes`   | DynamoDB table name                   |
-| `DYNAMODB_ENDPOINT`     | -           | DynamoDB endpoint (for local dev)     |
-| `AWS_REGION`            | `eu-west-3` | AWS region                            |
-| `AWS_ACCESS_KEY_ID`     | -           | AWS credentials                       |
-| `AWS_SECRET_ACCESS_KEY` | -           | AWS credentials                       |
-
-**Local dev:** Set `USE_DYNAMODB=false` (or unset, it's the default)
-
-**Docker dev:** Automatically set to `true` in `docker-compose.yml`
-
-**AWS prod:** Set `USE_DYNAMODB=true` + real AWS credentials
+| Variable            | Default          | Description                  |
+| ------------------- | ---------------- | ---------------------------- |
+| `POSTGRES_HOST`     | `localhost`      | Postgres host                |
+| `POSTGRES_PORT`     | `5432`           | Postgres port                |
+| `POSTGRES_DB`       | `recipe_manager` | Database name                |
+| `POSTGRES_USER`     | `postgres`       | Database user                |
+| `POSTGRES_PASSWORD` | `postgres`       | Database password            |
+| `PORT`              | `9000`           | API server port              |
+| `HOST`              | `0.0.0.0`        | API server bind address      |
+| `COGNITO_USER_POOL_ID` | —             | Cognito pool ID (from CDK)   |
+| `COGNITO_CLIENT_ID`    | —             | Cognito client ID (from CDK) |
 
 ---
 
-## Docker Tips
+## Code Quality
 
 ```bash
-# Rebuild after code changes
-docker compose up --build
-
-# Remove volumes (reset DynamoDB)
-docker compose down -v
-
-# Check logs
-docker compose logs -f api
-docker compose logs dynamodb-init
-
-# Execute command in container
-docker compose exec api sh
+uv run ruff check . --fix && uv run ruff format .
+uv run pre-commit run --all-files
+uv run pre-commit install     # install git hooks
 ```
 
 ---
 
-## CI/CD
+## Key Design Decisions
 
-GitHub Actions workflow runs on every push/PR:
+### `DatabaseConnectionPool` with `NullPool`
 
-1. Lint with Ruff
-2. Format check
-3. Run pytest (uses InMemory, no Docker)
+The reference pattern (from the ECS service) encapsulates the engine in a `DatabaseConnectionPool` class with `open()` / `close()` lifecycle methods. FastAPI's lifespan calls these on startup/shutdown.
 
-See `.github/workflows/test.yml`
+For **Lambda**, the pool is configured with `NullPool` instead of a persistent pool. Each DB call opens a fresh connection and closes it immediately — this prevents connection leaks across Lambda invocations where the OS-level TCP socket might be reused between unrelated requests.
+
+### Sync SQLAlchemy (psycopg2) vs async (asyncpg)
+
+The repository layer uses **synchronous SQLAlchemy** with psycopg2. FastAPI runs sync route handlers in a thread pool, so blocking DB calls are safe and don't block the event loop.
+
+This avoids the need to make the entire domain/use-case/port stack async — a significant refactor with no benefit at Lambda scale (a single-threaded invocation model).
+
+### InMemoryRecipeRepository kept for unit tests
+
+The in-memory implementation allows unit tests to run without any infrastructure. Tests remain fast and free of external dependencies.
 
 ---
 
 ## Troubleshooting
 
-**"Table not found" error in Docker:**
+**`POSTGRES_HOST` not set on startup:**
+The app calls `build_dsn()` at import time. Ensure `.env` is at the repo root and contains `POSTGRES_HOST`. Running `uv run uvicorn ...` from the repo root loads it automatically.
 
-- Check `docker logs sam-dynamodb-init-1` for table creation output
-- Restart: `docker compose down && docker compose up`
+**`could not connect to server` on startup:**
+Run `docker compose up postgres -d` and wait for the healthcheck to pass.
 
 **Port 9000 already in use:**
-
-- Change PORT in `.env`: `PORT=8080`
-- Restart with: `docker compose up` (reads from `.env`)
-
-**Tests failing:**
-
-- Ensure no API server running on port 9000
-- Run: `uv sync --group dev` to install dependencies
-- Check: `uv run pytest tests/ -v`
-
-**ImportError in tests:**
-
-- Run: `uv sync --group dev` to install pytest
-- Verify: `uv run python -c "import pytest; print(pytest.__version__)"`
+Change `PORT=8080` in `.env` and restart.

@@ -1,36 +1,36 @@
 # Recipe Manager
 
-### Local Development (Fast)
+## Quick Start (local, no Docker)
 
 ```bash
-# Install dependencies
 uv sync --group dev
-# To sync everything
-uv sync --all-groups
-
-# Run API server
 uv run uvicorn backend.src.main:app --reload --port 9000
-
-# Visit API docs
 open http://localhost:9000/docs
 ```
 
-Uses in-memory storage (data lost on restart). Perfect for rapid iteration.
-
-### Docker (Integration Testing)
+Requires a running PostgreSQL instance. The fastest way to get one:
 
 ```bash
-# Start API + DynamoDB Local
+docker compose up postgres -d
+```
+
+Environment variables are read from the root `.env` (already populated with local defaults).
+
+## Docker — full stack
+
+```bash
+# Start postgres + run migrations + start API
 docker compose up
 
 # Visit API docs
 open http://localhost:9000/docs
 
-# Stop
+# Stop (keeps postgres data)
 docker compose down
-```
 
-Uses DynamoDB Local. Data persists until containers removed.
+# Stop and wipe the database
+docker compose down -v
+```
 
 ## API Endpoints
 
@@ -43,31 +43,56 @@ Uses DynamoDB Local. Data persists until containers removed.
 | PUT    | `/recipes/{id}` | Update recipe    |
 | DELETE | `/recipes/{id}` | Delete recipe    |
 
+All recipe endpoints require a valid Cognito JWT (`Authorization: Bearer <token>`).
+
 Interactive docs: **http://localhost:9000/docs**
+
+## Database Migrations (Alembic)
+
+```bash
+# Generate a new migration after changing SQLAlchemy models
+cd backend
+uv run alembic revision --autogenerate -m "describe your change"
+
+# Apply all pending migrations
+uv run alembic upgrade head
+
+# Roll back one step
+uv run alembic downgrade -1
+```
+
+## Seed Data
+
+Load the 14 original recipes into a fresh database:
+
+```bash
+# Postgres must be running first
+uv run python -m backend.scripts.seed
+```
+
+The script is idempotent — safe to run multiple times.
 
 ## Testing
 
 ```bash
-# Run all tests
+# Unit tests (no Docker required — uses InMemory repo)
 uv run pytest tests/ -v
 
-# Run with coverage
+# With coverage
 uv run pytest tests/ --cov=backend/src
 ```
-
-Tests use InMemory repository (no Docker required).
 
 ## Code Quality
 
 ```bash
-# Lint and format
 uv run ruff check . --fix && uv run ruff format .
-
-# Pre-commit hooks
-uv run pre-commit install
 uv run pre-commit run --all-files
+uv run pre-commit install   # install git hooks
 ```
 
 ## Documentation
 
-See `docs/guide.md` for complete developer guide.
+See `docs/guide.md` for the full developer guide.
+
+> **Aurora cold starts:** Aurora Serverless v2 with `minCapacity=0` can take 30–60 s to wake after idle.
+> The first request after a quiet period will be slow — this is expected and accepted at current scale.

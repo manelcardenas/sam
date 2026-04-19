@@ -4,29 +4,6 @@
 
 Five distinct workstreams, ordered by dependency. Each section describes **what**, **how**, and key **concerns/tradeoffs**.
 
----
-
-## Phase 0 — Code Review & Cleanup
-
-**Goal:** Eliminate dead code, fix any issues, and make the codebase solid before adding anything new.
-
-### What to do
-
-| Area | Finding | Action |
-|---|---|---|
-| `domain/entities/user.py` | Currently a placeholder with no fields | Promote to a real `User` entity in Phase 1 (see below — users will have profiles with recipes and reviews tied to them) |
-| `infra/database/` | Empty directory | Delete the directory (will be recreated with real content in Phase 1) |
-| `tests/integration/test_api.py` | Empty file | Delete it |
-| `app/use_cases/update_recipe.py` | Inconsistent naming (plural) | Rename to `update_recipe.py` |
-| `infra/controllers/schemas.py` | `UpdateRecipeRequest` mixes HTTP schema and domain DTO concerns | Separate into a proper DTO layer: `RecipeDTO` in the domain/app layer, `CreateRecipeRequest` / `UpdateRecipeRequest` in the controller layer. The controller maps request → DTO, not domain entity directly |
-| `main.py` + `docker-compose.yml` | Legacy DynamoDB wiring | Will be replaced in Phase 1 |
-
-### Concerns
-
-None blocking. Phase 0 is cosmetic/hygiene. Do it first so the diff for later phases is clean.
-
----
-
 ## Phase 1 — SQL Database Migration (DynamoDB → Aurora PostgreSQL) + User Profiles
 
 **Goal:** Replace DynamoDB with PostgreSQL locally (Docker) and Aurora Serverless v2 in AWS. Add a real `User` entity.
