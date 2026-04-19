@@ -5,8 +5,14 @@ from src.domain.ports import RecipeRepository
 
 
 class InMemoryRecipeRepository(RecipeRepository):
+    """In-memory repository for unit tests only.
+
+    Not used in production. Allows use-case tests to run without
+    any database or Docker dependency.
+    """
+
     def __init__(self) -> None:
-        self.table: dict[str, dict] = {}  # String keys like DynamoDB partition keys
+        self.table: dict[str, dict] = {}
 
     def add_recipe(self, recipe: Recipe) -> Recipe:
         self.table[recipe.id] = recipe.model_dump()
