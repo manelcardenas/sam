@@ -2,7 +2,12 @@ import pytest
 
 from src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes, UpdateRecipe
 from src.domain.entities import Recipe
-from src.infra.adapters.repos import InMemoryRecipeRepository
+from src.infra.adapters.repos.in_memory_recipe_repo import InMemoryRecipeRepository
+
+SAMPLE_INGREDIENTS = {
+    "servings": 2,
+    "items": [{"name": "ingredient1"}, {"name": "ingredient2"}],
+}
 
 
 @pytest.fixture
@@ -16,10 +21,10 @@ def sample_recipe() -> Recipe:
     """Create a sample recipe for testing."""
     return Recipe(
         title="Test Recipe",
-        description="A test recipe description",
-        ingredients=["ingredient1", "ingredient2", "ingredient3"],
+        instructions="Mix everything together.",
+        ingredients=SAMPLE_INGREDIENTS,
         food_type="comida",
-        # created_by="user1",
+        created_by="user-123",
     )
 
 
@@ -31,10 +36,10 @@ class TestCreateRecipe:
 
         assert result.id == sample_recipe.id
         assert result.title == "Test Recipe"
-        assert result.description == "A test recipe description"
-        assert result.ingredients == ["ingredient1", "ingredient2", "ingredient3"]
+        assert result.instructions == "Mix everything together."
+        assert result.ingredients == SAMPLE_INGREDIENTS
         assert result.food_type == sample_recipe.food_type
-        # assert result.created_by == sample_recipe.created_by
+        assert result.created_by == "user-123"
 
     def test_created_recipe_is_retrievable(self, repository: InMemoryRecipeRepository, sample_recipe: Recipe) -> None:
         create_use_case = CreateRecipe(repository)
@@ -76,8 +81,20 @@ class TestListRecipes:
 
     def test_returns_all_recipes(self, repository: InMemoryRecipeRepository) -> None:
         create_use_case = CreateRecipe(repository)
-        recipe1 = Recipe(title="Recipe 1", description="Desc 1", ingredients=["a"], food_type="comida")  # created_by="user1"
-        recipe2 = Recipe(title="Recipe 2", description="Desc 2", ingredients=["b"], food_type="postre")  # created_by="user2"
+        recipe1 = Recipe(
+            title="Recipe 1",
+            instructions="Instructions 1",
+            ingredients={"servings": 1, "items": [{"name": "a"}]},
+            food_type="comida",
+            created_by="user-1",
+        )
+        recipe2 = Recipe(
+            title="Recipe 2",
+            instructions="Instructions 2",
+            ingredients={"servings": 1, "items": [{"name": "b"}]},
+            food_type="postre",
+            created_by="user-2",
+        )
 
         create_use_case.execute(recipe1)
         create_use_case.execute(recipe2)
@@ -96,30 +113,31 @@ class TestUpdateRecipe:
         CreateRecipe(repository).execute(sample_recipe)
         use_case = UpdateRecipe(repository)
 
+        updated_ingredients = {"servings": 1, "items": [{"name": "new_ingredient"}]}
         updated_recipe = Recipe(
             id=sample_recipe.id,
             title="Updated Title",
-            description="Updated description",
-            ingredients=["new_ingredient"],
+            instructions="Updated instructions.",
+            ingredients=updated_ingredients,
             food_type="comida",
-            # created_by="user1",
+            created_by=sample_recipe.created_by,
         )
         result = use_case.execute(updated_recipe)
 
         assert result.id == sample_recipe.id
         assert result.title == "Updated Title"
-        assert result.description == "Updated description"
-        assert result.ingredients == ["new_ingredient"]
+        assert result.instructions == "Updated instructions."
+        assert result.ingredients == updated_ingredients
 
     def test_raises_error_when_recipe_not_found(self, repository: InMemoryRecipeRepository) -> None:
         use_case = UpdateRecipe(repository)
         non_existent_recipe = Recipe(
             id="non-existent-id",
             title="Title",
-            description="Desc",
-            ingredients=["a"],
+            instructions="Instructions.",
+            ingredients={"servings": 1, "items": [{"name": "a"}]},
             food_type="comida",
-            # created_by="user1",
+            created_by="user-1",
         )
 
         with pytest.raises(KeyError):

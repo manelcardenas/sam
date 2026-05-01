@@ -2,21 +2,33 @@ import { fetchAuthSession } from "aws-amplify/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+export interface IngredientsData {
+  servings: number | null;
+  items: { name: string; amount?: number; unit?: string }[];
+}
+
 export interface Recipe {
   id: string;
   title: string;
-  description: string;
-  ingredients: string[];
+  instructions: string;
+  ingredients: IngredientsData;
+  food_type: "bebida" | "postre" | "comida" | "aperitivo";
+  source_url: string | null;
+  prep_time_minutes: number | null;
+  cook_time_minutes: number | null;
+  created_by: string;
   created_at: string;
   updated_at: string;
-  food_type: "bebida" | "postre" | "comida" | "aperitivo";
 }
 
 export interface CreateRecipeInput {
   title: string;
-  description: string;
-  ingredients: string[];
+  instructions: string;
+  ingredients: IngredientsData;
   food_type: "bebida" | "postre" | "comida" | "aperitivo";
+  source_url?: string;
+  prep_time_minutes?: number | null;
+  cook_time_minutes?: number | null;
 }
 
 async function getAuthToken(): Promise<string> {

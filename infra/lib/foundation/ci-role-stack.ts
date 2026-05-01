@@ -96,13 +96,40 @@ export class CiRoleStack extends Stack {
                 `arn:aws:lambda:${this.region}:${this.account}:function:recipe-manager-*`,
               ],
             }),
-            // 3. DynamoDB (describe only - table created separately)
+            // 3. RDS / Aurora (describe cluster — no data-plane access needed from CI)
             new PolicyStatement({
-              sid: "DynamoDBDescribe",
-              actions: ["dynamodb:DescribeTable", "dynamodb:ListTables"],
-              resources: [
-                `arn:aws:dynamodb:${this.region}:${this.account}:table/recipes`,
+              sid: "RDSDescribe",
+              actions: [
+                "rds:DescribeDBClusters",
+                "rds:DescribeDBInstances",
+                "rds:ListTagsForResource",
               ],
+              resources: [
+                `arn:aws:rds:${this.region}:${this.account}:cluster:recipe-manager-aurora-cluster`,
+              ],
+            }),
+            // 3b. Secrets Manager (CI needs to read credentials during cdk synth for unsafeUnwrap)
+            new PolicyStatement({
+              sid: "SecretsManagerReadAurora",
+              actions: [
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+              ],
+              resources: [
+                `arn:aws:secretsmanager:${this.region}:${this.account}:secret:recipe-manager/aurora-credentials*`,
+              ],
+            }),
+            // 3c. EC2 (VPC fromLookup requires ec2:Describe* during cdk synth)
+            new PolicyStatement({
+              sid: "EC2VpcLookup",
+              actions: [
+                "ec2:DescribeVpcs",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeRouteTables",
+                "ec2:DescribeAvailabilityZones",
+              ],
+              resources: ["*"],
             }),
             // 4. API Gateway deployment
             new PolicyStatement({

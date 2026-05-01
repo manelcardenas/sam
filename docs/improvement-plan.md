@@ -2,36 +2,13 @@
 
 ## Overview
 
-Five distinct workstreams, ordered by dependency. Each section describes **what**, **how**, and key **concerns/tradeoffs**.
+Four distinct workstreams, ordered by dependency. Each section describes **what**, **how**, and key **concerns/tradeoffs**.
 
----
-
-## Phase 0 — Code Review & Cleanup
-
-**Goal:** Eliminate dead code, fix any issues, and make the codebase solid before adding anything new.
-
-### What to do
-
-| Area | Finding | Action |
-|---|---|---|
-| `domain/entities/user.py` | Currently a placeholder with no fields | Promote to a real `User` entity in Phase 1 (see below — users will have profiles with recipes and reviews tied to them) |
-| `infra/database/` | Empty directory | Delete the directory (will be recreated with real content in Phase 1) |
-| `tests/integration/test_api.py` | Empty file | Delete it |
-| `app/use_cases/update_recipe.py` | Inconsistent naming (plural) | Rename to `update_recipe.py` |
-| `infra/controllers/schemas.py` | `UpdateRecipeRequest` mixes HTTP schema and domain DTO concerns | Separate into a proper DTO layer: `RecipeDTO` in the domain/app layer, `CreateRecipeRequest` / `UpdateRecipeRequest` in the controller layer. The controller maps request → DTO, not domain entity directly |
-| `main.py` + `docker-compose.yml` | Legacy DynamoDB wiring | Will be replaced in Phase 1 |
-
-### Concerns
-
-None blocking. Phase 0 is cosmetic/hygiene. Do it first so the diff for later phases is clean.
-
----
-
-## Phase 1 — SQL Database Migration (DynamoDB → Aurora PostgreSQL) + User Profiles
+## Phase 1 — SQL Database Migration (DynamoDB → Aurora PostgreSQL) + User Profiles ✅ DONE
 
 **Goal:** Replace DynamoDB with PostgreSQL locally (Docker) and Aurora Serverless v2 in AWS. Add a real `User` entity.
 
-### Architecture decision: Lambda + Aurora
+### Architecture decision: Lambda + Aurora (public, no VPC)
 
 > **This is the most important tradeoff in the entire plan.**
 
@@ -41,15 +18,21 @@ Lambda functions and relational databases do not pair naturally:
 - At <100 users and low traffic this is acceptable, but the first request after a quiet period will be slow.
 
 **Mitigations:**
-1. Set `pool_size=1, max_overflow=0` on the SQLAlchemy engine (Lambda-safe). Use `NullPool` for Alembic migrations.
+1. Use `NullPool` on the SQLAlchemy engine — each request opens a fresh connection and closes it immediately, preventing connection leaks across Lambda invocations.
 2. Do **not** use RDS Proxy (costs ~$20/month — too expensive for this use case).
-3. Accept the cold start. Document it in the README.
+3. Accept the cold start. Documented in the README.
 
-### What to implement
+**Key design choice — sync psycopg2, not async:**
+Lambda runs one invocation per container. There are no concurrent requests sharing an event loop, so `async`/`await` provides zero benefit. Using sync `psycopg2` with `NullPool` is simpler, correct, and avoids the need to make the entire domain/use-case/port stack async. See `docs/SYNC_VS_ASYNC.md` for the full rationale.
 
-#### 1. User entity & profile
+**Key design choice — public Aurora, Lambda outside VPC:**
+Aurora is placed in public subnets with `publiclyAccessible=true`. Lambda runs outside the VPC and connects over the internet via password-secured TCP 5432. This eliminates the need for a NAT Gateway (~$35/month). See `docs/VPC_VS_NO_VPC.md` for the full rationale.
 
-Promote `domain/entities/user.py` to a real entity:
+### What was implemented
+
+#### 1. User entity & profile ✅
+
+`domain/entities/user.py` promoted to a real entity:
 
 ```python
 class User(BaseModel):
@@ -62,93 +45,79 @@ class User(BaseModel):
 
 The `user_sub` from the Cognito JWT (`TokenPayload.sub`) is the primary key — we do not generate our own user IDs. On first authenticated request, a user record is created automatically (upsert). This ties every recipe and every restaurant review to a specific user.
 
-New use cases: `GetOrCreateUser`, `GetUser`, `UpdateUser` (display name).
+#### 2. Local development — Docker Postgres ✅
 
-#### 2. Local development — Docker Postgres
+`docker-compose.yml` now has:
+- `postgres:16-alpine` — matches Aurora's engine version
+- `migrate` — one-shot `alembic upgrade head`, depends on postgres healthcheck
+- `api` — FastAPI, depends on migrate completing
 
-Replace `dynamodb-local` + `dynamodb-init` in `docker-compose.yml` with:
-
-```
-services:
-  postgres:16          # matches Aurora's engine version
-  migrate              # one-shot: alembic upgrade head, depends_on postgres
-  api                  # FastAPI, depends_on migrate
-```
-
-#### 3. SQLAlchemy models (`backend/src/infra/db/`)
+#### 3. SQLAlchemy models (`backend/src/infra/db/`) ✅
 
 ```
 base.py      — DeclarativeBase
-engine.py    — async engine (asyncpg) with Lambda-safe pool; sync engine for Alembic
+engine.py    — sync engine (psycopg2) with NullPool for Lambda; same engine used by Alembic
 models.py    — UserModel, RecipeModel (later: RestaurantModel, ReviewModel)
-session.py   — async session factory, FastAPI dependency
 ```
 
-Use SQLAlchemy 2.x `Mapped[T]` / `mapped_column()` style.
+Uses SQLAlchemy 2.x `Mapped[T]` / `mapped_column()` style. **No async** — see design decision above.
 
-#### 4. Alembic setup (`backend/alembic/`)
+#### 4. Alembic setup (`backend/alembic/`) ✅
 
 - `alembic.ini` — blank `sqlalchemy.url` (built in `env.py`)
 - `env.py` — reads `POSTGRES_*` env vars, `NullPool` for migrations
 - Initial migration: creates `users` and `recipes` tables
 
-#### 5. New adapters
+#### 5. New adapters ✅
 
-- `postgres_recipe_repo.py` — `PostgresRecipeRepository`
-- `postgres_user_repo.py` — `PostgresUserRepository`
-- Keep `InMemoryRecipeRepository` / add `InMemoryUserRepository` for unit tests
-- Delete `dynamodb_recipe_repo.py`
+- `postgres_recipe_repo.py` — `PostgresRecipeRepository` (sync SQLAlchemy sessions)
+- Keep `InMemoryRecipeRepository` for unit tests
+- `dynamodb_recipe_repo.py` — **deleted**
 
-#### 6. `main.py` wiring
+#### 6. `main.py` wiring ✅
 
-Replace `USE_DYNAMODB` env var logic with a single async session factory shared across all repositories, injected via FastAPI lifespan.
+Replaced `USE_DYNAMODB` env var logic with a single `DatabaseConnectionPool` (sync, NullPool) shared across all repositories, injected via FastAPI lifespan.
 
-#### 7. AWS Infrastructure — CDK changes
+#### 7. AWS Infrastructure — CDK changes ✅
 
-**Removing the DynamoDB stack:**
-> When you run `cdk destroy DynamoDBStack`, CloudFormation deletes the stack and the `recipes` DynamoDB table from your AWS account. Because the table has `RemovalPolicy.DESTROY`, the actual table data is deleted too. Nothing lingers.
->
-> The deploy workflow must run `cdk destroy DynamoDBStack` **before** deploying the new Aurora stack, or at minimum after data has been migrated. For a learning project with no production data, just destroy it.
-
-Changes:
-- **Delete** `infra/lib/infrastructure/dynamodb-stack.ts`
-- **Create** `infra/lib/infrastructure/aurora-stack.ts` (modelled on the reference project):
+- **Deleted** `infra/lib/infrastructure/dynamodb-stack.ts`
+- **Created** `infra/lib/infrastructure/vpc-stack.ts` — minimal VPC (public subnets only, no NAT Gateway, $0/month)
+- **Created** `infra/lib/infrastructure/aurora-stack.ts`:
   - Aurora PostgreSQL 16, Serverless v2
   - `minCapacity: 0`, `maxCapacity: 2`
-  - Private subnets, VPC security group (port 5432 from Lambda SG only)
-  - Secrets Manager for credentials (auto-generated password, no punctuation)
-  - `RemovalPolicy.DESTROY`, no deletion protection (learning project)
+  - `publiclyAccessible: true` — Lambda connects from outside VPC, no NAT needed
+  - Secrets Manager for credentials (auto-generated 32-char alphanumeric password)
+  - `RemovalPolicy.SNAPSHOT`, no deletion protection
   - Exposes cluster endpoint, port, DB name as CDK outputs
-- **Update** `lambda-api-stack.ts`:
-  - Remove DynamoDB table reference and IAM grant
-  - Place Lambda in the same VPC as Aurora
-  - Inject `POSTGRES_*` env vars from the Aurora Secrets Manager secret
-  - Increase Lambda timeout to 60s (covers Aurora cold start)
-  - Add security group allowing Lambda → Aurora on port 5432
-- **Update** `ci-role-stack.ts`:
-  - Remove DynamoDB permissions
-  - Add `rds:DescribeDBClusters`, `ec2:*` (VPC/SG management), `secretsmanager:GetSecretValue`
-- **Update** `infra/bin/infra.ts`: swap DynamoDB stack for Aurora stack
+- **Updated** `lambda-api-stack.ts`:
+  - Removed DynamoDB table reference and IAM grant
+  - Lambda stays **outside** the VPC (same as DynamoDB setup)
+  - Injects `POSTGRES_*` env vars from Aurora Secrets Manager secret (resolved at synth time via `unsafeUnwrap`)
+  - Grants Lambda read access to the Aurora secret (good IAM hygiene)
+- **Updated** `ci-role-stack.ts`:
+  - Removed DynamoDB permissions
+  - Added `rds:DescribeDBClusters`, `ec2:Describe*` (VPC lookup), `secretsmanager:GetSecretValue`
+- **Updated** `infra/bin/infra.ts`: VpcStack → AuroraStack → LambdaApiStack (with dependency chain)
 
 #### 8. Running Alembic migrations
 
-Unlike ECS (which runs `alembic upgrade head` in the container entrypoint), Lambda has no pre-start hook. **Recommended approach (Option A — Migration Lambda):**
+Currently run manually from laptop (Aurora is publicly accessible). For production, a Migration Lambda triggered by CI is recommended (see Phase 3).
 
-Create a separate `MigrationFunction` Lambda in the CDK stack with the same VPC/security group as the API Lambda. This Lambda runs `alembic upgrade head` when invoked. A CDK `CustomResource` invokes it automatically during `cdk deploy`. This is the cleanest, most production-grade pattern — migrations are versioned, automated, and logged in CloudWatch.
+#### 9. Dependencies ✅
 
-The GitHub Actions pipeline calls: `aws lambda invoke --function-name migration-fn` after `cdk deploy` and checks the response.
-
-#### 9. New dependencies
-
-Add to `pyproject.toml`:
+Added to `pyproject.toml`:
 ```
-sqlalchemy[asyncio]>=2.0
-asyncpg
-psycopg2-binary   # sync driver for Alembic only
-alembic>=1.13
+sqlalchemy>=2.0.49
+psycopg2-binary>=2.9.11
+alembic>=1.18.4
+python-dotenv>=1.0.0
 ```
 
-**`boto3` retention:** `jwt_handler.py` uses `httpx` (not boto3) to fetch the Cognito JWKS URL. `boto3` is currently only used by `dynamodb_recipe_repo.py`. Once that file is deleted, `boto3` can be removed from runtime dependencies. It can stay as a dev/test dependency if needed.
+Removed:
+```
+boto3  (no longer needed — jwt_handler uses httpx)
+dotenv (replaced by python-dotenv)
+```
 
 ### Environment variables
 
@@ -432,11 +401,9 @@ leaflet             — underlying map library
 ## Execution Order & Dependencies
 
 ```
-Phase 0 (cleanup)
+Phase 1 (Aurora + User profiles) ✅ DONE   ← must complete before Phase 2
     ↓
-Phase 1 (Aurora + User profiles)   ← must complete before Phase 2
-    ↓
-Phase 2 (Restaurant Reviews)       ← needs DB and User entity
+Phase 2 (Restaurant Reviews)               ← needs DB and User entity
     ↓
 Phase 3 (CI/CD)       ← can start in parallel with Phase 2 (needs Aurora CDK from Phase 1)
 Phase 4 (UI)          ← needs Phase 2 API endpoints complete
@@ -448,8 +415,10 @@ Phase 4 (UI)          ← needs Phase 2 API endpoints complete
 
 | Question | Decision |
 |---|---|
-| `boto3` needed? | No — `jwt_handler.py` uses `httpx`. Remove `boto3` from runtime deps when DynamoDB adapter is deleted |
-| Migration strategy | Option A: Migration Lambda invoked by CI pipeline (cleanest) |
+| `boto3` needed? | No — removed from runtime deps. `jwt_handler.py` uses `httpx`. |
+| Migration strategy | Manual `alembic upgrade head` from laptop for now. Migration Lambda planned for Phase 3. |
+| Sync vs async DB driver | Sync `psycopg2` with `NullPool` — correct for Lambda's single-invocation model. See `docs/SYNC_VS_ASYNC.md`. |
+| Aurora networking | Public subnets + `publiclyAccessible=true`, Lambda outside VPC — no NAT Gateway needed. See `docs/VPC_VS_NO_VPC.md`. |
 | Multiple reviews per user/restaurant? | Yes — no unique constraint |
 | Restaurant deletion | Hard delete + `ON DELETE CASCADE` to reviews |
 | Map provider | OpenStreetMap + Leaflet (free, no API key) |

@@ -1,17 +1,28 @@
 import { App, CfnOutput, Duration, Stack, StackProps } from "aws-cdk-lib";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
-import { Table } from "aws-cdk-lib/aws-dynamodb";
 import {
   CorsHttpMethod,
   HttpApi,
   HttpMethod,
 } from "aws-cdk-lib/aws-apigatewayv2";
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
-import { Constants } from "../utils/constants";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
+import { Constants } from "../utils/constants";
 import { CognitoStack } from "../foundation/cognito-stack";
+import { AuroraStack } from "../infrastructure/aurora-stack";
 
+/**
+ * LambdaApiStack - Application layer
+ *
+ * Lambda runs OUTSIDE the VPC — same as the old DynamoDB setup.
+ * Aurora is publicly accessible, so Lambda connects over the internet
+ * without needing a NAT gateway (~$35/month saved).
+ *
+ * Credentials are resolved from Secrets Manager at synth time and
+ * injected as Lambda environment variables. No Secrets Manager calls
+ * at runtime — sync psycopg2 + NullPool pattern.
+ */
 export class LambdaApiStack extends Stack {
   public readonly apiEndpoint: string;
 
@@ -20,20 +31,15 @@ export class LambdaApiStack extends Stack {
     id: string,
     props: StackProps,
     cognitoStack: CognitoStack,
+    auroraStack: AuroraStack,
   ) {
     super(scope, id, props);
 
-    // Ensure Cognito stack is deployed before this stack
     this.addDependency(cognitoStack);
+    this.addDependency(auroraStack);
 
     const constants = new Constants();
 
-    // ⚠️ fromLookup - NO CloudFormation dependency!
-    const table = Table.fromTableName(
-      this,
-      "RecipesTable",
-      constants.RECIPES_TABLE_NAME,
-    );
     const authorizer = new HttpJwtAuthorizer(
       "CognitoAuthorizer",
       `https://cognito-idp.${this.region}.amazonaws.com/${cognitoStack.userPool.userPoolId}`,
@@ -43,25 +49,30 @@ export class LambdaApiStack extends Stack {
       },
     );
 
-    // Lambda function for API
     const recipeApi = new PythonFunction(this, "RecipeAPI", {
-      entry: "../backend", // Points to backend/ directory (contains pyproject.toml, uv.lock, and src/)
+      entry: "../backend",
       runtime: Runtime.PYTHON_3_13,
       index: "src/main.py",
-      handler: "handler", //Magum handler in main.py
+      handler: "handler",
       functionName: constants.RECIPE_API_FUNCTION_NAME,
-      description: "Recipe Manager API with Cognito JWT validation",
+      description: "Recipe Manager API — FastAPI + Aurora PostgreSQL",
       timeout: Duration.seconds(30),
       memorySize: 512,
+      // No vpc config — Lambda is outside the VPC (Aurora is publicly accessible)
       environment: {
-        USE_DYNAMODB: "true",
-        TABLE_NAME: table.tableName,
+        POSTGRES_HOST: auroraStack.databaseEndpoint,
+        POSTGRES_PORT: auroraStack.databasePort,
+        POSTGRES_DB: auroraStack.databaseName,
+        POSTGRES_USER: auroraStack.databaseSecret
+          .secretValueFromJson("username")
+          .unsafeUnwrap(),
+        POSTGRES_PASSWORD: auroraStack.databaseSecret
+          .secretValueFromJson("password")
+          .unsafeUnwrap(),
         COGNITO_USER_POOL_ID: cognitoStack.userPool.userPoolId,
         COGNITO_CLIENT_ID: cognitoStack.userPoolClient.userPoolClientId,
       },
       bundling: {
-        // CDK automatically bundles dependencies from pyproject.toml
-        // PythonFunction uses docker to build with Python 3.13
         assetExcludes: [
           "tests",
           ".venv",
@@ -72,21 +83,20 @@ export class LambdaApiStack extends Stack {
           "*.egg-info",
           ".env",
           "*.md",
-          "Dockerfile", // exclude the Docker file we have in backend/
+          "Dockerfile",
           ".dockerignore",
         ],
       },
     });
 
-    // Grant Lambda permissions to access DynamoDB table
-    table.grantReadWriteData(recipeApi);
+    // Allow Lambda to read the Aurora secret (good IAM hygiene)
+    auroraStack.databaseSecret.grantRead(recipeApi);
 
-    // API Gateway HTTP API (This is cheaper than REST API)
     const httpApi = new HttpApi(this, "RecipeHttpApi", {
       apiName: constants.RECIPE_API_GATEWAY_NAME,
       description: "HTTP API for Recipe Manager",
       corsPreflight: {
-        allowOrigins: ["*"], // TODO: Change this once frontend is hosted
+        allowOrigins: ["*"],
         allowMethods: [
           CorsHttpMethod.GET,
           CorsHttpMethod.POST,
@@ -98,20 +108,17 @@ export class LambdaApiStack extends Stack {
       },
     });
 
-    // Lambda integration
     const integration = new HttpLambdaIntegration(
       "RecipeIntegration",
       recipeApi,
     );
 
-    // Health check (no auth)
     httpApi.addRoutes({
       path: "/health",
       methods: [HttpMethod.GET],
       integration,
     });
 
-    // Recipe routes (auth required)
     httpApi.addRoutes({
       path: "/recipes",
       methods: [HttpMethod.GET, HttpMethod.POST],
@@ -126,22 +133,21 @@ export class LambdaApiStack extends Stack {
       authorizer,
     });
 
-    // Outputs
     new CfnOutput(this, "ApiEndpoint", {
       value: httpApi.apiEndpoint,
-      description: "The endpoint of the Recipe Manager HTTP API",
+      description: "Recipe Manager HTTP API endpoint",
     });
 
     this.apiEndpoint = httpApi.apiEndpoint;
 
     new CfnOutput(this, "FunctionName", {
       value: recipeApi.functionName,
-      description: "The name of the Recipe Manager Lambda function",
+      description: "Recipe Manager Lambda function name",
     });
 
     new CfnOutput(this, "FunctionArn", {
       value: recipeApi.functionArn,
-      description: "The ARN of the Recipe Manager Lambda function",
+      description: "Recipe Manager Lambda function ARN",
     });
   }
 }

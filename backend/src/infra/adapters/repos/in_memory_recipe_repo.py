@@ -5,12 +5,18 @@ from src.domain.ports import RecipeRepository
 
 
 class InMemoryRecipeRepository(RecipeRepository):
+    """In-memory repository for unit tests only.
+
+    Not used in production. Allows use-case tests to run without
+    any database or Docker dependency.
+    """
+
     def __init__(self) -> None:
-        self.table: dict[str, dict] = {}  # String keys like DynamoDB partition keys
+        self.table: dict[str, dict] = {}
 
     def add_recipe(self, recipe: Recipe) -> Recipe:
         self.table[recipe.id] = recipe.model_dump()
-        return Recipe(**self.table[recipe.id])  # New instance each time. DynamoDB returns deserialized data, not references. This prevents accidental mutations.
+        return Recipe(**self.table[recipe.id])  # New instance each time. Prevents accidental mutations of the in-memory dict.
 
     def get_recipe(self, recipe_id: str) -> Recipe | None:
         recipe_data = self.table.get(recipe_id)

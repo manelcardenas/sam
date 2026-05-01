@@ -1,34 +1,44 @@
-import os
+import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
 from mangum import Mangum
 
-from src.infra.adapters.repos import DynamoDBRecipeRepository, InMemoryRecipeRepository
+from src.infra.adapters.repos import PostgresRecipeRepository
 from src.infra.controllers import RecipeController
+from src.infra.db import DatabaseConnectionPool, build_dsn
+
+# Load .env for local development. On Lambda, env vars are injected directly
+# and no .env file exists — load_dotenv() is a safe no-op in that case.
+load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Recipe API")
+    db = DatabaseConnectionPool(dsn=build_dsn())
 
-    # Initialize repository based on environment variable
-    use_dynamodb = os.getenv("USE_DYNAMODB", "false").lower() == "true"
-    if use_dynamodb:
-        recipe_repository = DynamoDBRecipeRepository()
-    else:
-        recipe_repository = InMemoryRecipeRepository()
+    # Lifespan: verify DB connection on startup, dispose engine on shutdown.
+    # On Lambda this runs once per cold start via Mangum's lifespan support.
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+        db.open()
+        yield
+        db.close()
 
-    # Create router and register controllers
+    app = FastAPI(title="Recipe API", lifespan=lifespan)
+
+    recipe_repository = PostgresRecipeRepository(session_factory=db.session_factory)
     router = APIRouter()
     RecipeController(recipe_repository, router)
-
-    # Include router in app
     app.include_router(router)
 
     return app
 
 
-# Create app instance
 app = create_app()
 
-# Lambda handler (used by AWS Lambda + API Gateway)
+# Lambda handler — wraps the ASGI app for API Gateway / Function URLs.
 handler = Mangum(app)
