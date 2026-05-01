@@ -16,7 +16,7 @@ class InMemoryRecipeRepository(RecipeRepository):
 
     def add_recipe(self, recipe: Recipe) -> Recipe:
         self.table[recipe.id] = recipe.model_dump()
-        return Recipe(**self.table[recipe.id])  # New instance each time. DynamoDB returns deserialized data, not references. This prevents accidental mutations.
+        return Recipe(**self.table[recipe.id])  # New instance each time. Prevents accidental mutations of the in-memory dict.
 
     def get_recipe(self, recipe_id: str) -> Recipe | None:
         recipe_data = self.table.get(recipe_id)

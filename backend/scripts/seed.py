@@ -1,4 +1,4 @@
-"""Seed script — loads the 14 real recipes from the legacy DynamoDB table into PostgreSQL.
+"""Seed script — loads the 14 real recipes into PostgreSQL.
 
 HOW TO RUN (local)
 ------------------
@@ -10,13 +10,12 @@ Make sure postgres is running, then from the repo root:
 
 The script is IDEMPOTENT — it skips recipes whose title already exists. Safe to re-run.
 
-SCHEMA TRANSFORMATION
----------------------
-Old DynamoDB shape  →  New PostgreSQL shape
-  description (str)           →  instructions
-  ingredients (list[str])     →  {"servings": null, "items": [{"name": x} for x in list]}
-  no food_type field           →  kept as-is (already present in DynamoDB records)
-  no created_by field          →  seed placeholder user (see SEED_USER below)
+SCHEMA
+------
+  instructions (str)   — recipe steps
+  ingredients  (JSONB) — {"servings": null, "items": [{"name": x} for x in list]}
+  food_type            — comida/postre/bebida/aperitivo
+  created_by           — seed placeholder user (see SEED_USER below)
 """
 
 import sys
@@ -52,7 +51,7 @@ def _items(raw: list[str]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# The 14 recipes as they exist in DynamoDB, transformed to the new schema.
+# The 14 recipes to seed into PostgreSQL.
 # ---------------------------------------------------------------------------
 RECIPES: list[dict] = [
     {
