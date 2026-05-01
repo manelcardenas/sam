@@ -27,7 +27,7 @@ class CreateRecipeRequest(BaseModel):
     source_url: HttpUrl | None = None
     prep_time_minutes: int | None = None
     cook_time_minutes: int | None = None
-    created_by: str
+    created_by: str | None = None
 
 
 class UpdateRecipeRequest(BaseModel):

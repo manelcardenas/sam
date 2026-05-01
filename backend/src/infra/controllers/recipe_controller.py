@@ -8,7 +8,6 @@ from src.infra.controllers.schemas import CreateRecipeRequest, UpdateRecipeReque
 from src.infra.security import TokenPayload, get_current_user
 
 
-# TODO: REMOVE PRINTS
 class HealthResponse(BaseModel):
     status: str = Field(description="Service status")
     service: str = Field(description="Service name")
@@ -98,31 +97,28 @@ class RecipeController:
         """Health check endpoint."""
         return HealthResponse(status="ok", service="recipes")
 
-    def list_recipes(self, current_user: TokenPayload = Depends(get_current_user)) -> list[Recipe]:
+    def list_recipes(self, _current_user: TokenPayload = Depends(get_current_user)) -> list[Recipe]:
         """List all recipes."""
-        print(f"User email ({current_user.email})")  # Debug log
         use_case = ListRecipes(self.recipe_repository)
         return use_case.execute()
 
     def create_recipe(self, request: CreateRecipeRequest, current_user: TokenPayload = Depends(get_current_user)) -> Recipe:
-        """Create a new recipe."""
-        print(f"User email ({current_user.email})")  # Debug log
-        recipe = Recipe(**request.model_dump())
+        """Create a new recipe. `created_by` is injected from the JWT sub claim."""
+        recipe_data = request.model_dump(exclude={"created_by"})
+        recipe = Recipe(**recipe_data, created_by=current_user.sub)
         use_case = CreateRecipe(self.recipe_repository)
         return use_case.execute(recipe)
 
-    def get_recipe(self, recipe_id: str, current_user: TokenPayload = Depends(get_current_user)) -> Recipe:
+    def get_recipe(self, recipe_id: str, _current_user: TokenPayload = Depends(get_current_user)) -> Recipe:
         """Get a single recipe by ID."""
-        print(f"User email ({current_user.email})")
         use_case = GetRecipe(self.recipe_repository)
         recipe = use_case.execute(recipe_id)
         if recipe is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Recipe with id {recipe_id} not found")
         return recipe
 
-    def update_recipe(self, recipe_id: str, request: UpdateRecipeRequest, current_user: TokenPayload = Depends(get_current_user)) -> Recipe:
+    def update_recipe(self, recipe_id: str, request: UpdateRecipeRequest, _current_user: TokenPayload = Depends(get_current_user)) -> Recipe:
         """Update an existing recipe."""
-        print(f"User email ({current_user.email})")  # Debug log
         # First check if recipe exists
         get_use_case = GetRecipe(self.recipe_repository)
         existing_recipe = get_use_case.execute(recipe_id)
@@ -146,8 +142,7 @@ class RecipeController:
         update_use_case = UpdateRecipe(self.recipe_repository)
         return update_use_case.execute(updated_recipe)
 
-    def delete_recipe(self, recipe_id: str, current_user: TokenPayload = Depends(get_current_user)) -> None:
-        print(f"User email ({current_user.email})")  # Debug log
+    def delete_recipe(self, recipe_id: str, _current_user: TokenPayload = Depends(get_current_user)) -> None:
         use_case = DeleteRecipe(self.recipe_repository)
         try:
             use_case.execute(recipe_id)
