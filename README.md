@@ -96,3 +96,10 @@ See `docs/guide.md` for the full developer guide.
 
 > **Aurora cold starts:** Aurora Serverless v2 with `minCapacity=0` can take 30–60 s to wake after idle.
 > The first request after a quiet period will be slow — this is expected and accepted at current scale.
+
+TODOs:
+1. Separar bien las pipelines de github
+2. Review infra in aws
+3. Review the code, docu(structure it correctly) and make it work be/fe locally
+4. Add restaurant reviews -> use improvements-plan.md Phase 2
+5. Final FE improvements make the ui look better
