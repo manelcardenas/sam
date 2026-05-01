@@ -3,13 +3,28 @@
 import { useState } from "react";
 import { Save, X } from "lucide-react";
 import { FOOD_TYPES, type FoodType } from "@/lib/constants";
-import type { CreateRecipeInput } from "@/lib/api-client";
+import type { CreateRecipeInput, IngredientsData } from "@/lib/api-client";
 
 interface RecipeFormProps {
   initialData?: CreateRecipeInput;
   onSubmit: (data: CreateRecipeInput) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
+}
+
+/** Convert IngredientsData items to a newline-separated string for the textarea. */
+function itemsToText(ingredients: IngredientsData): string {
+  return ingredients.items.map((item) => item.name).join("\n");
+}
+
+/** Convert a newline-separated string back to IngredientsData. */
+function textToIngredients(text: string): IngredientsData {
+  const items = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((name) => ({ name }));
+  return { servings: null, items };
 }
 
 export default function RecipeForm({
@@ -20,12 +35,12 @@ export default function RecipeForm({
 }: RecipeFormProps) {
   const [formData, setFormData] = useState<CreateRecipeInput>({
     title: initialData?.title ?? "",
-    description: initialData?.description ?? "",
-    ingredients: initialData?.ingredients ?? [],
+    instructions: initialData?.instructions ?? "",
+    ingredients: initialData?.ingredients ?? { servings: null, items: [] },
     food_type: initialData?.food_type ?? "comida",
   });
   const [ingredientsText, setIngredientsText] = useState(
-    initialData?.ingredients.join("\n") ?? "",
+    initialData ? itemsToText(initialData.ingredients) : "",
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -35,10 +50,7 @@ export default function RecipeForm({
     setError("");
     setSubmitting(true);
     try {
-      const ingredients = ingredientsText
-        .split("\n")
-        .map((i) => i.trim())
-        .filter((i) => i.length > 0);
+      const ingredients = textToIngredients(ingredientsText);
       await onSubmit({ ...formData, ingredients });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -100,21 +112,21 @@ export default function RecipeForm({
 
       <div>
         <label
-          htmlFor="description"
+          htmlFor="instructions"
           className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
         >
-          Description *
+          Instructions *
         </label>
         <textarea
-          id="description"
+          id="instructions"
           required
           rows={3}
-          value={formData.description}
+          value={formData.instructions}
           onChange={(e) =>
-            setFormData({ ...formData, description: e.target.value })
+            setFormData({ ...formData, instructions: e.target.value })
           }
           className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white resize-none"
-          placeholder="A brief description..."
+          placeholder="Recipe steps..."
         />
       </div>
 

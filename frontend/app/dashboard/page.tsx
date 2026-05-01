@@ -262,7 +262,7 @@ export default function DashboardPage() {
                         {recipe.title}
                       </span>
                       <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-4">
-                        {recipe.ingredients.length} ingredients
+                        {recipe.ingredients.items.length} ingredients
                       </span>
                     </button>
                   </li>
@@ -314,22 +314,31 @@ export default function DashboardPage() {
               <div className="px-6 py-5 space-y-6">
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
-                    Description
+                    Instructions
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {selectedRecipe.description}
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+                    {selectedRecipe.instructions}
                   </p>
                 </div>
 
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
-                    Ingredients ({selectedRecipe.ingredients.length})
+                    Ingredients ({selectedRecipe.ingredients.items.length})
+                    {selectedRecipe.ingredients.servings && (
+                      <span className="ml-2 font-normal text-gray-400 dark:text-gray-500">
+                        · {selectedRecipe.ingredients.servings} servings
+                      </span>
+                    )}
                   </h3>
                   <ul className="space-y-1.5">
-                    {selectedRecipe.ingredients.map((ingredient, idx) => (
+                    {selectedRecipe.ingredients.items.map((item, idx) => (
                       <li key={idx} className="flex items-start gap-2.5 text-gray-700 dark:text-gray-300">
                         <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-                        {ingredient}
+                        {item.amount != null && item.unit
+                          ? `${item.amount} ${item.unit} ${item.name}`
+                          : item.amount != null
+                            ? `${item.amount} ${item.name}`
+                            : item.name}
                       </li>
                     ))}
                   </ul>
@@ -349,7 +358,7 @@ export default function DashboardPage() {
               <RecipeForm
                 initialData={
                   activeCategory
-                    ? { title: "", description: "", ingredients: [], food_type: activeCategory }
+                    ? { title: "", instructions: "", ingredients: { servings: null, items: [] }, food_type: activeCategory }
                     : undefined
                 }
                 onSubmit={handleCreate}
@@ -370,7 +379,7 @@ export default function DashboardPage() {
               <RecipeForm
                 initialData={{
                   title: selectedRecipe.title,
-                  description: selectedRecipe.description,
+                  instructions: selectedRecipe.instructions,
                   ingredients: selectedRecipe.ingredients,
                   food_type: selectedRecipe.food_type,
                 }}
