@@ -1,10 +1,15 @@
 export class Constants {
-  // DynamoDB
-  readonly RECIPES_TABLE_NAME = "recipes";
+  // VPC
+  readonly VPC_NAME = "recipe-manager-vpc";
+
+  // Aurora PostgreSQL
+  readonly DB_SECRET_NAME = "recipe-manager/aurora-credentials";
+  readonly DB_NAME = "recipe_manager";
+
   // Lambda
   readonly RECIPE_API_FUNCTION_NAME = "recipe-manager-api";
 
-  //API Gateway
+  // API Gateway
   readonly RECIPE_API_GATEWAY_NAME = "recipe-manager-api";
 
   // CI/CD
