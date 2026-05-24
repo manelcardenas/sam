@@ -392,171 +392,20 @@ Your Lambda validates the token the same way - it doesn't care if the user logge
 
 ---
 
-## Optional: API Gateway Authorizer
+## API Gateway Authorizer ✅ Already Implemented
 
-**Current setup:** Lambda validates JWT tokens (works, but Lambda is invoked even for invalid tokens)
+The Cognito JWT authorizer at the API Gateway level is **already implemented** in `lambda-api-stack.ts`. Invalid tokens are rejected before reaching Lambda.
 
-**Optional enhancement:** Add Cognito authorizer at API Gateway level
+The implementation uses `HttpJwtAuthorizer` from `aws-cdk-lib/aws-apigatewayv2-authorizers`, applied to all `/recipes` routes. The `/health` endpoint remains public (no authorizer).
 
-- ✅ Invalid tokens rejected **before** Lambda invocation
-- ✅ Lower Lambda invocations = lower cost
-- ✅ Faster response for invalid tokens
-- ⚠️ More CDK configuration
+**How it works:**
 
-### When to Add API Gateway Authorizer
+1. Client sends `Authorization: Bearer <token>` header
+2. API Gateway validates the JWT against Cognito's JWKS endpoint
+3. If valid → request forwarded to Lambda (which also validates via `get_current_user` dependency)
+4. If invalid → 401 Unauthorized returned immediately (Lambda never invoked)
 
-**Add it when:**
-
-- You have high traffic (>10,000 requests/day)
-- You see many unauthorized requests
-- You want to optimize costs
-- You want centralized authorization
-
-**Skip it when:**
-
-- Personal/learning projects
-- Low traffic (<1,000 requests/day)
-- Want simpler architecture
-
----
-
-### Implementation Steps
-
-**1. Update Lambda API Stack**
-
-File: `infra/lib/application/lambda-api-stack.ts`
-
-```typescript
-import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
-
-export class LambdaApiStack extends Stack {
-  constructor(
-    scope: App,
-    id: string,
-    props: StackProps,
-    cognitoStack: CognitoStack, // Already passed
-  ) {
-    // ... existing code ...
-
-    // Create Cognito JWT Authorizer
-    const authorizer = new HttpJwtAuthorizer(
-      "CognitoAuthorizer",
-      `https://cognito-idp.${this.region}.amazonaws.com/${cognitoStack.userPool.userPoolId}`,
-      {
-        jwtAudience: [cognitoStack.userPoolClient.userPoolClientId],
-        authorizerName: "recipe-manager-cognito-authorizer",
-      },
-    );
-
-    // Lambda integration (existing)
-    const integration = new HttpLambdaIntegration(
-      "RecipeIntegration",
-      recipeApi,
-    );
-
-    // Update routes to use authorizer
-    // Protected routes (require authentication)
-    httpApi.addRoutes({
-      path: "/recipes",
-      methods: [HttpMethod.GET, HttpMethod.POST],
-      integration: integration,
-      authorizer: authorizer, // ← Add this
-    });
-
-    httpApi.addRoutes({
-      path: "/recipes/{id}",
-      methods: [HttpMethod.GET, HttpMethod.PUT, HttpMethod.DELETE],
-      integration: integration,
-      authorizer: authorizer, // ← Add this
-    });
-
-    // Public routes (no authentication)
-    httpApi.addRoutes({
-      path: "/health",
-      methods: [HttpMethod.GET],
-      integration: integration,
-      // No authorizer for health check
-    });
-  }
-}
-```
-
-**2. Remove catch-all routes**
-
-Replace:
-
-```typescript
-// OLD - too permissive
-httpApi.addRoutes({
-  path: "/{proxy+}",
-  methods: [HttpMethod.ANY],
-  integration: integration,
-});
-```
-
-With explicit routes (shown above).
-
----
-
-**3. Update Lambda to trust API Gateway**
-
-When using API Gateway authorizer, the JWT is already validated. You can optionally:
-
-**Option A: Keep Lambda validation** (belt-and-suspenders approach)
-
-- API Gateway validates
-- Lambda also validates
-- ✅ More secure (defense in depth)
-- ⚠️ Slight performance overhead
-
-**Option B: Skip Lambda validation** (trust API Gateway)
-
-- Remove `dependencies=[Depends(get_current_user)]` from routes
-- ✅ Faster Lambda execution
-- ⚠️ No validation if calling Lambda directly (bypassing API Gateway)
-
-**Recommendation:** Keep Lambda validation (Option A) unless you have performance issues.
-
----
-
-**4. Deploy**
-
-```bash
-cd infra
-npx cdk deploy RecipeManagerLambdaApiStack --require-approval never
-```
-
----
-
-**5. Test**
-
-```bash
-# Invalid token - should return 401 BEFORE Lambda execution
-curl https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes \
-  -H "Authorization: Bearer invalid-token"
-
-# Expected: {"message":"Unauthorized"}
-# Status: 401
-
-# Valid token - should work
-curl https://YOUR-API.execute-api.eu-west-3.amazonaws.com/recipes \
-  -H "Authorization: Bearer eyJraWQiOi..."
-
-# Expected: [] or list of recipes
-# Status: 200
-```
-
----
-
-**6. Verify in CloudWatch**
-
-Check Lambda logs - you should **NOT** see logs for requests with invalid tokens (they're rejected at API Gateway).
-
-```bash
-aws logs tail /aws/lambda/recipe-manager-api --region eu-west-3 --follow
-```
-
-Make a request with invalid token - no logs should appear.
+**Defense in depth:** Both API Gateway and Lambda validate the token. This is intentional — even if API Gateway is bypassed (e.g., direct Lambda invocation), the endpoint is still protected.
 
 ---
 
@@ -569,7 +418,7 @@ Invalid request → API Gateway → Lambda (invoked) → Validates token → Ret
 Cost: API Gateway request + Lambda invocation + Lambda duration
 ```
 
-**With API Gateway Authorizer:**
+**With API Gateway Authorizer (current setup):**
 
 ```
 Invalid request → API Gateway (validates token) → Returns 401

@@ -23,10 +23,10 @@ Lambda functions and relational databases do not pair naturally:
 3. Accept the cold start. Documented in the README.
 
 **Key design choice — sync psycopg2, not async:**
-Lambda runs one invocation per container. There are no concurrent requests sharing an event loop, so `async`/`await` provides zero benefit. Using sync `psycopg2` with `NullPool` is simpler, correct, and avoids the need to make the entire domain/use-case/port stack async. See `docs/SYNC_VS_ASYNC.md` for the full rationale.
+Lambda runs one invocation per container. There are no concurrent requests sharing an event loop, so `async`/`await` provides zero benefit. Using sync `psycopg2` with `NullPool` is simpler, correct, and avoids the need to make the entire domain/use-case/port stack async. See `docs/knowledge/sync-vs-async.md` for the full rationale.
 
 **Key design choice — public Aurora, Lambda outside VPC:**
-Aurora is placed in public subnets with `publiclyAccessible=true`. Lambda runs outside the VPC and connects over the internet via password-secured TCP 5432. This eliminates the need for a NAT Gateway (~$35/month). See `docs/VPC_VS_NO_VPC.md` for the full rationale.
+Aurora is placed in public subnets with `publiclyAccessible=true`. Lambda runs outside the VPC and connects over the internet via password-secured TCP 5432. This eliminates the need for a NAT Gateway (~$35/month). See `docs/knowledge/vpc-vs-no-vpc.md` for the full rationale.
 
 ### What was implemented
 
@@ -417,8 +417,8 @@ Phase 4 (UI)          ← needs Phase 2 API endpoints complete
 |---|---|
 | `boto3` needed? | No — removed from runtime deps. `jwt_handler.py` uses `httpx`. |
 | Migration strategy | Manual `alembic upgrade head` from laptop for now. Migration Lambda planned for Phase 3. |
-| Sync vs async DB driver | Sync `psycopg2` with `NullPool` — correct for Lambda's single-invocation model. See `docs/SYNC_VS_ASYNC.md`. |
-| Aurora networking | Public subnets + `publiclyAccessible=true`, Lambda outside VPC — no NAT Gateway needed. See `docs/VPC_VS_NO_VPC.md`. |
+| Sync vs async DB driver | Sync `psycopg2` with `NullPool` — correct for Lambda's single-invocation model. See `docs/knowledge/sync-vs-async.md`. |
+| Aurora networking | Public subnets + `publiclyAccessible=true`, Lambda outside VPC — no NAT Gateway needed. See `docs/knowledge/vpc-vs-no-vpc.md`. |
 | Multiple reviews per user/restaurant? | Yes — no unique constraint |
 | Restaurant deletion | Hard delete + `ON DELETE CASCADE` to reviews |
 | Map provider | OpenStreetMap + Leaflet (free, no API key) |

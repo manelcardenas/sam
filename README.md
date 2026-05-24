@@ -92,7 +92,7 @@ uv run pre-commit install   # install git hooks
 
 ## Documentation
 
-See `docs/guide.md` for the full developer guide.
+See `docs/wiki/guide.md` for the full developer guide.
 
 > **Aurora cold starts:** Aurora Serverless v2 with `minCapacity=0` can take 30–60 s to wake after idle.
 > The first request after a quiet period will be slow — this is expected and accepted at current scale.
