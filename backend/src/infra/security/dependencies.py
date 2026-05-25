@@ -4,20 +4,31 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import exceptions as jwt_exceptions
 
+from src.domain.ports import UserRepository
 from src.infra.security.jwt_handler import JWTHandler
 from src.infra.security.schemas import TokenPayload
 
 # HTTPBearer automatically extracts "Authorization: Bearer <token>" header
 security = HTTPBearer()
 
+# Set once at app startup via configure_user_repository(). The auth dependency
+# uses it to lazily upsert the authenticated user into the local `users` table
+# so that recipes.created_by always has a matching FK target.
+_user_repository: UserRepository | None = None
+
+
+def configure_user_repository(repository: UserRepository) -> None:
+    global _user_repository
+    _user_repository = repository
+
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> TokenPayload:
     """
     FastAPI dependency to validate JWT and extract current user.
 
-    This function is injected into protected endpoints.
-    It automatically extracts the JWT from the Authorization header,
-    validates it, and returns the user information.
+    Also lazily provisions the user into the local `users` table on each
+    authenticated request (idempotent). This avoids a separate signup step
+    for Cognito-authenticated users.
 
     Args:
         credentials: Automatically extracted by HTTPBearer from "Authorization: Bearer <token>"
@@ -27,18 +38,11 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
     Raises:
         HTTPException 401: If token is missing, invalid, or expired
-
-    Usage in controller:
-        def list_recipes(self, current_user: TokenPayload = Depends(get_current_user)):
-            # current_user.sub → user ID
-            # current_user.email → user email
     """
     jwt_handler = JWTHandler()
 
     try:
-        # credentials.credentials contains the raw JWT token string
         token_payload = jwt_handler.decode_token(credentials.credentials)
-        return token_payload
     except jwt_exceptions.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -60,3 +64,14 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
+
+    if _user_repository is not None and token_payload.email:
+        try:
+            _user_repository.ensure_user(token_payload.sub, token_payload.email)
+        except Exception as e:
+            # Provisioning failure shouldn't 500 auth — log and continue.
+            # Downstream write endpoints will surface the FK error if it
+            # actually impacts them.
+            print(f"⚠️  User provisioning failed for {token_payload.sub}: {type(e).__name__}: {e}", file=sys.stderr)
+
+    return token_payload
