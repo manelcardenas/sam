@@ -103,3 +103,4 @@ TODOs:
 3. Review the code, docu(structure it correctly) and make it work be/fe locally
 4. Add restaurant reviews -> use improvements-plan.md Phase 2
 5. Final FE improvements make the ui look better
+6. See `TODO.md` — user-profile work (show recipe author in FE, profile-completion flow)
