@@ -104,3 +104,5 @@ TODOs:
 4. Add restaurant reviews -> use improvements-plan.md Phase 2
 5. Final FE improvements make the ui look better
 6. See `TODO.md` — user-profile work (show recipe author in FE, profile-completion flow)
+7. Re-architecture exploration: `docs/knowledge/aws-rearchitecture-options.md` (move off Lambda, drop Aurora, stay near-free)
+8. Active migration plans (in order): `docs/plans/neon-migration-plan.md` → `docs/plans/ec2-migration-plan.md`
