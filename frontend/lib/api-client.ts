@@ -34,8 +34,8 @@ export interface CreateRecipeInput {
 async function getAuthToken(): Promise<string> {
   try {
     const session = await fetchAuthSession();
-    // Use access token instead of ID token (ID token has at_hash claim that requires access token for validation)
-    const token = session.tokens?.accessToken?.toString();
+    // ID token carries the `email` claim — needed by the backend to JIT-provision the user row in `users`.
+    const token = session.tokens?.idToken?.toString();
     if (!token) {
       throw new Error("No authentication token available");
     }
