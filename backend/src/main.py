@@ -6,9 +6,10 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
 from mangum import Mangum
 
-from src.infra.adapters.repos import PostgresRecipeRepository
+from src.infra.adapters.repos import PostgresRecipeRepository, PostgresUserRepository
 from src.infra.controllers import RecipeController
 from src.infra.db import DatabaseConnectionPool, build_dsn
+from src.infra.security import configure_user_repository
 
 # Load .env for local development. On Lambda, env vars are injected directly
 # and no .env file exists — load_dotenv() is a safe no-op in that case.
@@ -31,6 +32,9 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Recipe API", lifespan=lifespan)
 
     recipe_repository = PostgresRecipeRepository(session_factory=db.session_factory)
+    user_repository = PostgresUserRepository(session_factory=db.session_factory)
+    configure_user_repository(user_repository)
+
     router = APIRouter()
     RecipeController(recipe_repository, router)
     app.include_router(router)
