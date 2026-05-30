@@ -102,6 +102,7 @@ export class LambdaApiStack extends Stack {
           CorsHttpMethod.GET,
           CorsHttpMethod.POST,
           CorsHttpMethod.PUT,
+          CorsHttpMethod.PATCH,
           CorsHttpMethod.DELETE,
           CorsHttpMethod.OPTIONS,
         ],
@@ -130,6 +131,13 @@ export class LambdaApiStack extends Stack {
     httpApi.addRoutes({
       path: "/recipes/{recipe_id}",
       methods: [HttpMethod.GET, HttpMethod.PUT, HttpMethod.DELETE],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/users/me",
+      methods: [HttpMethod.GET, HttpMethod.PATCH],
       integration,
       authorizer,
     });
