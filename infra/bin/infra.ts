@@ -3,8 +3,6 @@ import "source-map-support/register";
 import { App } from "aws-cdk-lib";
 import { GithubOidcProviderStack } from "../lib/foundation/github-oidc-provider-stack";
 import { CiRoleStack } from "../lib/foundation/ci-role-stack";
-import { VpcStack } from "../lib/infrastructure/vpc-stack";
-import { AuroraStack } from "../lib/infrastructure/aurora-stack";
 import { LambdaApiStack } from "../lib/application/lambda-api-stack";
 import { CognitoStack } from "../lib/foundation/cognito-stack";
 import { AmplifyStack } from "../lib/application/amplify-stack";
@@ -28,20 +26,12 @@ const cognitoStack = new CognitoStack(app, "RecipeManagerCognitoStack", {
   amplifyDomain,
 });
 
-// ── Infrastructure (deploy once / when changed) ──────────────────────────────
-// VpcStack must be deployed BEFORE AuroraStack and LambdaApiStack so that
-// Vpc.fromLookup() can resolve the VPC by name during `cdk synth`.
-new VpcStack(app, "RecipeManagerVpcStack", { env });
-
-const auroraStack = new AuroraStack(app, "RecipeManagerAuroraStack", { env });
-
 // ── Application (deploy frequently via CI/CD) ────────────────────────────────
 new LambdaApiStack(
   app,
   "RecipeManagerLambdaApiStack",
   { env },
   cognitoStack,
-  auroraStack,
 );
 
 // ── Frontend (Amplify) ───────────────────────────────────────────────────────

@@ -8,20 +8,22 @@ import {
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
+import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { Constants } from "../utils/constants";
 import { CognitoStack } from "../foundation/cognito-stack";
-import { AuroraStack } from "../infrastructure/aurora-stack";
 
 /**
  * LambdaApiStack - Application layer
  *
- * Lambda runs OUTSIDE the VPC — same as the old DynamoDB setup.
- * Aurora is publicly accessible, so Lambda connects over the internet
- * without needing a NAT gateway (~$35/month saved).
+ * Lambda runs OUTSIDE the VPC. It connects to Neon (Postgres in
+ * eu-central-1) over the public internet via the pooled endpoint —
+ * no VPC, no NAT gateway required.
  *
- * Credentials are resolved from Secrets Manager at synth time and
- * injected as Lambda environment variables. No Secrets Manager calls
- * at runtime — sync psycopg2 + NullPool pattern.
+ * The Neon DSN is stored as an SSM SecureString parameter
+ * (/recipe-manager/db/dsn). CloudFormation can't inject an ssm-secure value
+ * into a Lambda env var, so we pass the parameter NAME (POSTGRES_DSN_PARAM)
+ * and the function fetches+decrypts it at cold start via boto3 — sync
+ * psycopg2 + NullPool pattern.
  */
 export class LambdaApiStack extends Stack {
   public readonly apiEndpoint: string;
@@ -31,12 +33,10 @@ export class LambdaApiStack extends Stack {
     id: string,
     props: StackProps,
     cognitoStack: CognitoStack,
-    auroraStack: AuroraStack,
   ) {
     super(scope, id, props);
 
     this.addDependency(cognitoStack);
-    this.addDependency(auroraStack);
 
     const constants = new Constants();
 
@@ -49,26 +49,27 @@ export class LambdaApiStack extends Stack {
       },
     );
 
+    // Neon DSN lives in SSM as a SecureString. We pass its NAME to the Lambda
+    // (ssm-secure values can't be resolved into env vars) and fetch it at
+    // cold start. grantRead below gives the function ssm:GetParameter.
+    const dsnParam = StringParameter.fromSecureStringParameterAttributes(
+      this,
+      "DbDsn",
+      { parameterName: "/recipe-manager/db/dsn" },
+    );
+
     const recipeApi = new PythonFunction(this, "RecipeAPI", {
       entry: "../backend",
       runtime: Runtime.PYTHON_3_13,
       index: "src/main.py",
       handler: "handler",
       functionName: constants.RECIPE_API_FUNCTION_NAME,
-      description: "Recipe Manager API — FastAPI + Aurora PostgreSQL",
+      description: "Recipe Manager API — FastAPI + Neon PostgreSQL",
       timeout: Duration.seconds(30),
       memorySize: 512,
-      // No vpc config — Lambda is outside the VPC (Aurora is publicly accessible)
+      // No vpc config — Lambda is outside the VPC (Neon is reached over the public internet)
       environment: {
-        POSTGRES_HOST: auroraStack.databaseEndpoint,
-        POSTGRES_PORT: auroraStack.databasePort,
-        POSTGRES_DB: auroraStack.databaseName,
-        POSTGRES_USER: auroraStack.databaseSecret
-          .secretValueFromJson("username")
-          .unsafeUnwrap(),
-        POSTGRES_PASSWORD: auroraStack.databaseSecret
-          .secretValueFromJson("password")
-          .unsafeUnwrap(),
+        POSTGRES_DSN_PARAM: dsnParam.parameterName,
         COGNITO_USER_POOL_ID: cognitoStack.userPool.userPoolId,
         COGNITO_CLIENT_ID: cognitoStack.userPoolClient.userPoolClientId,
       },
@@ -89,8 +90,8 @@ export class LambdaApiStack extends Stack {
       },
     });
 
-    // Allow Lambda to read the Aurora secret (good IAM hygiene)
-    auroraStack.databaseSecret.grantRead(recipeApi);
+    // Allow Lambda to read the Neon DSN SecureString parameter
+    dsnParam.grantRead(recipeApi);
 
     const httpApi = new HttpApi(this, "RecipeHttpApi", {
       apiName: constants.RECIPE_API_GATEWAY_NAME,
