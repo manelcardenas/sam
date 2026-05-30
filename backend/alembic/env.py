@@ -33,10 +33,17 @@ target_metadata = Base.metadata
 
 
 def build_sync_url() -> str:
-    """Build a synchronous PostgreSQL URL from env vars.
+    """Build a synchronous PostgreSQL URL.
+
+    Prefers POSTGRES_DSN (set in CI, where the DSN is fetched from SSM and
+    pointed at Neon's DIRECT endpoint); falls back to the 5 POSTGRES_* fields
+    (local development via .env).
 
     Uses psycopg2 (sync) — not asyncpg — because Alembic is synchronous.
     """
+    dsn = os.environ.get("POSTGRES_DSN")
+    if dsn:
+        return dsn
     host = os.environ["POSTGRES_HOST"]
     port = os.environ.get("POSTGRES_PORT", "5432")
     db = os.environ["POSTGRES_DB"]
