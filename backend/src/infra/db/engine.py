@@ -9,18 +9,49 @@ from sqlalchemy.pool import NullPool
 logger = logging.getLogger(__name__)
 
 
-def build_dsn() -> str:
-    """Build a synchronous PostgreSQL DSN from environment variables.
+def _read_dsn_from_ssm(param_name: str) -> str:
+    """Fetch the DSN SecureString from SSM Parameter Store.
 
-    Uses psycopg2 (sync driver). Both local and Lambda environments set
-    these variables — locally via .env, on Lambda via the function config.
+    Called once per Lambda cold start. boto3 is provided by the Lambda Python
+    runtime, so it's imported lazily — local runs (which use POSTGRES_DSN or
+    the 5-field config) never need it installed. The function's IAM role has
+    ssm:GetParameter on this parameter; decryption uses the aws/ssm KMS key.
     """
+    import boto3
+
+    ssm = boto3.client("ssm")
+    response = ssm.get_parameter(Name=param_name, WithDecryption=True)
+    return response["Parameter"]["Value"]
+
+
+def build_dsn() -> str:
+    """Build a synchronous PostgreSQL DSN. Uses psycopg2 (sync driver).
+
+    Resolution order:
+      1. POSTGRES_DSN — a complete DSN (Neon-friendly). Used locally via .env.
+      2. POSTGRES_DSN_PARAM — name of an SSM SecureString holding the DSN.
+         CloudFormation can't inject an ssm-secure value into a Lambda env var,
+         so on Lambda we pass the parameter *name* and fetch+decrypt it here at
+         cold start.
+      3. Legacy 5-field POSTGRES_* config (local Docker Postgres; see
+         docker-compose.yml).
+    """
+    dsn = os.environ.get("POSTGRES_DSN")
+    if dsn:
+        return dsn
+
+    param_name = os.environ.get("POSTGRES_DSN_PARAM")
+    if param_name:
+        return _read_dsn_from_ssm(param_name)
+
     host = os.environ["POSTGRES_HOST"]
     port = os.environ.get("POSTGRES_PORT", "5432")
     db = os.environ["POSTGRES_DB"]
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASSWORD"]
-    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
+    sslmode = os.environ.get("POSTGRES_SSLMODE", "")
+    suffix = f"?sslmode={sslmode}" if sslmode else ""
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}{suffix}"
 
 
 class DatabaseConnectionPool:

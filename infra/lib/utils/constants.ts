@@ -1,11 +1,4 @@
 export class Constants {
-  // VPC
-  readonly VPC_NAME = "recipe-manager-vpc";
-
-  // Aurora PostgreSQL
-  readonly DB_SECRET_NAME = "recipe-manager/aurora-credentials";
-  readonly DB_NAME = "recipe_manager";
-
   // Lambda
   readonly RECIPE_API_FUNCTION_NAME = "recipe-manager-api";
 
