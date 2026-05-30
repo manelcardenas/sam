@@ -219,16 +219,19 @@ class InMemoryRecipeRepository(RecipeRepository):
 
 ## Environment Variables
 
-Switch between repositories using `USE_DYNAMODB`:
+Repositories are backed by Postgres. A single `DatabaseConnectionPool` is
+built from the `POSTGRES_*` env vars and shared across all repositories via the
+FastAPI lifespan:
 
 ```python
 # backend/src/main.py
-use_dynamodb = os.getenv("USE_DYNAMODB", "false").lower() == "true"
-if use_dynamodb:
-    recipe_repository = DynamoDBRecipeRepository()
-else:
-    recipe_repository = InMemoryRecipeRepository()
+db = DatabaseConnectionPool(dsn=build_dsn())  # reads POSTGRES_HOST, POSTGRES_DB, ...
+recipe_repository = PostgresRecipeRepository(session_factory=db.session_factory)
+user_repository = PostgresUserRepository(session_factory=db.session_factory)
 ```
+
+Required: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, `POSTGRES_SSLMODE`.
 
 ## Pre-commit Hooks
 
