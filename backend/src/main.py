@@ -9,8 +9,8 @@ from alembic.config import Config
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
 from mangum import Mangum
-from scripts.seed import run as seed_db
 
+from scripts.seed import run as seed_db
 from src.infra.adapters.repos import PostgresRecipeRepository, PostgresUserRepository
 from src.infra.controllers import RecipeController, UserController
 from src.infra.db import DatabaseConnectionPool, build_dsn

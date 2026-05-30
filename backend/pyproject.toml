@@ -48,9 +48,13 @@ lint.select = ["ANN", "ARG", "E", "F", "I", "ICN", "N", "RUF", "PT", "W", "UP"]
 lint.ignore = ["ANN002", "ANN003", "E501", "E203"]
 lint.exclude = [".venv", "__pycache__", ".git"]
 
-# Import sorting
+# Import sorting. Classify our own packages explicitly so ruff never has to
+# guess (its guess differs between environments when a name collides with a
+# local dir): `scripts` is first-party (a packaged module), while `alembic` is
+# the third-party library — not our local `alembic/` migrations directory.
 [tool.ruff.lint.isort]
-known-first-party = ["src"]
+known-first-party = ["src", "scripts"]
+known-third-party = ["alembic"]
 
 # Code formatting
 [tool.ruff.format]
