@@ -43,21 +43,20 @@ Auth is real Cognito (free), so both env files need the same
 `COGNITO_*` / `NEXT_PUBLIC_USER_POOL_*` values. Only the DB is local.
 </details>
 
-## Docker — full stack
+## Docker — the database
+
+Docker only runs Postgres; the API runs on the host via `uv run start` (above),
+which gives hot-reload, CORS for the dev frontend, and auto-seeding. Production
+is Lambda and never uses this file.
 
 ```bash
-# Start postgres + run migrations + start API
-docker compose up
-
-# Visit API docs
-open http://localhost:9000/docs
-
-# Stop (keeps postgres data)
-docker compose down
-
-# Stop and wipe the database
-docker compose down -v
+docker compose up postgres -d   # start the DB (host port from POSTGRES_PORT, default 5432; we use 5440)
+docker compose down             # stop (keeps data in the named volume)
+docker compose down -v          # stop and wipe the database
 ```
+
+Inspecting it in a GUI (e.g. DBeaver): host `localhost`, port **`5440`**,
+database **`recipe_manager`**, user/password `postgres`/`postgres`.
 
 ## API Endpoints
 
