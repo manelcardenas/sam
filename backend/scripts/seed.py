@@ -42,6 +42,7 @@ SEED_USER = {
     "id": SEED_USER_ID,
     "display_name": "Nel",
     "email": "manelcardenas5@gmail.com",
+    "display_name_set_by_user": True,  # a chosen name — skips the /profile/complete gate
 }
 
 
