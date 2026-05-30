@@ -1,3 +1,8 @@
+> ⚠️ **STALE — kept for history.** This describes the old Aurora + VPC +
+> DynamoDB setup, which no longer exists (DB migrated to Neon, Aurora/VPC
+> destroyed, Lambda env vars replaced by an SSM DSN fetch). For the current
+> pipeline see [`./ci-cd.md`](./ci-cd.md).
+
 # Deployment Guide — Phase 1: PostgreSQL Migration
 
 ## Architecture & cost
