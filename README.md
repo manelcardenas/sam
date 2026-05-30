@@ -1,20 +1,47 @@
 # Recipe Manager
 
-## Quick Start (local, no Docker)
+## Run it locally
+
+Three commands — Postgres, the API, the web app:
 
 ```bash
-uv sync --group dev
-uv run uvicorn backend.src.main:app --reload --port 9000
-open http://localhost:9000/docs
+docker compose up postgres -d              # 1. database
+cd backend  && uv run start                # 2. API  → http://localhost:9000 (migrates + seeds, then serves)
+cd frontend && npm install && npm run dev  # 3. web  → http://localhost:8080
 ```
 
-Requires a running PostgreSQL instance. The fastest way to get one:
+Open **http://localhost:8080** and sign in with the test account
+(`test@example.com` / `TestPass123!`). The DB comes pre-seeded with 14 recipes
+(author **Nel**); a brand-new login is sent to `/profile/complete` to choose a
+display name first.
+
+<details>
+<summary>First-time setup (env + test user) — run once</summary>
 
 ```bash
-docker compose up postgres -d
+cp .env.example .env                            # backend: local Postgres defaults + your Cognito IDs
+cp frontend/.env.example frontend/.env.local    # frontend: your Cognito IDs (see below)
+./backend/scripts/create_test_user.sh           # creates test@example.com / TestPass123! in Cognito
 ```
 
-Environment variables are read from the root `.env` (already populated with local defaults).
+Two things that bite if missed:
+
+1. **Point the frontend at the local API.** In `frontend/.env.local` set:
+   ```
+   NEXT_PUBLIC_API_URL=http://localhost:9000
+   ```
+   Leave it as the deployed API Gateway URL and you'll log in fine but
+   read/write **production** data instead of your local seeded DB.
+
+2. **The test user is created once and persists.** After running
+   `create_test_user.sh` a single time, just open the dev site and sign in with
+   `test@example.com` / `TestPass123!` — no need to re-run it. (Its printed
+   1-hour token is only for `curl`-ing the API directly; the web app does its
+   own Cognito sign-in.)
+
+Auth is real Cognito (free), so both env files need the same
+`COGNITO_*` / `NEXT_PUBLIC_USER_POOL_*` values. Only the DB is local.
+</details>
 
 ## Docker — full stack
 
@@ -98,11 +125,7 @@ See `docs/wiki/guide.md` for the full developer guide.
 > The first request after a quiet period will be slow — this is expected and accepted at current scale.
 
 TODOs:
-1. Separar bien las pipelines de github
-2. Review infra in aws
 3. Review the code, docu(structure it correctly) and make it work be/fe locally
 4. Add restaurant reviews -> use improvements-plan.md Phase 2
 5. Final FE improvements make the ui look better
 6. See `TODO.md` — user-profile work (show recipe author in FE, profile-completion flow)
-7. Re-architecture exploration: `docs/knowledge/aws-rearchitecture-options.md` (move off Lambda, drop Aurora, stay near-free)
-8. Active migration plans (in order): `docs/plans/neon-migration-plan.md` → `docs/plans/ec2-migration-plan.md`
