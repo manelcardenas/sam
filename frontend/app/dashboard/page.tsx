@@ -39,8 +39,8 @@ export default function DashboardPage() {
       try {
         await getCurrentUser();
         const me = await apiClient.getMe();
-        // First-login gate: send users who never chose a name to the profile page.
-        if (!me.display_name_set_by_user) {
+        // First-login gate: a NULL name means they haven't chosen one yet.
+        if (!me.display_name) {
           router.replace("/profile/complete");
           return;
         }

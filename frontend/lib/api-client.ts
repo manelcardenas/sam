@@ -24,9 +24,8 @@ export interface Recipe {
 
 export interface UserProfile {
   id: string;
-  display_name: string;
+  display_name: string | null; // null until the user chooses one
   email: string;
-  display_name_set_by_user: boolean;
   created_at: string;
   updated_at: string;
 }

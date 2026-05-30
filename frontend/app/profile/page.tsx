@@ -26,8 +26,8 @@ export default function ProfilePage() {
         await getCurrentUser();
         const [me, recipes] = await Promise.all([apiClient.getMe(), apiClient.listRecipes()]);
         setEmail(me.email);
-        setDisplayName(me.display_name);
-        setSavedName(me.display_name);
+        setDisplayName(me.display_name ?? "");
+        setSavedName(me.display_name ?? "");
         setMyRecipes(recipes.filter((r) => r.created_by === me.id));
         setLoading(false);
       } catch {
@@ -44,7 +44,7 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       const updated = await apiClient.updateDisplayName(displayName.trim());
-      setSavedName(updated.display_name);
+      setSavedName(updated.display_name ?? "");
       setSaved(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
