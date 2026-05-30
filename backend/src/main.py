@@ -1,16 +1,11 @@
 import logging
-import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-import uvicorn
-from alembic import command
-from alembic.config import Config
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
 from mangum import Mangum
 
-from scripts.seed import run as seed_db
 from src.infra.adapters.repos import PostgresRecipeRepository, PostgresUserRepository
 from src.infra.controllers import RecipeController, UserController
 from src.infra.db import DatabaseConnectionPool, build_dsn
@@ -65,13 +60,31 @@ handler = Mangum(app)
 
 def seed() -> None:
     """Local dev entrypoint (`uv run seed`): (re)seed the local DB. Idempotent."""
-    seed_db()
+    from scripts.seed import run
+
+    run()
 
 
 def serve() -> None:
-    """Local dev entrypoint (`uv run start`): migrate + seed, then serve with reload."""
+    """Local dev entrypoint (`uv run start`): migrate + seed, then serve with reload.
+
+    Production never calls this — Lambda uses the Mangum `handler` above.
+
+    These imports MUST stay local. Importing them at module top runs on every
+    Lambda cold start, and `from alembic import command` actually CRASHES there:
+    the bundled `alembic/` migrations directory shadows the installed alembic
+    library (`ImportError: cannot import name 'command' from 'alembic'`).
+    """
+    import os
+
+    import uvicorn
+    from alembic import command
+    from alembic.config import Config
+
+    from scripts.seed import run
+
     command.upgrade(Config("alembic.ini"), "head")  # apply pending migrations
-    seed_db()  # idempotent — loads the demo recipes + seed user
+    run()  # idempotent — loads the demo recipes + seed user
 
     uvicorn.run(
         "src.main:app",
