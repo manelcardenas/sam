@@ -20,11 +20,10 @@ export default function CompleteProfilePage() {
         await getCurrentUser();
         const me = await apiClient.getMe();
         // Already chosen a name — nothing to do here.
-        if (me.display_name_set_by_user) {
+        if (me.display_name) {
           router.replace("/dashboard");
           return;
         }
-        setDisplayName(me.display_name);
         setChecking(false);
       } catch {
         router.replace("/");
