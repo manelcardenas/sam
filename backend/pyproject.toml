@@ -18,6 +18,11 @@ dependencies = [
     "uvicorn>=0.34.0",
 ]
 
+# Local dev entrypoints (run from backend/): `uv run start`, `uv run seed`.
+[project.scripts]
+start = "src.main:serve"  # migrate + seed + uvicorn (reload) — local only
+seed = "src.main:seed"    # (re)seed the local DB
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.4.0",
