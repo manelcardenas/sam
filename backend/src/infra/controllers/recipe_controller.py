@@ -105,6 +105,8 @@ class RecipeController:
     def create_recipe(self, request: CreateRecipeRequest, current_user: TokenPayload = Depends(get_current_user)) -> Recipe:
         """Create a new recipe. `created_by` is injected from the JWT sub claim."""
         recipe_data = request.model_dump(exclude={"created_by"})
+        # HttpUrl validates the input but the domain entity stores a plain str.
+        recipe_data["source_url"] = str(request.source_url) if request.source_url else None
         recipe = Recipe(**recipe_data, created_by=current_user.sub)
         use_case = CreateRecipe(self.recipe_repository)
         return use_case.execute(recipe)
@@ -132,7 +134,8 @@ class RecipeController:
             instructions=request.instructions,
             ingredients=request.ingredients,
             food_type=request.food_type,
-            source_url=request.source_url,
+            # HttpUrl validates the input but the domain entity stores a plain str.
+            source_url=str(request.source_url) if request.source_url else None,
             prep_time_minutes=request.prep_time_minutes,
             cook_time_minutes=request.cook_time_minutes,
             created_by=existing_recipe.created_by,

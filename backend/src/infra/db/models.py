@@ -3,7 +3,7 @@ from uuid import UUID as PythonUUID  # noqa: N811 — alias avoids collision wit
 
 from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.domain.entities import FoodType
 from src.infra.db.base import Base
@@ -15,7 +15,7 @@ class UserModel(Base):
     __table_args__ = (CheckConstraint("email LIKE '%@%'", name="ck_users_email_format"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, comment="Cognito sub")
-    display_name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, comment="Name decided by the user")
+    display_name: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True, comment="Name decided by the user; NULL until chosen")
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
@@ -43,3 +43,6 @@ class RecipeModel(Base):
     created_by: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    # Author, eager-loaded so list/detail reads expose the display name without N+1.
+    creator: Mapped["UserModel"] = relationship(lazy="joined")

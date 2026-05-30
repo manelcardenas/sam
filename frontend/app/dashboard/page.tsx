@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUser, signOut, fetchUserAttributes } from "aws-amplify/auth";
+import { getCurrentUser, signOut } from "aws-amplify/auth";
 import { configureAmplify } from "@/lib/amplify";
 import { apiClient, type Recipe, type CreateRecipeInput } from "@/lib/api-client";
 import { FOOD_TYPES, type FoodType } from "@/lib/constants";
 import RecipeForm from "@/components/RecipeForm";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
-import { LogOut, ChefHat, Plus, ArrowLeft, Edit, Trash2 } from "lucide-react";
+import SourceLink from "@/components/SourceLink";
+import { LogOut, ChefHat, Plus, ArrowLeft, Edit, Trash2, User } from "lucide-react";
 
 type View = "categories" | "recipes" | "detail" | "add" | "edit";
 
@@ -17,7 +18,7 @@ export default function DashboardPage() {
 
   // Auth / loading
   const [loading, setLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("");
 
   // Data
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -38,13 +39,17 @@ export default function DashboardPage() {
     (async () => {
       try {
         await getCurrentUser();
-        const attrs = await fetchUserAttributes();
-        setUserEmail(attrs.email ?? "User");
+        const me = await apiClient.getMe();
+        // First-login gate: a NULL name means they haven't chosen one yet.
+        if (!me.display_name) {
+          router.replace("/profile/complete");
+          return;
+        }
+        setUserName(me.display_name);
         await loadRecipes();
+        setLoading(false);
       } catch {
         router.push("/");
-      } finally {
-        setLoading(false);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,7 +159,7 @@ export default function DashboardPage() {
               <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
                 SAM Recipe Manager
               </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{userEmail}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{userName}</p>
             </div>
           </div>
 
@@ -169,6 +174,14 @@ export default function DashboardPage() {
                 New
               </button>
             )}
+            <button
+              onClick={() => router.push("/profile")}
+              title="Profile"
+              aria-label="Profile"
+              className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <User className="w-5 h-5" />
+            </button>
             <button
               onClick={handleSignOut}
               className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
@@ -262,7 +275,7 @@ export default function DashboardPage() {
                         {recipe.title}
                       </span>
                       <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-4">
-                        {recipe.ingredients.items.length} ingredients
+                        {recipe.ingredients.items.length} ingredients &middot; by {recipe.created_by_name ?? "Unknown"}
                       </span>
                     </button>
                   </li>
@@ -289,8 +302,13 @@ export default function DashboardPage() {
                     {selectedRecipe.title}
                   </h2>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    Created {new Date(selectedRecipe.created_at).toLocaleDateString()} &middot; Updated {new Date(selectedRecipe.updated_at).toLocaleDateString()}
+                    By {selectedRecipe.created_by_name ?? "Unknown"} &middot; Created {new Date(selectedRecipe.created_at).toLocaleDateString()} &middot; Updated {new Date(selectedRecipe.updated_at).toLocaleDateString()}
                   </p>
+                  {selectedRecipe.source_url && (
+                    <div className="mt-2">
+                      <SourceLink url={selectedRecipe.source_url} />
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
@@ -382,6 +400,7 @@ export default function DashboardPage() {
                   instructions: selectedRecipe.instructions,
                   ingredients: selectedRecipe.ingredients,
                   food_type: selectedRecipe.food_type,
+                  source_url: selectedRecipe.source_url ?? undefined,
                 }}
                 onSubmit={handleUpdate}
                 onCancel={goBack}

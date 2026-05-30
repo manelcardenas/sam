@@ -40,7 +40,7 @@ from src.infra.db import DatabaseConnectionPool, RecipeModel, UserModel, build_d
 SEED_USER_ID = "f16970fe-00a1-70cc-f835-a81fff1fadec"
 SEED_USER = {
     "id": SEED_USER_ID,
-    "display_name": "Nel",
+    "display_name": "Nel",  # a non-NULL name — already "chosen", skips the /profile/complete gate
     "email": "manelcardenas5@gmail.com",
 }
 

@@ -18,6 +18,11 @@ dependencies = [
     "uvicorn>=0.34.0",
 ]
 
+# Local dev entrypoints (run from backend/): `uv run start`, `uv run seed`.
+[project.scripts]
+start = "src.main:serve"  # migrate + seed + uvicorn (reload) — local only
+seed = "src.main:seed"    # (re)seed the local DB
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.4.0",
@@ -31,7 +36,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*"]
+include = ["src*", "scripts*"]
 
 # Ruff - fast linter and formatter
 [tool.ruff]
@@ -43,9 +48,13 @@ lint.select = ["ANN", "ARG", "E", "F", "I", "ICN", "N", "RUF", "PT", "W", "UP"]
 lint.ignore = ["ANN002", "ANN003", "E501", "E203"]
 lint.exclude = [".venv", "__pycache__", ".git"]
 
-# Import sorting
+# Import sorting. Classify our own packages explicitly so ruff never has to
+# guess (its guess differs between environments when a name collides with a
+# local dir): `scripts` is first-party (a packaged module), while `alembic` is
+# the third-party library — not our local `alembic/` migrations directory.
 [tool.ruff.lint.isort]
-known-first-party = ["src"]
+known-first-party = ["src", "scripts"]
+known-third-party = ["alembic"]
 
 # Code formatting
 [tool.ruff.format]

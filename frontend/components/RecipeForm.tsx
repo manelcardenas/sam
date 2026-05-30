@@ -1,9 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Save, X } from "lucide-react";
+import { Save, X, Link2 } from "lucide-react";
 import { FOOD_TYPES, type FoodType } from "@/lib/constants";
 import type { CreateRecipeInput, IngredientsData } from "@/lib/api-client";
+import SourceLink from "@/components/SourceLink";
+
+/** Add https:// if the user typed a bare host, then validate. Returns the
+ * normalized URL, or null if blank/invalid. */
+function normalizeUrl(raw: string): { url: string | null; invalid: boolean } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { url: null, invalid: false };
+  const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return { url: new URL(withProto).toString(), invalid: false };
+  } catch {
+    return { url: null, invalid: true };
+  }
+}
 
 interface RecipeFormProps {
   initialData?: CreateRecipeInput;
@@ -42,16 +56,24 @@ export default function RecipeForm({
   const [ingredientsText, setIngredientsText] = useState(
     initialData ? itemsToText(initialData.ingredients) : "",
   );
+  const [sourceUrl, setSourceUrl] = useState(initialData?.source_url ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const source = normalizeUrl(sourceUrl);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (source.invalid) {
+      setError("The source link doesn't look like a valid URL.");
+      return;
+    }
     setSubmitting(true);
     try {
       const ingredients = textToIngredients(ingredientsText);
-      await onSubmit({ ...formData, ingredients });
+      // Omit the key when empty so the backend stores NULL (clears it on edit).
+      await onSubmit({ ...formData, ingredients, source_url: source.url ?? undefined });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -146,6 +168,45 @@ export default function RecipeForm({
           className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white font-mono text-sm resize-none"
           placeholder={"2 cups flour\n1 cup sugar\n2 eggs"}
         />
+      </div>
+
+      {/* Source — optional. Stored as a clean link, shown as the site's name. */}
+      <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-4">
+        <label
+          htmlFor="source_url"
+          className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+        >
+          <Link2 className="w-4 h-4 text-gray-400" />
+          Source <span className="text-gray-400 font-normal">(optional)</span>
+        </label>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2.5">
+          Where the recipe comes from. We&apos;ll show just the site, not the full link.
+        </p>
+        <input
+          id="source_url"
+          type="text"
+          inputMode="url"
+          value={sourceUrl}
+          onChange={(e) => setSourceUrl(e.target.value)}
+          className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 dark:bg-gray-700 dark:text-white ${
+            source.invalid
+              ? "border-amber-400 focus:ring-amber-400"
+              : "border-gray-300 dark:border-gray-600 focus:ring-indigo-500"
+          }`}
+          placeholder="recetasdecocina.elmundo.es/..."
+        />
+        {source.invalid ? (
+          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+            That doesn&apos;t look like a valid URL.
+          </p>
+        ) : (
+          source.url && (
+            <div className="mt-2.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <span>Preview:</span>
+              <SourceLink url={source.url} />
+            </div>
+          )
+        )}
       </div>
 
       <div className="flex gap-3 pt-2">

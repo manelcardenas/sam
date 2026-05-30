@@ -30,6 +30,7 @@ class PostgresRecipeRepository(RecipeRepository):
             prep_time_minutes=model.prep_time_minutes,
             cook_time_minutes=model.cook_time_minutes,
             created_by=model.created_by,
+            created_by_name=model.creator.display_name if model.creator else None,
             created_at=model.created_at.isoformat(),
             updated_at=model.updated_at.isoformat(),
         )

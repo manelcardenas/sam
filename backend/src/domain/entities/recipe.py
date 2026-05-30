@@ -22,7 +22,6 @@ class Recipe(BaseModel):
     prep_time_minutes: int | None = None
     cook_time_minutes: int | None = None
     created_by: str  # user ID of the creator
+    created_by_name: str | None = None  # creator's display_name, resolved via join
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
-    # created_by: str  # user ID of the creator
-    # prep_time: int  # in minutes

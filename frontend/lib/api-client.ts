@@ -17,8 +17,28 @@ export interface Recipe {
   prep_time_minutes: number | null;
   cook_time_minutes: number | null;
   created_by: string;
+  created_by_name: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface UserProfile {
+  id: string;
+  display_name: string | null; // null until the user chooses one
+  email: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Error carrying the HTTP status, so callers can branch on e.g. 409. */
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
 
 export interface CreateRecipeInput {
@@ -73,7 +93,8 @@ export class RecipeAPIClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
+      throw new ApiError(
+        response.status,
         `API Error (${response.status}): ${errorText || response.statusText}`,
       );
     }
@@ -111,6 +132,17 @@ export class RecipeAPIClient {
   async deleteRecipe(id: string): Promise<void> {
     await this.request<void>(`/recipes/${id}`, {
       method: "DELETE",
+    });
+  }
+
+  async getMe(): Promise<UserProfile> {
+    return this.request<UserProfile>("/users/me");
+  }
+
+  async updateDisplayName(displayName: string): Promise<UserProfile> {
+    return this.request<UserProfile>("/users/me", {
+      method: "PATCH",
+      body: JSON.stringify({ display_name: displayName }),
     });
   }
 
