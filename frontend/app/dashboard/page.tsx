@@ -8,6 +8,7 @@ import { apiClient, type Recipe, type CreateRecipeInput } from "@/lib/api-client
 import { FOOD_TYPES, type FoodType } from "@/lib/constants";
 import RecipeForm from "@/components/RecipeForm";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
+import SourceLink from "@/components/SourceLink";
 import { LogOut, ChefHat, Plus, ArrowLeft, Edit, Trash2, User } from "lucide-react";
 
 type View = "categories" | "recipes" | "detail" | "add" | "edit";
@@ -303,6 +304,11 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     By {selectedRecipe.created_by_name ?? "Unknown"} &middot; Created {new Date(selectedRecipe.created_at).toLocaleDateString()} &middot; Updated {new Date(selectedRecipe.updated_at).toLocaleDateString()}
                   </p>
+                  {selectedRecipe.source_url && (
+                    <div className="mt-2">
+                      <SourceLink url={selectedRecipe.source_url} />
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
@@ -394,6 +400,7 @@ export default function DashboardPage() {
                   instructions: selectedRecipe.instructions,
                   ingredients: selectedRecipe.ingredients,
                   food_type: selectedRecipe.food_type,
+                  source_url: selectedRecipe.source_url ?? undefined,
                 }}
                 onSubmit={handleUpdate}
                 onCancel={goBack}

@@ -7,6 +7,7 @@ import { configureAmplify } from "@/lib/amplify";
 import { apiClient, ApiError, type Recipe } from "@/lib/api-client";
 import { FOOD_TYPES } from "@/lib/constants";
 import { ArrowLeft } from "lucide-react";
+import SourceLink from "@/components/SourceLink";
 
 function Loading() {
   return (
@@ -99,6 +100,11 @@ function RecipeDetail() {
                 {new Date(recipe.created_at).toLocaleDateString()} &middot; Updated{" "}
                 {new Date(recipe.updated_at).toLocaleDateString()}
               </p>
+              {recipe.source_url && (
+                <div className="mt-2">
+                  <SourceLink url={recipe.source_url} />
+                </div>
+              )}
             </div>
 
             {/* Body */}
