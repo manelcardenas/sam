@@ -40,3 +40,9 @@ class UpdateRecipeRequest(BaseModel):
     source_url: HttpUrl | None = None
     prep_time_minutes: int | None = None
     cook_time_minutes: int | None = None
+
+
+class UpdateMeRequest(BaseModel):
+    """Request body for PATCH /users/me — the user-chosen display name."""
+
+    display_name: str = Field(min_length=1, max_length=50)
