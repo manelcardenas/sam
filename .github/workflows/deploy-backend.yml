@@ -1,0 +1,93 @@
+name: Deploy Backend (Lambda API)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "infra/lib/application/lambda-api-stack.ts"
+      - "infra/lib/foundation/cognito-stack.ts" # Cognito IDs feed the Lambda env
+      - "infra/lib/foundation/ci-role-stack.ts"
+      - "infra/lib/utils/constants.ts"
+      - "infra/bin/infra.ts"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch: # manual trigger
+
+permissions:
+  id-token: write # OIDC
+  contents: read
+
+# One backend deploy at a time; let an in-flight deploy finish before the next.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Migrate + Deploy Lambda
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.7.12"
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-3
+          role-session-name: GitHubActions-DeployBackend
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync
+
+      # Migrations run FIRST (expand-contract: additive schema before new code)
+      # and MUST use Neon's DIRECT endpoint — PgBouncer transaction pooling
+      # breaks Alembic's DDL / advisory locks. We strip "-pooler" from the host
+      # of the runtime DSN to derive the direct endpoint.
+      - name: Run database migrations (Neon)
+        working-directory: backend
+        run: |
+          POOLED_DSN=$(aws ssm get-parameter \
+            --name /recipe-manager/db/dsn \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text \
+            --region eu-west-3)
+          DIRECT_DSN="${POOLED_DSN/-pooler/}"
+          echo "Running alembic upgrade head against the direct Neon endpoint…"
+          POSTGRES_DSN="$DIRECT_DSN" uv run alembic upgrade head
+
+      - name: Install CDK dependencies
+        working-directory: infra
+        run: npm ci
+
+      - name: Deploy Lambda API Stack
+        working-directory: infra
+        run: |
+          npx cdk deploy RecipeManagerLambdaApiStack \
+            --require-approval never \
+            --outputs-file outputs.json
+
+      - name: Display deployment info
+        working-directory: infra
+        run: |
+          echo "✅ Backend deployed"
+          echo "📡 API Endpoint: $(jq -r '.RecipeManagerLambdaApiStack.ApiEndpoint' outputs.json)"
