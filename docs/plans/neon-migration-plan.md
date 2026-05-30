@@ -118,7 +118,7 @@ Each phase is independently verifiable. Stop and validate before moving on.
 3. Set the Postgres version to **16** (matches your local + Aurora).
 4. Grab the **pooled** connection string (the one with `-pooler` in the hostname — important for Lambda; explained in §6). It looks like:
    ```
-   postgresql://user:pwd@ep-cool-name-12345-pooler.eu-central-1.aws.neon.tech/recipe_manager?sslmode=require
+   postgresql://user:pwd@ep-cool-name-12345-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require
    ```
 5. Save it somewhere temporary (you'll move it to SSM in Phase 5). Do **not** commit it.
 
@@ -133,7 +133,7 @@ cd backend
 
 POSTGRES_HOST="ep-...-pooler.eu-central-1.aws.neon.tech" \
 POSTGRES_PORT=5432 \
-POSTGRES_DB=recipe_manager \
+POSTGRES_DB=neondb \
 POSTGRES_USER=<from Neon string> \
 POSTGRES_PASSWORD=<from Neon string> \
 POSTGRES_SSLMODE=require \
@@ -143,7 +143,7 @@ uv run alembic upgrade head
 You'll need to extend `engine.py` to set `sslmode=require` (Phase 6) before the alembic command works against Neon. **Or** as a one-off, build the DSN by hand for the migration:
 
 ```bash
-DATABASE_URL="postgresql+psycopg2://USER:PWD@HOST/recipe_manager?sslmode=require" \
+DATABASE_URL="postgresql+psycopg2://USER:PWD@HOST/neondb?sslmode=require" \
 uv run alembic -x url="$DATABASE_URL" upgrade head
 ```
 
@@ -191,7 +191,7 @@ Before touching the Lambda, point your local backend at Neon and validate the fu
 # In backend/.env (do NOT commit)
 POSTGRES_HOST=ep-...-pooler.eu-central-1.aws.neon.tech
 POSTGRES_PORT=5432
-POSTGRES_DB=recipe_manager
+POSTGRES_DB=neondb
 POSTGRES_USER=<from Neon>
 POSTGRES_PASSWORD=<from Neon>
 POSTGRES_SSLMODE=require   # new env var — see Phase 6
@@ -214,9 +214,28 @@ Best practice: secrets don't live in CDK code. Use SSM (free for SecureString pa
 aws ssm put-parameter \
   --name /recipe-manager/db/dsn \
   --type SecureString \
-  --value "postgresql+psycopg2://USER:PWD@HOST/recipe_manager?sslmode=require" \
+  --value 'postgresql+psycopg2://USER:PWD@ep-...-pooler.<region>.aws.neon.tech/neondb?sslmode=require' \
   --region eu-west-3
 ```
+
+Important details for *this* setup:
+
+- **DB name is `neondb`**, not `recipe_manager`. We migrated into Neon's default database; nobody created a `recipe_manager` DB. The DSN must end in `/neondb` or the Lambda gets `database "recipe_manager" does not exist`.
+- **Use the pooled (`-pooler`) host.** This DSN runs in Lambda, and §6 requires the pooled endpoint there. (The *direct* host was correct for the one-off Alembic migration in Phase 2 — runtime is the opposite.)
+- **Region is `eu-west-3`** — the param lives where the *Lambda* lives, not where Neon lives (eu-central-1).
+- **Scheme `postgresql+psycopg2://`** is for SQLAlchemy. It is **not** a valid `psql` string — only the app consumes this value.
+- **Drop `channel_binding`** if present on the copied Neon string; `sslmode=require` is sufficient and avoids psycopg2 handshake friction.
+- **Single-quote** the `--value` so the shell doesn't interpret `?`, `&`, or `/`.
+- To replace an existing parameter (e.g. after rotating the password), re-run with `--overwrite`.
+
+Verify:
+
+```bash
+aws ssm get-parameter --name /recipe-manager/db/dsn --with-decryption \
+  --region eu-west-3 --query 'Parameter.Value' --output text
+```
+
+> **Note:** this stores the DSN, but `engine.py` still reads the 5-field `POSTGRES_*` vars until **Phase 6.1** refactors `build_dsn()` to read `POSTGRES_DSN`. Nothing consumes this parameter until Phase 6 lands — that's expected.
 
 (Or use AWS Secrets Manager — $0.40/mo per secret, so SSM SecureString is cheaper for personal-scale.)
 
@@ -252,7 +271,7 @@ def build_dsn() -> str:
 
 ```env
 # Neon (recommended) — single DSN
-POSTGRES_DSN=postgresql+psycopg2://user:pwd@ep-...-pooler.eu-central-1.aws.neon.tech/recipe_manager?sslmode=require
+POSTGRES_DSN=postgresql+psycopg2://user:pwd@ep-...-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require
 
 # Legacy 5-field (still supported, for local Docker Postgres)
 POSTGRES_HOST=localhost
