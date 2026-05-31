@@ -2,26 +2,67 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ───────────────────────────────────────────────────────────
+   "Fetch!" theme tokens — warm border-collie duotone.
+   Values are space-separated RGB triplets so Tailwind's
+   rgb(var(--x) / <alpha-value>) can apply opacity.
+   ─────────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: 251 247 239;        /* #FBF7EF cream      */
+  --surface: 255 255 255;   /* #FFFFFF            */
+  --surface-2: 246 240 229; /* #F6F0E5 warm sand  */
+  --fg: 26 26 26;           /* #1A1A1A ink        */
+  --muted: 99 94 84;        /* #635E54            */
+  --line: 233 224 209;      /* #E9E0D1            */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --bg: 28 25 20;           /* #1C1914 night (lifted) */
+  --surface: 42 38 30;      /* #2A261E            */
+  --surface-2: 56 50 40;    /* #383228            */
+  --fg: 247 242 232;        /* #F7F2E8            */
+  --muted: 201 193 177;     /* #C9C1B1 brighter   */
+  --line: 74 67 54;         /* #4A4336 visible    */
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: rgb(var(--bg));
+  color: rgb(var(--fg));
+  font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Faint dotted "field" texture for page backgrounds — atmosphere, not noise. */
+  .bg-paws {
+    background-image: radial-gradient(rgb(var(--fg) / 0.04) 1.5px, transparent 1.5px);
+    background-size: 22px 22px;
+  }
+
+  /* Used on entrances to start hidden before the staggered animation fires. */
+  .will-fetch {
+    opacity: 0;
+  }
+}
+
+/* Accessibility: honour users who ask for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .will-fetch {
+    opacity: 1;
   }
 }
