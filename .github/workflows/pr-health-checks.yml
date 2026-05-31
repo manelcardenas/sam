@@ -44,6 +44,39 @@ jobs:
         working-directory: backend
         run: uv run pytest tests/ -v
 
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint (next lint)
+        working-directory: frontend
+        run: npm run lint
+
+      # `next build` runs the TypeScript type-checker and fails on any error,
+      # so this is also the type-check gate. The static export prerenders pages
+      # that import the API client, whose constructor throws if NEXT_PUBLIC_API_URL
+      # is unset — so we pass a placeholder. It is inlined into this throwaway CI
+      # artifact only; the real Amplify deploy build injects the real value.
+      - name: Build (next build)
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://ci.placeholder.invalid
+        run: npm run build
+
   infra:
     runs-on: ubuntu-latest
     timeout-minutes: 15

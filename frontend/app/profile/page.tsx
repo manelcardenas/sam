@@ -6,7 +6,12 @@ import { getCurrentUser } from "aws-amplify/auth";
 import { configureAmplify } from "@/lib/amplify";
 import { apiClient, ApiError, type Recipe } from "@/lib/api-client";
 import { FOOD_TYPES } from "@/lib/constants";
-import { ArrowLeft, User } from "lucide-react";
+import { AppShell } from "@/components/shell/AppShell";
+import { Loader } from "@/components/ui/Loader";
+import { Check } from "lucide-react";
+
+const fieldClass =
+  "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -60,70 +65,47 @@ export default function ProfilePage() {
   const trimmed = displayName.trim();
   const dirty = trimmed.length > 0 && trimmed !== savedName;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto" />
-          <p className="mt-4 text-gray-500 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <Loader />;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="p-1.5 -ml-1 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            aria-label="Back to recipes"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-2">
-            <User className="w-6 h-6 text-indigo-600 shrink-0" />
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Profile</h1>
-          </div>
-        </div>
+    <AppShell userName={savedName || displayName}>
+      <header className="mb-6">
+        <h1 className="font-display text-3xl font-bold text-fg sm:text-4xl">Your profile</h1>
+        <p className="mt-1 text-muted">Your name, and everything you&apos;ve cooked up.</p>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-        {/* Display-name editor */}
-        <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Account</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+      <div className="space-y-8">
+        {/* Account editor */}
+        <section className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
+          <h2 className="font-display text-lg font-semibold text-fg">Account</h2>
+          <p className="mb-5 mt-0.5 text-sm text-muted">
             Your display name is shown as the author of your recipes.
           </p>
 
           {error && (
-            <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+            <div className="mb-4 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
               {error}
             </div>
           )}
           {saved && !error && (
-            <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg text-sm">
+            <div className="mb-4 flex items-center gap-2 rounded-2xl border border-amber/40 bg-amber/10 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber">
+              <Check className="h-4 w-4" />
               Saved.
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+              <label className="mb-1.5 block text-sm font-semibold text-fg">Email</label>
               <input
                 type="email"
                 value={email}
                 disabled
-                className="block w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                className="w-full cursor-not-allowed rounded-2xl border border-line bg-surface-2 px-4 py-3 text-muted"
               />
             </div>
             <div>
-              <label
-                htmlFor="displayName"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
+              <label htmlFor="displayName" className="mb-1.5 block text-sm font-semibold text-fg">
                 Display name
               </label>
               <input
@@ -137,47 +119,57 @@ export default function ProfilePage() {
                   setDisplayName(e.target.value);
                   setSaved(false);
                 }}
-                className="appearance-none block w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700"
+                className={fieldClass}
                 placeholder="e.g. Manel"
               />
             </div>
             <button
               type="submit"
               disabled={saving || !dirty}
-              className="px-4 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="cursor-pointer rounded-full bg-tomato py-3 px-5 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
-              {saving ? "Saving..." : "Save changes"}
+              {saving ? "Saving…" : "Save changes"}
             </button>
           </form>
         </section>
 
         {/* My recipes */}
         <section>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Your recipes <span className="text-gray-400 dark:text-gray-500 font-normal">({myRecipes.length})</span>
+          <h2 className="mb-4 font-display text-lg font-semibold text-fg">
+            Your recipes{" "}
+            <span className="font-normal text-muted">({myRecipes.length})</span>
           </h2>
 
           {myRecipes.length === 0 ? (
-            <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
-              <p className="text-gray-500 dark:text-gray-400">You haven&apos;t created any recipes yet.</p>
+            <div className="rounded-3xl border border-dashed border-line bg-surface py-12 text-center text-muted">
+              You haven&apos;t created any recipes yet.
             </div>
           ) : (
-            <ul className="space-y-2">
-              {myRecipes.map((recipe) => {
+            <ul className="space-y-3">
+              {myRecipes.map((recipe, i) => {
                 const meta = FOOD_TYPES.find((f) => f.value === recipe.food_type);
                 return (
-                  <li key={recipe.id}>
+                  <li
+                    key={recipe.id}
+                    className="will-fetch animate-fetch-in"
+                    style={{ animationDelay: `${i * 50}ms` }}
+                  >
                     <button
                       onClick={() => router.push(`/recipes?id=${recipe.id}`)}
-                      className="w-full flex items-center justify-between px-5 py-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-700 hover:shadow-sm transition-all text-left group"
+                      className="group flex w-full cursor-pointer items-center justify-between gap-4 rounded-2xl border border-line bg-surface px-5 py-4 text-left transition-all hover:-translate-y-0.5 hover:border-tomato/40 hover:shadow-paw focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                     >
-                      <span className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-lg shrink-0">{meta?.emoji}</span>
-                        <span className="font-medium text-gray-900 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-300 truncate transition-colors">
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-lg"
+                          style={{ backgroundColor: `${meta?.accent ?? "#E4572E"}22` }}
+                        >
+                          {meta?.emoji}
+                        </span>
+                        <span className="truncate font-display font-semibold text-fg transition-colors group-hover:text-tomato">
                           {recipe.title}
                         </span>
                       </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-4">
+                      <span className="ml-4 shrink-0 text-xs text-muted">
                         {recipe.ingredients.items.length} ingredients
                       </span>
                     </button>
@@ -187,7 +179,7 @@ export default function ProfilePage() {
             </ul>
           )}
         </section>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

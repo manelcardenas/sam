@@ -19,48 +19,45 @@ export default function DeleteConfirmModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm"
       onClick={onCancel}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6"
+        className="w-full max-w-sm rounded-4xl border border-line bg-surface p-6 shadow-paw will-fetch animate-fetch-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between mb-4">
+        <div className="mb-4 flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
-              <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+            <div className="grid h-11 w-11 place-items-center rounded-full bg-tomato/15">
+              <Trash2 className="h-5 w-5 text-tomato" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Delete Recipe
-            </h3>
+            <h2 className="font-display text-lg font-bold text-fg">Delete recipe</h2>
           </div>
           <button
             onClick={onCancel}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+            aria-label="Close"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
+        <p className="mb-6 text-muted">
           Are you sure you want to delete{" "}
-          <span className="font-semibold text-gray-900 dark:text-white">
-            &ldquo;{recipeName}&rdquo;
-          </span>
-          ? This action cannot be undone.
+          <span className="font-semibold text-fg">&ldquo;{recipeName}&rdquo;</span>?
+          SAM can&apos;t fetch this one back.
         </p>
 
         <div className="flex gap-3">
           <button
             onClick={handleConfirm}
-            className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+            className="flex-1 cursor-pointer rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
             Delete
           </button>
           <button
             onClick={onCancel}
-            className="flex-1 py-2.5 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="flex-1 cursor-pointer rounded-full border border-line py-3 px-4 font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
             Cancel
           </button>

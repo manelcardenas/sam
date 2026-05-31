@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { signIn, signInWithRedirect, getCurrentUser } from "aws-amplify/auth";
 import { configureAmplify } from "@/lib/amplify";
 import { FcGoogle } from "react-icons/fc";
+import { SamMascot } from "@/components/brand/SamMascot";
+import { Loader } from "@/components/ui/Loader";
+
+const fieldClass =
+  "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,11 +37,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signIn({
-        username: email,
-        password: password,
-      });
-
+      await signIn({ username: email, password: password });
       router.push("/dashboard");
     } catch (err) {
       console.error("Login error:", err);
@@ -58,49 +59,38 @@ export default function LoginPage() {
       await signInWithRedirect({ provider: "Google" });
     } catch (err) {
       console.error("Google login error:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to sign in with Google",
-      );
+      setError(err instanceof Error ? err.message : "Failed to sign in with Google");
       setLoading(false);
     }
   };
 
-  if (checking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (checking) return <Loader label="Sniffing around…" />;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            SAM Recipe Manager
+    <div className="flex min-h-screen items-center justify-center bg-bg bg-paws p-4">
+      <div className="w-full max-w-md">
+        {/* Hero */}
+        <div className="mb-8 text-center">
+          <SamMascot className="mx-auto h-56 w-56 sm:h-64 sm:w-64" />
+          <h1 className="mt-4 font-display text-5xl font-bold tracking-tight text-fg">
+            SAM
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Sign in to manage your recipes
+          <p className="mx-auto mt-2 max-w-xs text-balance text-muted">
+            Cook at home or dine out — your border collie fetches both.
           </p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        )}
+        {/* Card */}
+        <div className="rounded-4xl border border-line bg-surface p-7 shadow-paw sm:p-8">
+          {error && (
+            <div className="mb-5 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+              {error}
+            </div>
+          )}
 
-        <form onSubmit={handleEmailPasswordLogin} className="mt-8 space-y-6">
-          <div className="space-y-4">
+          <form onSubmit={handleEmailPasswordLogin} className="space-y-4">
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
+              <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-fg">
                 Email
               </label>
               <input
@@ -111,16 +101,13 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700"
+                className={fieldClass}
                 placeholder="your@email.com"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
+              <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-fg">
                 Password
               </label>
               <input
@@ -131,29 +118,27 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700"
+                className={fieldClass}
                 placeholder="••••••••"
               />
             </div>
-          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? "Signing in..." : "Sign in with Email"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full cursor-pointer items-center justify-center rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            >
+              {loading ? "Fetching you in…" : "Sign in"}
+            </button>
+          </form>
 
-        <div className="mt-6">
-          <div className="relative">
+          <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+              <div className="w-full border-t border-line" />
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                Or continue with
+            <div className="relative flex justify-center">
+              <span className="bg-surface px-3 text-xs font-medium text-muted">
+                or continue with
               </span>
             </div>
           </div>
@@ -162,19 +147,17 @@ export default function LoginPage() {
             type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="mt-6 w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-line bg-surface py-3 px-4 font-semibold text-fg transition-colors hover:border-tomato/40 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
-            <FcGoogle className="w-5 h-5" /> {}
+            <FcGoogle className="h-5 w-5" />
             Sign in with Google
           </button>
-        </div>
 
-        <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-          Don&apos;t have an account?{" "}
-          <span className="font-medium text-indigo-600 dark:text-indigo-400">
-            Contact your SAM
-          </span>
-        </p>
+          <p className="mt-6 text-center text-sm text-muted">
+            New around here?{" "}
+            <span className="font-semibold text-tomato">Ask your admin for an invite</span>
+          </p>
+        </div>
       </div>
     </div>
   );
