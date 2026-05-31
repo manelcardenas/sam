@@ -26,7 +26,7 @@ export default function SourceLink({ url }: { url: string }) {
       target="_blank"
       rel="noopener noreferrer"
       title={url}
-      className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors hover:border-indigo-300 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-300"
+      className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-tomato/40 hover:text-tomato"
     >
       {faviconOk ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -39,10 +39,10 @@ export default function SourceLink({ url }: { url: string }) {
           onError={() => setFaviconOk(false)}
         />
       ) : (
-        <Globe className="w-3.5 h-3.5 shrink-0" />
+        <Globe className="h-3.5 w-3.5 shrink-0" />
       )}
       <span className="truncate">{host}</span>
-      <ExternalLink className="w-3 h-3 shrink-0 opacity-60 transition-opacity group-hover:opacity-100" />
+      <ExternalLink className="h-3 w-3 shrink-0 opacity-60 transition-opacity group-hover:opacity-100" />
     </a>
   );
 }
