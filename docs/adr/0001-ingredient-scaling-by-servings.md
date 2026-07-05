@@ -1,0 +1,5 @@
+# Store ingredients as entered; scale by servings on the client, never persisted
+
+Ingredients need to support "adjust this recipe for a different number of people." We considered normalizing every ingredient amount down to a quantity for exactly 1 serving at save time, but rejected it: it forces awkward mental math on recipe authors (fractions of an egg, a "pinch" of salt divided by four), and compounds rounding error on every future rescale.
+
+Instead, each recipe stores ingredients exactly as the author entered them (`name`, optional `amount`, optional `unit`) alongside a required `servings` count — the headcount those amounts were sized for. Adjusting to a different headcount is a live, client-side-only recalculation (`amount / servings * desiredServings`, flat-rounded, no unit-aware whole-number logic) done on the recipe view page. It is never written back to the database — there is no "save this as a 20-person version." Recipes created before this feature (missing `servings`) simply don't show the scaling control until edited, since `servings` is required on every create/edit going forward.

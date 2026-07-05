@@ -9,6 +9,7 @@ import { FOOD_TYPES, type FoodType } from "@/lib/constants";
 import RecipeForm from "@/components/RecipeForm";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import SourceLink from "@/components/SourceLink";
+import IngredientsPanel from "@/components/IngredientsPanel";
 import { AppShell } from "@/components/shell/AppShell";
 import { Loader } from "@/components/ui/Loader";
 import { ArrowLeft, Plus, Edit, Trash2 } from "lucide-react";
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   // Auth / loading
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
 
   // Data
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -48,6 +50,7 @@ export default function DashboardPage() {
           return;
         }
         setUserName(me.display_name);
+        setCurrentUserId(me.id);
         await loadRecipes();
         setLoading(false);
       } catch {
@@ -84,7 +87,12 @@ export default function DashboardPage() {
 
   const handleDelete = async () => {
     if (!recipeToDelete) return;
-    await apiClient.deleteRecipe(recipeToDelete.id);
+    try {
+      await apiClient.deleteRecipe(recipeToDelete.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete recipe");
+      return;
+    }
     setRecipeToDelete(null);
     await loadRecipes();
     // Return to category list, since the recipe is gone
@@ -300,24 +308,26 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  onClick={() => setView("edit")}
-                  title="Edit"
-                  aria-label="Edit recipe"
-                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setRecipeToDelete(selectedRecipe)}
-                  title="Delete"
-                  aria-label="Delete recipe"
-                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+              {selectedRecipe.created_by === currentUserId && (
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    onClick={() => setView("edit")}
+                    title="Edit"
+                    aria-label="Edit recipe"
+                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setRecipeToDelete(selectedRecipe)}
+                    title="Delete"
+                    aria-label="Delete recipe"
+                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-6 px-6 py-6">
@@ -330,28 +340,7 @@ export default function DashboardPage() {
                 </p>
               </section>
 
-              <section>
-                <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">
-                  Ingredients ({selectedRecipe.ingredients.items.length})
-                  {selectedRecipe.ingredients.servings && (
-                    <span className="ml-2 font-normal normal-case tracking-normal">
-                      · {selectedRecipe.ingredients.servings} servings
-                    </span>
-                  )}
-                </h2>
-                <ul className="space-y-2">
-                  {selectedRecipe.ingredients.items.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2.5 text-fg/90">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-tomato" />
-                      {item.amount != null && item.unit
-                        ? `${item.amount} ${item.unit} ${item.name}`
-                        : item.amount != null
-                          ? `${item.amount} ${item.name}`
-                          : item.name}
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <IngredientsPanel key={selectedRecipe.id} ingredients={selectedRecipe.ingredients} />
             </div>
           </article>
         );

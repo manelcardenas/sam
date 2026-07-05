@@ -12,11 +12,24 @@ class FoodType(str, enum.Enum):
     APERITIVO = "aperitivo"
 
 
+class Ingredient(BaseModel):
+    name: str
+    amount: float | None = None
+    unit: str | None = None
+
+
+class Ingredients(BaseModel):
+    """`servings` is the headcount the ingredient amounts are sized for."""
+
+    servings: int | None = None
+    items: list[Ingredient] = Field(default_factory=list)
+
+
 class Recipe(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
     instructions: str
-    ingredients: dict
+    ingredients: Ingredients
     food_type: FoodType
     source_url: str | None = None
     prep_time_minutes: int | None = None

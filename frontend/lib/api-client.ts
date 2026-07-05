@@ -7,6 +7,11 @@ export interface IngredientsData {
   items: { name: string; amount?: number; unit?: string }[];
 }
 
+export interface IngredientsInput {
+  servings: number;
+  items: { name: string; amount?: number; unit?: string }[];
+}
+
 export interface Recipe {
   id: string;
   title: string;
@@ -44,7 +49,7 @@ export class ApiError extends Error {
 export interface CreateRecipeInput {
   title: string;
   instructions: string;
-  ingredients: IngredientsData;
+  ingredients: IngredientsInput;
   food_type: "bebida" | "postre" | "comida" | "aperitivo";
   source_url?: string;
   prep_time_minutes?: number | null;
