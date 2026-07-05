@@ -1,7 +1,7 @@
 import pytest
 
 from src.app.use_cases import CreateRecipe, DeleteRecipe, GetRecipe, ListRecipes, UpdateRecipe
-from src.domain.entities import Recipe
+from src.domain.entities import Ingredients, Recipe
 from src.infra.adapters.repos.in_memory_recipe_repo import InMemoryRecipeRepository
 
 SAMPLE_INGREDIENTS = {
@@ -37,7 +37,7 @@ class TestCreateRecipe:
         assert result.id == sample_recipe.id
         assert result.title == "Test Recipe"
         assert result.instructions == "Mix everything together."
-        assert result.ingredients == SAMPLE_INGREDIENTS
+        assert result.ingredients == Ingredients(**SAMPLE_INGREDIENTS)
         assert result.food_type == sample_recipe.food_type
         assert result.created_by == "user-123"
 
@@ -127,7 +127,7 @@ class TestUpdateRecipe:
         assert result.id == sample_recipe.id
         assert result.title == "Updated Title"
         assert result.instructions == "Updated instructions."
-        assert result.ingredients == updated_ingredients
+        assert result.ingredients == Ingredients(**updated_ingredients)
 
     def test_raises_error_when_recipe_not_found(self, repository: InMemoryRecipeRepository) -> None:
         use_case = UpdateRecipe(repository)

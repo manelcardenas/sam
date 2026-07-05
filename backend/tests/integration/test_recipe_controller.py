@@ -7,7 +7,8 @@ These cover the schema -> domain-entity conversion that the unit tests skip
 validation error. Regression test for that 500 on create/update with a source.
 """
 
-from fastapi import APIRouter
+import pytest
+from fastapi import APIRouter, HTTPException
 
 from src.infra.adapters.repos.in_memory_recipe_repo import InMemoryRecipeRepository
 from src.infra.controllers.recipe_controller import RecipeController
@@ -16,6 +17,7 @@ from src.infra.security.schemas import TokenPayload
 
 SOURCE = "https://recetasdecocina.elmundo.es/2020/01/tortitas.html"
 USER = TokenPayload(sub="user-123", email="cook@example.com", exp=9999999999)
+OTHER_USER = TokenPayload(sub="user-456", email="other@example.com", exp=9999999999)
 INGREDIENTS = {"servings": 2, "items": [{"name": "flour"}]}
 
 
@@ -63,7 +65,7 @@ def test_update_recipe_with_source_url_returns_str() -> None:
         food_type="postre",
         source_url=SOURCE,
     )
-    result = controller.update_recipe(created.id, update, _current_user=USER)
+    result = controller.update_recipe(created.id, update, current_user=USER)
 
     assert isinstance(result.source_url, str)
     assert result.source_url == SOURCE
@@ -77,6 +79,47 @@ def test_update_recipe_clearing_source_url_sets_none() -> None:
     )
 
     update = UpdateRecipeRequest(title="Pancakes", instructions="Mix.", ingredients=INGREDIENTS, food_type="postre")
-    result = controller.update_recipe(created.id, update, _current_user=USER)
+    result = controller.update_recipe(created.id, update, current_user=USER)
 
     assert result.source_url is None
+
+
+def test_update_recipe_by_non_creator_raises_403() -> None:
+    controller = _controller()
+    created = controller.create_recipe(
+        CreateRecipeRequest(title="Pancakes", instructions="Mix.", ingredients=INGREDIENTS, food_type="postre"),
+        current_user=USER,
+    )
+    update = UpdateRecipeRequest(title="Hacked", instructions="Mix.", ingredients=INGREDIENTS, food_type="postre")
+
+    with pytest.raises(HTTPException) as exc_info:
+        controller.update_recipe(created.id, update, current_user=OTHER_USER)
+
+    assert exc_info.value.status_code == 403
+
+
+def test_delete_recipe_by_creator_succeeds() -> None:
+    controller = _controller()
+    created = controller.create_recipe(
+        CreateRecipeRequest(title="Pancakes", instructions="Mix.", ingredients=INGREDIENTS, food_type="postre"),
+        current_user=USER,
+    )
+
+    controller.delete_recipe(created.id, current_user=USER)
+
+    assert controller.recipe_repository.get_recipe(created.id) is None
+
+
+def test_delete_recipe_by_non_creator_raises_403() -> None:
+    controller = _controller()
+    created = controller.create_recipe(
+        CreateRecipeRequest(title="Pancakes", instructions="Mix.", ingredients=INGREDIENTS, food_type="postre"),
+        current_user=USER,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        controller.delete_recipe(created.id, current_user=OTHER_USER)
+
+    assert exc_info.value.status_code == 403
+    # Not deleted — the recipe should still exist.
+    assert controller.recipe_repository.get_recipe(created.id) is not None
