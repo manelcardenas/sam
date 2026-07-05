@@ -40,7 +40,7 @@ class PostgresRecipeRepository(RecipeRepository):
             model = RecipeModel(
                 title=recipe.title,
                 instructions=recipe.instructions,
-                ingredients=recipe.ingredients,
+                ingredients=recipe.ingredients.model_dump(),
                 food_type=recipe.food_type,
                 source_url=recipe.source_url,
                 prep_time_minutes=recipe.prep_time_minutes,
@@ -71,7 +71,7 @@ class PostgresRecipeRepository(RecipeRepository):
                 raise KeyError(f"Recipe with id {recipe.id} not found")
             model.title = recipe.title
             model.instructions = recipe.instructions
-            model.ingredients = recipe.ingredients
+            model.ingredients = recipe.ingredients.model_dump()
             model.food_type = recipe.food_type
             model.source_url = recipe.source_url
             model.prep_time_minutes = recipe.prep_time_minutes

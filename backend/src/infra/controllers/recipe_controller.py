@@ -119,20 +119,22 @@ class RecipeController:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Recipe with id {recipe_id} not found")
         return recipe
 
-    def update_recipe(self, recipe_id: str, request: UpdateRecipeRequest, _current_user: TokenPayload = Depends(get_current_user)) -> Recipe:
-        """Update an existing recipe."""
+    def update_recipe(self, recipe_id: str, request: UpdateRecipeRequest, current_user: TokenPayload = Depends(get_current_user)) -> Recipe:
+        """Update an existing recipe. Only the recipe's creator may update it."""
         # First check if recipe exists
         get_use_case = GetRecipe(self.recipe_repository)
         existing_recipe = get_use_case.execute(recipe_id)
         if existing_recipe is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Recipe with id {recipe_id} not found")
+        if existing_recipe.created_by != current_user.sub:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the recipe's creator can update it")
 
         # Update the recipe fields
         updated_recipe = Recipe(
             id=recipe_id,
             title=request.title,
             instructions=request.instructions,
-            ingredients=request.ingredients,
+            ingredients=request.ingredients.model_dump(),
             food_type=request.food_type,
             # HttpUrl validates the input but the domain entity stores a plain str.
             source_url=str(request.source_url) if request.source_url else None,
@@ -145,7 +147,15 @@ class RecipeController:
         update_use_case = UpdateRecipe(self.recipe_repository)
         return update_use_case.execute(updated_recipe)
 
-    def delete_recipe(self, recipe_id: str, _current_user: TokenPayload = Depends(get_current_user)) -> None:
+    def delete_recipe(self, recipe_id: str, current_user: TokenPayload = Depends(get_current_user)) -> None:
+        """Delete a recipe. Only the recipe's creator may delete it."""
+        get_use_case = GetRecipe(self.recipe_repository)
+        existing_recipe = get_use_case.execute(recipe_id)
+        if existing_recipe is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Recipe with id {recipe_id} not found")
+        if existing_recipe.created_by != current_user.sub:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the recipe's creator can delete it")
+
         use_case = DeleteRecipe(self.recipe_repository)
         try:
             use_case.execute(recipe_id)
