@@ -8,6 +8,7 @@ import { apiClient, ApiError, type Recipe } from "@/lib/api-client";
 import { FOOD_TYPES } from "@/lib/constants";
 import { ArrowLeft } from "lucide-react";
 import SourceLink from "@/components/SourceLink";
+import IngredientsPanel from "@/components/IngredientsPanel";
 import { AppShell } from "@/components/shell/AppShell";
 import { Loader } from "@/components/ui/Loader";
 
@@ -105,28 +106,7 @@ function RecipeDetail() {
               </p>
             </section>
 
-            <section>
-              <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">
-                Ingredients ({recipe.ingredients.items.length})
-                {recipe.ingredients.servings && (
-                  <span className="ml-2 font-normal normal-case tracking-normal">
-                    · {recipe.ingredients.servings} servings
-                  </span>
-                )}
-              </h2>
-              <ul className="space-y-2">
-                {recipe.ingredients.items.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-2.5 text-fg/90">
-                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-tomato" />
-                    {item.amount != null && item.unit
-                      ? `${item.amount} ${item.unit} ${item.name}`
-                      : item.amount != null
-                        ? `${item.amount} ${item.name}`
-                        : item.name}
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <IngredientsPanel key={recipe.id} ingredients={recipe.ingredients} />
           </div>
         </article>
       )}
