@@ -35,6 +35,14 @@ function PriceLevel({ level }: { level: number }) {
   );
 }
 
+/** Render a date-only "YYYY-MM-DD" string in the viewer's locale without the
+ * UTC-midnight shift of new Date(string) — which shows the previous day in
+ * timezones west of UTC. */
+function formatVisitedDate(isoDate: string) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+}
+
 function ScoreRow({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
@@ -54,6 +62,7 @@ export default function DinePage() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const [view, setView] = useState<View>("list");
   const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantDetail | null>(null);
@@ -97,6 +106,7 @@ export default function DinePage() {
   const openRestaurant = async (restaurant: Restaurant) => {
     try {
       setError("");
+      setNotice("");
       const [detail, restaurantReviews] = await Promise.all([
         apiClient.getRestaurant(restaurant.id),
         apiClient.listReviews(restaurant.id),
@@ -110,9 +120,12 @@ export default function DinePage() {
   };
 
   const handleCreateRestaurant = async (data: CreateRestaurantInput) => {
-    const created = await apiClient.createRestaurant(data);
+    const { restaurant, alreadyExisted } = await apiClient.createRestaurant(data);
     await loadRestaurants();
-    await openRestaurant(created);
+    await openRestaurant(restaurant);
+    if (alreadyExisted) {
+      setNotice(`${restaurant.name} was already on SAM — here's the existing entry.`);
+    }
   };
 
   const handleSelectExisting = async (restaurant: Restaurant) => {
@@ -198,6 +211,12 @@ export default function DinePage() {
       {error && (
         <div className="mb-6 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="mb-6 rounded-2xl border border-amber/40 bg-amber/10 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber">
+          {notice}
         </div>
       )}
 
@@ -324,7 +343,7 @@ export default function DinePage() {
                           </span>
                         </p>
                         <p className="mt-0.5 text-xs text-muted">
-                          Visited {new Date(review.visited_at).toLocaleDateString()}
+                          Visited {formatVisitedDate(review.visited_at)}
                         </p>
                       </div>
                       {review.user_id === currentUserId && (
