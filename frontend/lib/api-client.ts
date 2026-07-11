@@ -35,6 +35,66 @@ export interface UserProfile {
   updated_at: string;
 }
 
+export interface Cuisine {
+  id: string;
+  name: string;
+}
+
+export interface Restaurant {
+  id: string;
+  name: string;
+  address: string | null;
+  price_level: 1 | 2 | 3 | 4 | null; // € … €€€€ — a fact about the venue, not a review score
+  latitude: number | null; // reserved for a future maps feature; unused for now
+  longitude: number | null;
+  cuisines: string[];
+  created_by: string;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RestaurantDetail extends Restaurant {
+  review_count: number;
+  average_location: number | null;
+  average_food: number | null;
+  average_service: number | null;
+  average_value: number | null;
+  average_overall: number | null;
+}
+
+export interface Review {
+  id: string;
+  restaurant_id: string;
+  user_id: string;
+  reviewer_name: string | null;
+  location_score: number; // 0-10, step 0.5 — location/decoration
+  food_score: number;
+  service_score: number;
+  value_score: number; // value for money, NOT price_level
+  comment: string | null;
+  visited_at: string; // "YYYY-MM-DD"
+  overall: number; // average of the 4 category scores — computed server-side, never entered directly
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRestaurantInput {
+  name: string;
+  address?: string;
+  price_level?: 1 | 2 | 3 | 4;
+  cuisines: string[];
+}
+
+export interface CreateReviewInput {
+  location_score: number;
+  food_score: number;
+  service_score: number;
+  value_score: number;
+  comment?: string;
+  visited_at: string; // "YYYY-MM-DD"
+}
+
 /** Error carrying the HTTP status, so callers can branch on e.g. 409. */
 export class ApiError extends Error {
   constructor(
@@ -136,6 +196,50 @@ export class RecipeAPIClient {
 
   async deleteRecipe(id: string): Promise<void> {
     await this.request<void>(`/recipes/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async searchRestaurants(query?: string): Promise<Restaurant[]> {
+    const qs = query?.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
+    return this.request<Restaurant[]>(`/restaurants${qs}`);
+  }
+
+  async getRestaurant(id: string): Promise<RestaurantDetail> {
+    return this.request<RestaurantDetail>(`/restaurants/${id}`);
+  }
+
+  async createRestaurant(data: CreateRestaurantInput): Promise<Restaurant> {
+    return this.request<Restaurant>("/restaurants", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateRestaurant(id: string, data: CreateRestaurantInput): Promise<Restaurant> {
+    return this.request<Restaurant>(`/restaurants/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listCuisines(): Promise<Cuisine[]> {
+    return this.request<Cuisine[]>("/cuisines");
+  }
+
+  async listReviews(restaurantId: string): Promise<Review[]> {
+    return this.request<Review[]>(`/restaurants/${restaurantId}/reviews`);
+  }
+
+  async createReview(restaurantId: string, data: CreateReviewInput): Promise<Review> {
+    return this.request<Review>(`/restaurants/${restaurantId}/reviews`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteReview(restaurantId: string, reviewId: string): Promise<void> {
+    await this.request<void>(`/restaurants/${restaurantId}/reviews/${reviewId}`, {
       method: "DELETE",
     });
   }
