@@ -1,5 +1,5 @@
-import { MapPin, Star } from "lucide-react";
-import type { Restaurant } from "@/lib/restaurants";
+import { MapPin } from "lucide-react";
+import type { Restaurant } from "@/lib/api-client";
 
 /** Price as €…€€€€ with the unused tier dimmed. */
 function Price({ level }: { level: number }) {
@@ -14,52 +14,44 @@ function Price({ level }: { level: number }) {
   );
 }
 
-/**
- * A restaurant in the DINE world. `preview` renders a non-interactive teaser
- * (used on /dine before the API exists) — dimmed, no hover, not focusable.
- */
+/** A restaurant in the DINE world, rendered as a clickable list card. */
 export function RestaurantCard({
   restaurant: r,
-  preview = false,
+  onClick,
 }: {
   restaurant: Restaurant;
-  preview?: boolean;
+  onClick: () => void;
 }) {
   return (
-    <article
-      className={`group rounded-3xl border border-line bg-surface p-5 transition-all ${
-        preview
-          ? "pointer-events-none select-none opacity-70"
-          : "hover:-translate-y-0.5 hover:border-tomato/40 hover:shadow-paw"
-      }`}
-      aria-hidden={preview || undefined}
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full cursor-pointer rounded-3xl border border-line bg-surface p-5 text-left transition-all hover:-translate-y-0.5 hover:border-tomato/40 hover:shadow-paw focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate font-display text-lg font-semibold text-fg">
+          <h3 className="truncate font-display text-lg font-semibold text-fg transition-colors group-hover:text-tomato">
             {r.name}
           </h3>
-          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted">
-            <span>{r.cuisine}</span>
-            <span aria-hidden>·</span>
-            <MapPin className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{r.area}</span>
-          </p>
+          {(r.cuisines.length > 0 || r.address) && (
+            <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-muted">
+              {r.cuisines.length > 0 && <span className="truncate">{r.cuisines.join(", ")}</span>}
+              {r.cuisines.length > 0 && r.address && <span aria-hidden>·</span>}
+              {r.address && (
+                <span className="flex min-w-0 items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{r.address}</span>
+                </span>
+              )}
+            </p>
+          )}
         </div>
-        <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber/15 px-2.5 py-1 text-sm font-semibold text-amber-700 dark:text-amber">
-          <Star className="h-3.5 w-3.5 fill-current" />
-          {r.rating.toFixed(1)}
-        </span>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between border-t border-line pt-3 text-sm">
-        <Price level={r.priceLevel} />
-        {r.recommendedBy && (
-          <span className="text-muted">
-            by <span className="font-semibold text-tomato">{r.recommendedBy}</span>
+        {r.price_level && (
+          <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-sm">
+            <Price level={r.price_level} />
           </span>
         )}
       </div>
-    </article>
+    </button>
   );
 }
