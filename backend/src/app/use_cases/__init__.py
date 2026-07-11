@@ -10,6 +10,8 @@ from src.app.use_cases.get_review import GetReview
 from src.app.use_cases.list_cuisines import ListCuisines
 from src.app.use_cases.list_recipes import ListRecipes
 from src.app.use_cases.list_reviews import ListReviews
+from src.app.use_cases.nearby_places import NearbyPlaces
+from src.app.use_cases.search_places import SearchPlaces
 from src.app.use_cases.search_restaurants import SearchRestaurants
 from src.app.use_cases.update_display_name import UpdateDisplayName
 from src.app.use_cases.update_recipe import UpdateRecipe
@@ -28,6 +30,8 @@ __all__ = [
     "ListCuisines",
     "ListRecipes",
     "ListReviews",
+    "NearbyPlaces",
+    "SearchPlaces",
     "SearchRestaurants",
     "UpdateDisplayName",
     "UpdateRecipe",
