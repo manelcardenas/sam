@@ -45,8 +45,9 @@ export interface Restaurant {
   name: string;
   address: string | null;
   price_level: 1 | 2 | 3 | 4 | null; // € … €€€€ — a fact about the venue, not a review score
-  latitude: number | null; // reserved for a future maps feature; unused for now
+  latitude: number | null; // copied from the picked Place when Mapped; null for Unmapped restaurants
   longitude: number | null;
+  external_place_id: string | null; // Geoapify place id when Mapped; null for Unmapped (manual) restaurants
   cuisines: string[];
   created_by: string;
   created_by_name: string | null;
@@ -84,6 +85,27 @@ export interface CreateRestaurantInput {
   address?: string;
   price_level?: 1 | 2 | 3 | 4;
   cuisines: string[];
+  /** Set when the user picked a Place — the restaurant is created Mapped. */
+  external_place_id?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+/** The map provider's record of a venue — never stored by SAM; picking one creates a Mapped restaurant. */
+export interface Place {
+  external_place_id: string;
+  name: string;
+  address: string | null;
+  latitude: number;
+  longitude: number;
+  cuisines: string[]; // raw provider tags, lowercase — match against the curated Cuisine list
+  distance_m: number | null;
+}
+
+export interface CreateRestaurantResult {
+  restaurant: Restaurant;
+  /** True when the picked Place was already on SAM and the existing restaurant was returned (HTTP 200, not 201). */
+  alreadyExisted: boolean;
 }
 
 export interface CreateReviewInput {
@@ -145,6 +167,15 @@ export class RecipeAPIClient {
     endpoint: string,
     options: RequestInit = {},
   ): Promise<T> {
+    const { data } = await this.requestWithStatus<T>(endpoint, options);
+    return data;
+  }
+
+  /** Like request(), but also exposes the HTTP status — needed where the backend signals via 200-vs-201 (idempotent restaurant create). */
+  private async requestWithStatus<T>(
+    endpoint: string,
+    options: RequestInit = {},
+  ): Promise<{ data: T; status: number }> {
     const token = await getAuthToken();
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -166,10 +197,10 @@ export class RecipeAPIClient {
 
     // Handle 204 No Content (empty body)
     if (response.status === 204) {
-      return undefined as T;
+      return { data: undefined as T, status: response.status };
     }
 
-    return response.json();
+    return { data: await response.json(), status: response.status };
   }
 
   async listRecipes(): Promise<Recipe[]> {
@@ -209,11 +240,30 @@ export class RecipeAPIClient {
     return this.request<RestaurantDetail>(`/restaurants/${id}`);
   }
 
-  async createRestaurant(data: CreateRestaurantInput): Promise<Restaurant> {
-    return this.request<Restaurant>("/restaurants", {
+  async createRestaurant(data: CreateRestaurantInput): Promise<CreateRestaurantResult> {
+    const { data: restaurant, status } = await this.requestWithStatus<Restaurant>("/restaurants", {
       method: "POST",
       body: JSON.stringify(data),
     });
+    return { restaurant, alreadyExisted: status === 200 };
+  }
+
+  async searchPlaces(query: string, coords?: { lat: number; lon: number }): Promise<Place[]> {
+    const params = new URLSearchParams({ q: query.trim() });
+    if (coords) {
+      params.set("lat", String(coords.lat));
+      params.set("lon", String(coords.lon));
+    }
+    return this.request<Place[]>(`/places/search?${params}`);
+  }
+
+  async nearbyPlaces(coords: { lat: number; lon: number }, radiusM = 500): Promise<Place[]> {
+    const params = new URLSearchParams({
+      lat: String(coords.lat),
+      lon: String(coords.lon),
+      radius_m: String(radiusM),
+    });
+    return this.request<Place[]>(`/places/nearby?${params}`);
   }
 
   async updateRestaurant(id: string, data: CreateRestaurantInput): Promise<Restaurant> {

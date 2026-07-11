@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
 from mangum import Mangum
 
+from src.infra.adapters.places import GeoapifyPlacesProvider, resolve_geoapify_api_key
 from src.infra.adapters.repos import (
     PostgresCuisineRepository,
     PostgresRecipeRepository,
@@ -13,7 +14,7 @@ from src.infra.adapters.repos import (
     PostgresReviewRepository,
     PostgresUserRepository,
 )
-from src.infra.controllers import RecipeController, RestaurantController, UserController
+from src.infra.controllers import PlacesController, RecipeController, RestaurantController, UserController
 from src.infra.db import DatabaseConnectionPool, build_dsn
 from src.infra.middleware import CORSMiddlewareConfigurator, MiddlewareSettings, RateLimitMiddleware
 from src.infra.security import configure_user_repository
@@ -53,10 +54,15 @@ def create_app() -> FastAPI:
     cuisine_repository = PostgresCuisineRepository(session_factory=db.session_factory)
     configure_user_repository(user_repository)
 
+    # Key resolved once per cold start (SSM on Lambda, .env locally). A missing
+    # key doesn't block startup — /places/* then answers 503, everything else works.
+    places_provider = GeoapifyPlacesProvider(api_key=resolve_geoapify_api_key())
+
     router = APIRouter()
     RecipeController(recipe_repository, router)
     UserController(user_repository, router)
     RestaurantController(restaurant_repository, review_repository, cuisine_repository, router)
+    PlacesController(places_provider, router)
     app.include_router(router)
 
     return app

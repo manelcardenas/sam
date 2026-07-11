@@ -9,8 +9,9 @@ class Restaurant(BaseModel):
     name: str
     address: str | None = None
     price_level: int | None = None  # 1-4, € to €€€€ — a fact about the venue, not a review score
-    latitude: float | None = None  # reserved for Phase 2b (Google Places); unused for now
-    longitude: float | None = None  # reserved for Phase 2b (Google Places); unused for now
+    latitude: float | None = None  # copied from the picked Place when Mapped; None for Unmapped restaurants
+    longitude: float | None = None  # copied from the picked Place when Mapped; None for Unmapped restaurants
+    external_place_id: str | None = None  # Geoapify place id when Mapped (see docs/adr/0003); None for Unmapped restaurants
     cuisines: list[str] = Field(default_factory=list)
     created_by: str  # user ID of whoever added it — informational only, does not gate writes
     created_by_name: str | None = None  # creator's display_name, resolved via join

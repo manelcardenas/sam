@@ -36,6 +36,14 @@ _Avoid_: Price, Value
 The average of a Review's four Category Scores. Never entered directly and never stored — always computed. A Restaurant's overall rating is the average of Overall across all its Reviews.
 _Avoid_: Rating, Average
 
+**Place**:
+The external map provider's record of a physical venue, shown as a search result when adding a Restaurant. A Place is never stored by SAM — picking one creates (or links to) a Mapped Restaurant by copying its facts and keeping a reference to its external identity.
+_Avoid_: Restaurant, Result, Suggestion
+
+**Mapped**:
+A Restaurant that is linked to the external map provider's record of the physical place: it carries that external identity and coordinates. An Unmapped Restaurant was entered manually and has neither. Mapping happens by picking a search result at creation time; manual entry remains allowed because the map provider does not know every restaurant.
+_Avoid_: Verified, Geocoded
+
 **Cuisine**:
 One tag from a curated, extensible vocabulary describing a Restaurant's style of food (e.g. Italian, Japanese). A Restaurant can have more than one.
 _Avoid_: Category, Type

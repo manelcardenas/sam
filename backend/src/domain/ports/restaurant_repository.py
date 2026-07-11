@@ -3,9 +3,18 @@ from abc import ABC, abstractmethod
 from src.domain.entities import Restaurant
 
 
+class DuplicateExternalPlaceError(Exception):
+    """A Restaurant with this external_place_id already exists (partial unique index)."""
+
+
 class RestaurantRepository(ABC):
     @abstractmethod
     def add_restaurant(self, restaurant: Restaurant) -> Restaurant:
+        """Raises DuplicateExternalPlaceError if the restaurant's external_place_id is already taken."""
+        pass
+
+    @abstractmethod
+    def find_by_external_place_id(self, external_place_id: str) -> Restaurant | None:
         pass
 
     @abstractmethod

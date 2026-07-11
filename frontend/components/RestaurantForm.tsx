@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Save, X, Search } from "lucide-react";
-import { apiClient, type Cuisine, type CreateRestaurantInput, type Restaurant } from "@/lib/api-client";
+import { LocateFixed, MapPin, Save, Search, X } from "lucide-react";
+import { apiClient, type Cuisine, type CreateRestaurantInput, type Place, type Restaurant } from "@/lib/api-client";
 
 interface RestaurantFormInitialData {
   name: string;
@@ -25,6 +25,14 @@ const fieldClass =
 
 const labelClass = "mb-1.5 block text-sm font-semibold text-fg";
 
+const matchButtonClass =
+  "flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-left text-sm transition-colors hover:border-tomato/40 hover:text-tomato";
+
+/** "120 m" / "1.4 km" for nearby results. */
+function formatDistance(m: number) {
+  return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
+}
+
 export default function RestaurantForm({
   initialData,
   onSubmit,
@@ -38,36 +46,91 @@ export default function RestaurantForm({
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>(initialData?.cuisines ?? []);
   const [cuisineOptions, setCuisineOptions] = useState<Cuisine[]>([]);
   const [matches, setMatches] = useState<Restaurant[]>([]);
+  const [placeMatches, setPlaceMatches] = useState<Place[]>([]);
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Last known position — set by "near me", then reused to bias typed search.
+  const coordsRef = useRef<{ lat: number; lon: number } | null>(null);
+
+  const creating = !initialData && !!onSelectExisting;
 
   useEffect(() => {
     apiClient.listCuisines().then(setCuisineOptions).catch(() => {});
   }, []);
 
-  // Dedup search: only while creating, so editing an existing restaurant never
-  // surfaces "did you mean" matches against itself.
+  // Unified dedup/Place search: only while creating, so editing an existing
+  // restaurant never surfaces "did you mean" matches against itself.
   useEffect(() => {
-    if (initialData || !onSelectExisting) return;
+    if (!creating) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = name.trim();
-    if (trimmed.length < 2) {
+    // Right after picking a Place the name is set programmatically — don't
+    // immediately reopen the search panel over the freshly filled form.
+    if (trimmed.length < 2 || trimmed === selectedPlace?.name.trim()) {
       setMatches([]);
+      setPlaceMatches([]);
       return;
     }
     debounceRef.current = setTimeout(() => {
+      // Both searches are a courtesy, not critical — each fails silently.
       apiClient
         .searchRestaurants(trimmed)
         .then(setMatches)
-        .catch(() => {
-          // Dedup search is a courtesy, not critical — fail silently.
-        });
+        .catch(() => {});
+      apiClient
+        .searchPlaces(trimmed, coordsRef.current ?? undefined)
+        .then(setPlaceMatches)
+        .catch(() => {});
     }, 350);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [name, initialData, onSelectExisting]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, creating, selectedPlace]);
+
+  const findNearby = () => {
+    if (!navigator.geolocation) {
+      setLocateError("Your browser doesn't support location.");
+      return;
+    }
+    setLocating(true);
+    setLocateError("");
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const coords = { lat: position.coords.latitude, lon: position.coords.longitude };
+        coordsRef.current = coords;
+        try {
+          const places = await apiClient.nearbyPlaces(coords);
+          setPlaceMatches(places);
+          if (places.length === 0) setLocateError("No restaurants found around you — type the name instead.");
+        } catch {
+          setLocateError("Couldn't search nearby right now — type the name instead.");
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => {
+        setLocating(false);
+        setLocateError("Location unavailable — you can still search by name.");
+      },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
+  };
+
+  const selectPlace = (place: Place) => {
+    setSelectedPlace(place);
+    setName(place.name);
+    if (place.address) setAddress(place.address);
+    // Prefill cuisines that match the curated vocabulary; unrecognized provider tags are dropped.
+    const matched = cuisineOptions.filter((c) => place.cuisines.includes(c.name.toLowerCase())).map((c) => c.name);
+    if (matched.length > 0) setSelectedCuisines((prev) => [...new Set([...prev, ...matched])]);
+    setMatches([]);
+    setPlaceMatches([]);
+  };
 
   const toggleCuisine = (cuisineName: string) =>
     setSelectedCuisines((prev) =>
@@ -88,6 +151,9 @@ export default function RestaurantForm({
         address: address.trim() || undefined,
         price_level: priceLevel ?? undefined,
         cuisines: selectedCuisines,
+        external_place_id: selectedPlace?.external_place_id,
+        latitude: selectedPlace?.latitude,
+        longitude: selectedPlace?.longitude,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -117,31 +183,92 @@ export default function RestaurantForm({
           className={fieldClass}
           placeholder="e.g. Casa Pepe"
         />
+
+        {creating && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={findNearby}
+              disabled={locating}
+              className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            >
+              <LocateFixed className="h-4 w-4" />
+              {locating ? "Locating…" : "Find restaurants near me"}
+            </button>
+            {locateError && <span className="text-xs text-muted">{locateError}</span>}
+          </div>
+        )}
+
+        {selectedPlace && (
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-tomato" />
+            <span className="truncate">
+              Mapped to <span className="font-semibold text-fg">{selectedPlace.name}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedPlace(null)}
+              title="Remove map link"
+              aria-label="Remove map link"
+              className="cursor-pointer rounded-full p-0.5 text-muted transition-colors hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {matches.length > 0 && (
+      {(matches.length > 0 || placeMatches.length > 0) && (
         <div className="rounded-2xl border border-dashed border-line p-4">
-          <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-fg">
-            <Search className="h-4 w-4 text-muted" />
-            Already on SAM?
-          </p>
-          <p className="mb-3 text-xs text-muted">
-            Someone may have added this place already — pick it instead of creating a duplicate.
-          </p>
-          <ul className="space-y-2">
-            {matches.map((m) => (
-              <li key={m.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelectExisting?.(m)}
-                  className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-left text-sm transition-colors hover:border-tomato/40 hover:text-tomato"
-                >
-                  <span className="truncate font-semibold">{m.name}</span>
-                  {m.address && <span className="ml-2 shrink-0 truncate text-xs text-muted">{m.address}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
+          {matches.length > 0 && (
+            <>
+              <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-fg">
+                <Search className="h-4 w-4 text-muted" />
+                Already on SAM?
+              </p>
+              <p className="mb-3 text-xs text-muted">
+                Someone may have added this place already — pick it instead of creating a duplicate.
+              </p>
+              <ul className="space-y-2">
+                {matches.map((m) => (
+                  <li key={m.id}>
+                    <button type="button" onClick={() => onSelectExisting?.(m)} className={matchButtonClass}>
+                      <span className="truncate font-semibold">{m.name}</span>
+                      {m.address && <span className="ml-2 shrink-0 truncate text-xs text-muted">{m.address}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {placeMatches.length > 0 && (
+            <>
+              <p className={`mb-2 flex items-center gap-1.5 text-sm font-semibold text-fg ${matches.length > 0 ? "mt-4" : ""}`}>
+                <MapPin className="h-4 w-4 text-muted" />
+                From the map
+              </p>
+              <p className="mb-3 text-xs text-muted">Pick the place you&rsquo;re at to fill in its details.</p>
+              <ul className="space-y-2">
+                {placeMatches.map((p) => (
+                  <li key={p.external_place_id}>
+                    <button type="button" onClick={() => selectPlace(p)} className={matchButtonClass}>
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold">{p.name}</span>
+                        {p.address && <span className="block truncate text-xs text-muted">{p.address}</span>}
+                      </span>
+                      {p.distance_m != null && (
+                        <span className="ml-2 shrink-0 text-xs text-muted">{formatDistance(p.distance_m)}</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-right text-[10px] text-muted/70">
+                Powered by Geoapify · © OpenStreetMap contributors
+              </p>
+            </>
+          )}
         </div>
       )}
 
@@ -153,6 +280,7 @@ export default function RestaurantForm({
           id="address"
           type="text"
           value={address}
+          maxLength={500}
           onChange={(e) => setAddress(e.target.value)}
           className={fieldClass}
           placeholder="Carrer Gran de Gràcia, 1"

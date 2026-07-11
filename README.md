@@ -115,16 +115,3 @@ uv run ruff check . --fix && uv run ruff format .
 uv run pre-commit run --all-files
 uv run pre-commit install   # install git hooks
 ```
-
-## Documentation
-
-See `docs/wiki/guide.md` for the full developer guide.
-
-> **Aurora cold starts:** Aurora Serverless v2 with `minCapacity=0` can take 30–60 s to wake after idle.
-> The first request after a quiet period will be slow — this is expected and accepted at current scale.
-
-TODOs:
-3. Review the code, docu(structure it correctly) and make it work be/fe locally
-4. Add restaurant reviews -> use improvements-plan.md Phase 2
-5. Final FE improvements make the ui look better
-6. See `TODO.md` — user-profile work (show recipe author in FE, profile-completion flow)
