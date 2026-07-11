@@ -7,12 +7,15 @@ steps of 0.5) enforced at the request-schema boundary.
 """
 
 import pytest
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import ValidationError
 
+from src.domain.entities import Cuisine, Place
+from src.infra.adapters.places.in_memory_places_provider import InMemoryPlacesProvider
 from src.infra.adapters.repos.in_memory_cuisine_repo import InMemoryCuisineRepository
 from src.infra.adapters.repos.in_memory_restaurant_repo import InMemoryRestaurantRepository
 from src.infra.adapters.repos.in_memory_review_repo import InMemoryReviewRepository
+from src.infra.controllers.places_controller import PlacesController
 from src.infra.controllers.restaurant_controller import RestaurantController
 from src.infra.controllers.schemas import CreateRestaurantRequest, CreateReviewRequest, UpdateRestaurantRequest
 from src.infra.security.schemas import TokenPayload
@@ -39,7 +42,7 @@ def _review_request(**overrides: object) -> CreateReviewRequest:
 def test_create_restaurant_sets_created_by() -> None:
     controller = _controller()
 
-    result = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), current_user=USER)
+    result = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
 
     assert result.created_by == "user-123"
 
@@ -47,7 +50,7 @@ def test_create_restaurant_sets_created_by() -> None:
 def test_update_restaurant_by_non_creator_succeeds() -> None:
     """Restaurant facts are open to any authenticated user — see docs/adr/0002."""
     controller = _controller()
-    created = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), current_user=USER)
+    created = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
 
     result = controller.update_restaurant(created.id, UpdateRestaurantRequest(name="Casa Pepe (fixed)"), _current_user=OTHER_USER)
 
@@ -74,7 +77,7 @@ def test_create_review_for_missing_restaurant_raises_404() -> None:
 
 def test_get_restaurant_includes_computed_overall() -> None:
     controller = _controller()
-    restaurant = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), current_user=USER)
+    restaurant = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
     controller.create_review(restaurant.id, _review_request(location_score=10, food_score=10, service_score=10, value_score=10), current_user=USER)
 
     detail = controller.get_restaurant(restaurant.id, _current_user=USER)
@@ -85,7 +88,7 @@ def test_get_restaurant_includes_computed_overall() -> None:
 
 def test_delete_review_by_author_succeeds() -> None:
     controller = _controller()
-    restaurant = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), current_user=USER)
+    restaurant = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
     review = controller.create_review(restaurant.id, _review_request(), current_user=USER)
 
     controller.delete_review(restaurant.id, review.id, current_user=USER)
@@ -95,7 +98,7 @@ def test_delete_review_by_author_succeeds() -> None:
 
 def test_delete_review_by_non_author_raises_403() -> None:
     controller = _controller()
-    restaurant = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), current_user=USER)
+    restaurant = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
     review = controller.create_review(restaurant.id, _review_request(), current_user=USER)
 
     with pytest.raises(HTTPException) as exc_info:
@@ -116,3 +119,107 @@ def test_create_review_accepts_half_step_scores() -> None:
     request = _review_request(location_score=7.5, food_score=0, service_score=10, value_score=9.5)
 
     assert request.location_score == 7.5
+
+
+def test_create_restaurant_with_unknown_cuisine_raises_422() -> None:
+    """Unknown tags must fail loudly — the Postgres repo would drop them silently otherwise."""
+    controller = _controller()
+
+    with pytest.raises(HTTPException) as exc_info:
+        controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe", cuisines=["Klingon"]), Response(), current_user=USER)
+
+    assert exc_info.value.status_code == 422
+
+
+def test_create_restaurant_with_known_cuisine_succeeds() -> None:
+    controller = RestaurantController(
+        InMemoryRestaurantRepository(),
+        InMemoryReviewRepository(),
+        InMemoryCuisineRepository([Cuisine(name="Italian")]),
+        APIRouter(),
+    )
+
+    result = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe", cuisines=["Italian"]), Response(), current_user=USER)
+
+    assert result.cuisines == ["Italian"]
+
+
+def test_create_restaurant_rejects_overlong_address() -> None:
+    """Address is bounded at the schema (matching VARCHAR(500)) so users get a 422, not a DB 500."""
+    with pytest.raises(ValidationError):
+        CreateRestaurantRequest(name="Casa Pepe", address="a" * 501)
+
+
+# ── Mapped restaurants (Places, see docs/adr/0003) ──────────────────────────
+
+
+def _mapped_request(**overrides: object) -> CreateRestaurantRequest:
+    defaults = {"name": "Casa Pepe", "external_place_id": "geo-1", "latitude": 41.4, "longitude": 2.15}
+    defaults.update(overrides)
+    return CreateRestaurantRequest(**defaults)
+
+
+def test_create_mapped_restaurant_stores_identity_and_coords() -> None:
+    controller = _controller()
+
+    result = controller.create_restaurant(_mapped_request(), Response(), current_user=USER)
+
+    assert result.external_place_id == "geo-1"
+    assert result.latitude == 41.4
+    assert result.longitude == 2.15
+
+
+def test_create_with_known_place_returns_existing_with_200() -> None:
+    """Idempotent create: picking a Place already on SAM must not duplicate it."""
+    controller = _controller()
+    first = controller.create_restaurant(_mapped_request(), Response(), current_user=USER)
+
+    response = Response()
+    second = controller.create_restaurant(_mapped_request(name="Casa Pepe (duplicate pick)"), response, current_user=OTHER_USER)
+
+    assert second.id == first.id
+    assert second.name == "Casa Pepe"  # the winner's facts, not the loser's payload
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_manual_creates_without_place_never_conflict() -> None:
+    """Unmapped (manual) restaurants have no identity — same name twice is allowed (name dedup is UX-only)."""
+    controller = _controller()
+    first = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
+    second = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
+
+    assert first.id != second.id
+
+
+def test_update_preserves_mapping_identity() -> None:
+    """Facts are editable by anyone (ADR 0002), but the map link isn't part of the update payload."""
+    controller = _controller()
+    created = controller.create_restaurant(_mapped_request(), Response(), current_user=USER)
+
+    result = controller.update_restaurant(created.id, UpdateRestaurantRequest(name="Casa Pepe (fixed)"), _current_user=OTHER_USER)
+
+    assert result.external_place_id == "geo-1"
+    assert result.latitude == 41.4
+
+
+def _places_controller(places: list[Place]) -> PlacesController:
+    return PlacesController(InMemoryPlacesProvider(places), APIRouter())
+
+
+def test_search_places_matches_by_name() -> None:
+    place = Place(external_place_id="geo-1", name="Casa Pepe", latitude=41.4, longitude=2.15)
+    controller = _places_controller([place, Place(external_place_id="geo-2", name="Noodle Bar", latitude=41.4, longitude=2.15)])
+
+    result = controller.search_places(q="casa", lat=None, lon=None, _current_user=USER)
+
+    assert [p.external_place_id for p in result] == ["geo-1"]
+
+
+def test_nearby_places_returns_seeded_places() -> None:
+    place = Place(external_place_id="geo-1", name="Casa Pepe", latitude=41.4, longitude=2.15, distance_m=120)
+    controller = _places_controller([place])
+
+    result = controller.nearby_places(lat=41.4, lon=2.15, radius_m=500, _current_user=USER)
+
+    assert len(result) == 1
+    assert result[0].distance_m == 120

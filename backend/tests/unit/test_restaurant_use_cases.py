@@ -8,10 +8,13 @@ from src.app.use_cases import (
     GetReview,
     ListCuisines,
     ListReviews,
+    NearbyPlaces,
+    SearchPlaces,
     SearchRestaurants,
     UpdateRestaurant,
 )
-from src.domain.entities import Cuisine, Restaurant, Review
+from src.domain.entities import Cuisine, Place, Restaurant, Review
+from src.infra.adapters.places.in_memory_places_provider import InMemoryPlacesProvider
 from src.infra.adapters.repos.in_memory_cuisine_repo import InMemoryCuisineRepository
 from src.infra.adapters.repos.in_memory_restaurant_repo import InMemoryRestaurantRepository
 from src.infra.adapters.repos.in_memory_review_repo import InMemoryReviewRepository
@@ -34,11 +37,29 @@ def sample_restaurant() -> Restaurant:
 
 class TestCreateRestaurant:
     def test_creates_restaurant_successfully(self, restaurant_repo: InMemoryRestaurantRepository, sample_restaurant: Restaurant) -> None:
-        result = CreateRestaurant(restaurant_repo).execute(sample_restaurant)
+        result, created = CreateRestaurant(restaurant_repo).execute(sample_restaurant)
 
+        assert created is True
         assert result.id == sample_restaurant.id
         assert result.name == "Casa Pepe"
         assert result.created_by == "user-123"
+
+    def test_same_place_picked_twice_returns_existing(self, restaurant_repo: InMemoryRestaurantRepository) -> None:
+        """Idempotent on external_place_id — the unique-index backstop for picker dedup (docs/adr/0003)."""
+        first, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", external_place_id="geo-1", created_by="user-1"))
+
+        second, created = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe Again", external_place_id="geo-1", created_by="user-2"))
+
+        assert created is False
+        assert second.id == first.id
+        assert len(restaurant_repo.table) == 1
+
+    def test_unmapped_restaurants_never_conflict(self, restaurant_repo: InMemoryRestaurantRepository) -> None:
+        first, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-1"))
+        second, created = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-2"))
+
+        assert created is True
+        assert second.id != first.id
 
 
 class TestSearchRestaurants:
@@ -63,7 +84,7 @@ class TestSearchRestaurants:
 class TestUpdateRestaurant:
     def test_any_user_can_update_facts(self, restaurant_repo: InMemoryRestaurantRepository, sample_restaurant: Restaurant) -> None:
         """Restaurant facts are open to any authenticated user — see docs/adr/0002."""
-        created = CreateRestaurant(restaurant_repo).execute(sample_restaurant)
+        created, _ = CreateRestaurant(restaurant_repo).execute(sample_restaurant)
 
         updated = Restaurant(
             id=created.id,
@@ -84,7 +105,7 @@ class TestGetRestaurant:
     def test_computes_aggregate_ratings_across_reviews(
         self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository, sample_restaurant: Restaurant
     ) -> None:
-        created = CreateRestaurant(restaurant_repo).execute(sample_restaurant)
+        created, _ = CreateRestaurant(restaurant_repo).execute(sample_restaurant)
         CreateReview(review_repo).execute(
             Review(restaurant_id=created.id, user_id="user-a", location_score=8, food_score=6, service_score=10, value_score=8, visited_at="2026-01-01")
         )
@@ -103,7 +124,7 @@ class TestGetRestaurant:
     def test_no_aggregates_when_no_reviews(
         self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository, sample_restaurant: Restaurant
     ) -> None:
-        created = CreateRestaurant(restaurant_repo).execute(sample_restaurant)
+        created, _ = CreateRestaurant(restaurant_repo).execute(sample_restaurant)
 
         detail = GetRestaurant(restaurant_repo, review_repo).execute(created.id)
 
@@ -123,7 +144,7 @@ class TestReviewLifecycle:
     def test_a_user_can_post_multiple_reviews_of_the_same_restaurant(
         self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository, sample_restaurant: Restaurant
     ) -> None:
-        created = CreateRestaurant(restaurant_repo).execute(sample_restaurant)
+        created, _ = CreateRestaurant(restaurant_repo).execute(sample_restaurant)
         CreateReview(review_repo).execute(
             Review(restaurant_id=created.id, user_id="user-a", location_score=5, food_score=5, service_score=5, value_score=5, visited_at="2026-01-01")
         )
@@ -147,6 +168,30 @@ class TestReviewLifecycle:
     def test_delete_raises_when_not_found(self, review_repo: InMemoryReviewRepository) -> None:
         with pytest.raises(KeyError):
             DeleteReview(review_repo).execute("missing")
+
+
+class TestPlaces:
+    """Places are ephemeral provider results — never stored, only searched (see CONTEXT.md)."""
+
+    @pytest.fixture
+    def places_provider(self) -> InMemoryPlacesProvider:
+        return InMemoryPlacesProvider(
+            [
+                Place(external_place_id="geo-1", name="Casa Pepe", address="Carrer Gran 1", latitude=41.4, longitude=2.15, cuisines=["spanish"]),
+                Place(external_place_id="geo-2", name="Noodle Bar", latitude=41.41, longitude=2.16),
+            ]
+        )
+
+    def test_search_matches_case_insensitively(self, places_provider: InMemoryPlacesProvider) -> None:
+        result = SearchPlaces(places_provider).execute("casa")
+
+        assert [p.external_place_id for p in result] == ["geo-1"]
+        assert result[0].cuisines == ["spanish"]
+
+    def test_nearby_returns_places(self, places_provider: InMemoryPlacesProvider) -> None:
+        result = NearbyPlaces(places_provider).execute(41.4, 2.15)
+
+        assert len(result) == 2
 
 
 class TestListCuisines:
