@@ -3,7 +3,7 @@
 Adds the restaurant-reviews domain: a shared, community-editable Restaurant
 record (any authenticated user may edit its facts — see docs/adr/0002), a
 curated many-to-many Cuisine tag vocabulary, and per-user Reviews scored
-0-10 in steps of 0.5 across four categories. See docs/knowledge/improvement-plan.md,
+0-10 in steps of 0.5 across four categories. See docs/plans/improvement-plan.md,
 Phase 2, for the full design.
 
 Revision ID: 874c491875f4
@@ -98,7 +98,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["restaurant_id"], ["restaurants.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
-        # No unique constraint on (restaurant_id, user_id) — revisits are allowed; see docs/knowledge/improvement-plan.md
+        # No unique constraint on (restaurant_id, user_id) — revisits are allowed; see docs/plans/improvement-plan.md
     )
 
     # Seed the curated starter list — new cuisines are a plain data insert later, no migration needed.

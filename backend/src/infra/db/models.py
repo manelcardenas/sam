@@ -110,5 +110,5 @@ class ReviewModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
-    # No unique constraint on (restaurant_id, user_id) — revisits are allowed, see docs/knowledge/improvement-plan.md
+    # No unique constraint on (restaurant_id, user_id) — revisits are allowed, see docs/plans/improvement-plan.md
     reviewer: Mapped["UserModel"] = relationship(lazy="joined")

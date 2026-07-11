@@ -580,7 +580,7 @@ Out of scope, deliberately:
 - [`./neon-migration-plan.md`](./neon-migration-plan.md) — required prerequisite.
 - [`../knowledge/aws-rearchitecture-options.md`](../knowledge/aws-rearchitecture-options.md) — full decision background.
 - [`../knowledge/gateways-proxies-load-balancers.md`](../knowledge/gateways-proxies-load-balancers.md) — reverse-proxy / TLS-termination background reading.
-- [`../knowledge/improvement-plan.md`](../knowledge/improvement-plan.md) — Phase 2 (restaurant reviews) — works the same on EC2.
+- [`./improvement-plan.md`](./improvement-plan.md) — Phase 2 (restaurant reviews) — works the same on EC2.
 - joblocal patterns this plan borrows: `Constants`, `NamingConvention`, `EnvironmentVariables`, `DeploymentVersion`, `fromLookup` throughout, three-layer stack split, SSM-based deployment versioning.
 
 ---
@@ -590,4 +590,4 @@ Out of scope, deliberately:
 The infra and platform work is essentially done. Remaining work tracked in the project lives in two places:
 
 - [`../../TODO.md`](../../TODO.md) — user-profile follow-ups: show recipe author in the FE, profile-completion flow forcing users to set their own `display_name` instead of the auto-derived email prefix, plus the backend `PATCH /users/me` endpoint that makes that possible.
-- [`../knowledge/improvement-plan.md`](../knowledge/improvement-plan.md) — Phases 2-4 (restaurant reviews + maps, CI/CD reusable workflow refactor, FE UI improvements). Phase 1 is already DONE; the rest of the document is the to-do list.
+- [`./improvement-plan.md`](./improvement-plan.md) — Phases 2-4 (restaurant reviews + maps, CI/CD reusable workflow refactor, FE UI improvements). Phase 1 is already DONE; the rest of the document is the to-do list.
