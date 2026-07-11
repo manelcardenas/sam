@@ -1,9 +1,45 @@
 # Sam
 
-Recipe management app: users create and browse recipes with ingredients.
+An app for managing recipes and reviewing restaurants: users create and browse recipes with ingredients, and log reviews of restaurants they've visited.
 
 ## Language
+
+### Recipes
 
 **Servings**:
 The number of people the stated ingredient quantities in a recipe are sized for. Editing this (and scaling ingredient quantities to a new headcount) is the mechanism for adapting a recipe to feed a different number of people.
 _Avoid_: Portions, people, yield
+
+### Restaurant Reviews
+
+**Restaurant**:
+A shared, community-maintained record of a place to eat. Any authenticated user can edit its facts (name, address, price level, cuisine tags) — it is never owned by whoever created it.
+_Avoid_: Venue, Place
+
+**Review**:
+One user's rated account of a single visit to a Restaurant: four Category Scores, an optional comment, and the date visited. A user may post multiple Reviews of the same Restaurant over time (revisits); Reviews cannot be edited after creation, only deleted and re-posted.
+_Avoid_: Rating
+
+**Category Score**:
+One of the four scores (0–10, in steps of 0.5) a reviewer gives on a Review: Location/Decoration, Food, Service, and Value.
+_Avoid_: Rating
+
+**Value**:
+The Category Score for perceived value-for-money on a Review. Distinct from Price Level.
+_Avoid_: Price
+
+**Price Level**:
+A 1–4 (€ to €€€€) fact about a Restaurant's typical cost, set on the Restaurant itself — not a per-review score.
+_Avoid_: Price, Value
+
+**Overall**:
+The average of a Review's four Category Scores. Never entered directly and never stored — always computed. A Restaurant's overall rating is the average of Overall across all its Reviews.
+_Avoid_: Rating, Average
+
+**Cuisine**:
+One tag from a curated, extensible vocabulary describing a Restaurant's style of food (e.g. Italian, Japanese). A Restaurant can have more than one.
+_Avoid_: Category, Type
+
+**Visited At**:
+The date a reviewer says they went to a Restaurant, distinct from when the Review was posted. Defaults to the day the Review is created but can be backdated at creation time.
+_Avoid_: Date, Created At
