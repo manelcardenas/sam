@@ -185,7 +185,7 @@ Review
 
 v1 ships with **manual entry only** — no map, no autocomplete, no geocoding. `latitude`/`longitude` columns exist on `Restaurant` from day one but stay unused until Phase 2b, so adding map/Places search later needs no migration touching existing rows.
 
-When Phase 2b happens: use **Google Places** for restaurant search/autocomplete (this reverses the original recommendation below of OpenStreetMap-only — the user specifically wants Places-backed restaurant lookup so they don't have to type a name manually, not just free map tiles). Leaflet/OpenStreetMap may still be worth using for map *display* once coordinates exist; Places is for *search*.
+Phase 2b is now planned: **Geoapify** for Place search/autocomplete/nearby, superseding the earlier Google Places idea — Google's ToS forbids persisting Place facts (name/address/price) in our own DB, which is exactly SAM's data model. See `docs/adr/0003-geoapify-as-places-provider.md` for the decision and `docs/plans/geoapify-places-plan.md` for the implementation plan. Leaflet/OpenStreetMap remains the candidate for map *display* (scope B, later) once coordinates accumulate.
 
 <details>
 <summary>Original (superseded) map recommendation</summary>
