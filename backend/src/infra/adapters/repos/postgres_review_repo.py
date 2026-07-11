@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from src.domain.entities import Review
 from src.domain.ports import ReviewRepository
+from src.infra.adapters.repos.ids import parse_uuid
 from src.infra.db import ReviewModel
 
 
@@ -52,20 +53,29 @@ class PostgresReviewRepository(ReviewRepository):
             return self._to_entity(model)
 
     def get_review(self, review_id: str) -> Review | None:
+        uid = parse_uuid(review_id)
+        if uid is None:
+            return None
         with self._session_factory() as session:
-            model = session.get(ReviewModel, uuid.UUID(review_id))
+            model = session.get(ReviewModel, uid)
             if model is None:
                 return None
             return self._to_entity(model)
 
     def list_reviews_for_restaurant(self, restaurant_id: str) -> list[Review]:
+        uid = parse_uuid(restaurant_id)
+        if uid is None:
+            return []
         with self._session_factory() as session:
-            models = session.query(ReviewModel).filter(ReviewModel.restaurant_id == uuid.UUID(restaurant_id)).order_by(ReviewModel.created_at.desc()).all()
+            models = session.query(ReviewModel).filter(ReviewModel.restaurant_id == uid).order_by(ReviewModel.created_at.desc()).all()
             return [self._to_entity(m) for m in models]
 
     def delete_review(self, review_id: str) -> None:
+        uid = parse_uuid(review_id)
+        if uid is None:
+            raise KeyError(f"Review with id {review_id} not found")
         with self._session_factory() as session:
-            model = session.get(ReviewModel, uuid.UUID(review_id))
+            model = session.get(ReviewModel, uid)
             if model is None:
                 raise KeyError(f"Review with id {review_id} not found")
             session.delete(model)

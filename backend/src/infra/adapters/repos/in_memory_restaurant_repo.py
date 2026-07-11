@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from src.domain.entities import Restaurant
-from src.domain.ports import RestaurantRepository
+from src.domain.ports import DuplicateExternalPlaceError, RestaurantRepository
 
 
 class InMemoryRestaurantRepository(RestaurantRepository):
@@ -15,8 +15,17 @@ class InMemoryRestaurantRepository(RestaurantRepository):
         self.table: dict[str, dict] = {}
 
     def add_restaurant(self, restaurant: Restaurant) -> Restaurant:
+        # Simulates the partial unique index on external_place_id.
+        if restaurant.external_place_id is not None and self.find_by_external_place_id(restaurant.external_place_id) is not None:
+            raise DuplicateExternalPlaceError(restaurant.external_place_id)
         self.table[restaurant.id] = restaurant.model_dump()
         return Restaurant(**self.table[restaurant.id])  # New instance each time. Prevents accidental mutations of the in-memory dict.
+
+    def find_by_external_place_id(self, external_place_id: str) -> Restaurant | None:
+        for data in self.table.values():
+            if data["external_place_id"] == external_place_id:
+                return Restaurant(**data)
+        return None
 
     def get_restaurant(self, restaurant_id: str) -> Restaurant | None:
         data = self.table.get(restaurant_id)
