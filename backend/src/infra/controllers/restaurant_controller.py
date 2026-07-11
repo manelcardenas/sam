@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from src.app.use_cases import (
     CreateRestaurant,
@@ -51,7 +51,7 @@ class RestaurantController:
             dependencies=[Depends(get_current_user)],
             status_code=status.HTTP_201_CREATED,
             summary="Create a restaurant",
-            description="Creates a new restaurant and returns it",
+            description="Creates a new restaurant and returns it. If the picked Place is already on SAM (same external_place_id), returns the existing restaurant with 200 instead",
             tags=["Restaurants"],
         )
 
@@ -127,11 +127,31 @@ class RestaurantController:
         use_case = SearchRestaurants(self.restaurant_repository)
         return use_case.execute(q)
 
-    def create_restaurant(self, request: CreateRestaurantRequest, current_user: TokenPayload = Depends(get_current_user)) -> Restaurant:
-        """Create a new restaurant. `created_by` is injected from the JWT sub claim, but doesn't gate future edits."""
+    def _validate_cuisines(self, names: list[str]) -> None:
+        """Reject unknown cuisine tags — the Postgres repo would otherwise drop them silently."""
+        if not names:
+            return
+        known = {c.name for c in self.cuisine_repository.list_cuisines()}
+        unknown = [n for n in names if n not in known]
+        if unknown:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Unknown cuisines: {', '.join(unknown)} — pick from the curated vocabulary (GET /cuisines)",
+            )
+
+    def create_restaurant(self, request: CreateRestaurantRequest, response: Response, current_user: TokenPayload = Depends(get_current_user)) -> Restaurant:
+        """Create a new restaurant. `created_by` is injected from the JWT sub claim, but doesn't gate future edits.
+
+        Idempotent on external_place_id: a Place that's already on SAM comes back
+        as the existing restaurant with 200 instead of the declared 201.
+        """
+        self._validate_cuisines(request.cuisines)
         restaurant = Restaurant(**request.model_dump(), created_by=current_user.sub)
         use_case = CreateRestaurant(self.restaurant_repository)
-        return use_case.execute(restaurant)
+        result, created = use_case.execute(restaurant)
+        if not created:
+            response.status_code = status.HTTP_200_OK
+        return result
 
     def get_restaurant(self, restaurant_id: str, _current_user: TokenPayload = Depends(get_current_user)) -> RestaurantDetail:
         """Get a restaurant with its computed aggregate ratings."""
@@ -143,6 +163,7 @@ class RestaurantController:
 
     def update_restaurant(self, restaurant_id: str, request: UpdateRestaurantRequest, _current_user: TokenPayload = Depends(get_current_user)) -> Restaurant:
         """Update a restaurant's shared facts. No ownership check — see ADR 0002."""
+        self._validate_cuisines(request.cuisines)
         existing = self.restaurant_repository.get_restaurant(restaurant_id)
         if existing is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Restaurant with id {restaurant_id} not found")
@@ -154,6 +175,7 @@ class RestaurantController:
             price_level=request.price_level,
             latitude=existing.latitude,
             longitude=existing.longitude,
+            external_place_id=existing.external_place_id,  # mapping identity is not user-editable
             cuisines=request.cuisines,
             created_by=existing.created_by,
             created_at=existing.created_at,
