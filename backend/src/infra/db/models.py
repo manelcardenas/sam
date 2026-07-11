@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID as PythonUUID  # noqa: N811 — alias avoids collision with SQLAlchemy's UUID dialect type
 
-from sqlalchemy import CheckConstraint, Column, Date, DateTime, Enum, Float, ForeignKey, Integer, Numeric, String, Table, Text, func
+from sqlalchemy import CheckConstraint, Column, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, Numeric, String, Table, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -68,14 +68,21 @@ restaurant_cuisines = Table(
 class RestaurantModel(Base):
     __tablename__ = "restaurants"
 
-    __table_args__ = (CheckConstraint("price_level BETWEEN 1 AND 4", name="ck_restaurants_price_level_range"),)
+    __table_args__ = (
+        CheckConstraint("price_level BETWEEN 1 AND 4", name="ck_restaurants_price_level_range"),
+        # Partial unique index: two users picking the same Place concurrently can't create two rows.
+        Index("uq_restaurants_external_place_id", "external_place_id", unique=True, postgresql_where=text("external_place_id IS NOT NULL")),
+    )
 
     id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     price_level: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="1-4, € to €€€€ — a fact about the venue, not a review score")
-    latitude: Mapped[float | None] = mapped_column(Float, nullable=True, comment="Reserved for Phase 2b (Google Places); unused for now")
-    longitude: Mapped[float | None] = mapped_column(Float, nullable=True, comment="Reserved for Phase 2b (Google Places); unused for now")
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True, comment="Copied from the picked Place (Geoapify) when Mapped; NULL for Unmapped restaurants")
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True, comment="Copied from the picked Place (Geoapify) when Mapped; NULL for Unmapped restaurants")
+    external_place_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="Geoapify place id when Mapped (see docs/adr/0003); NULL for Unmapped restaurants"
+    )
     created_by: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False, comment="Whoever added it — informational only, does not gate writes")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
@@ -99,7 +106,7 @@ class ReviewModel(Base):
     )
 
     id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
-    restaurant_id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="CASCADE"), nullable=False)
+    restaurant_id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False)
     location_score: Mapped[float] = mapped_column(Numeric(3, 1), nullable=False)
     food_score: Mapped[float] = mapped_column(Numeric(3, 1), nullable=False)
