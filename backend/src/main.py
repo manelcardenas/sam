@@ -6,8 +6,14 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
 from mangum import Mangum
 
-from src.infra.adapters.repos import PostgresRecipeRepository, PostgresUserRepository
-from src.infra.controllers import RecipeController, UserController
+from src.infra.adapters.repos import (
+    PostgresCuisineRepository,
+    PostgresRecipeRepository,
+    PostgresRestaurantRepository,
+    PostgresReviewRepository,
+    PostgresUserRepository,
+)
+from src.infra.controllers import RecipeController, RestaurantController, UserController
 from src.infra.db import DatabaseConnectionPool, build_dsn
 from src.infra.middleware import CORSMiddlewareConfigurator, MiddlewareSettings, RateLimitMiddleware
 from src.infra.security import configure_user_repository
@@ -42,11 +48,15 @@ def create_app() -> FastAPI:
 
     recipe_repository = PostgresRecipeRepository(session_factory=db.session_factory)
     user_repository = PostgresUserRepository(session_factory=db.session_factory)
+    restaurant_repository = PostgresRestaurantRepository(session_factory=db.session_factory)
+    review_repository = PostgresReviewRepository(session_factory=db.session_factory)
+    cuisine_repository = PostgresCuisineRepository(session_factory=db.session_factory)
     configure_user_repository(user_repository)
 
     router = APIRouter()
     RecipeController(recipe_repository, router)
     UserController(user_repository, router)
+    RestaurantController(restaurant_repository, review_repository, cuisine_repository, router)
     app.include_router(router)
 
     return app
