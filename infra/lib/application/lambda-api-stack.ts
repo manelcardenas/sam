@@ -58,6 +58,14 @@ export class LambdaApiStack extends Stack {
       { parameterName: "/recipe-manager/db/dsn" },
     );
 
+    // Geoapify API key (Places search, see docs/adr/0003) — same
+    // SSM-SecureString-by-name pattern as the DSN.
+    const geoapifyKeyParam = StringParameter.fromSecureStringParameterAttributes(
+      this,
+      "GeoapifyApiKey",
+      { parameterName: "/recipe-manager/geoapify/api-key" },
+    );
+
     const recipeApi = new PythonFunction(this, "RecipeAPI", {
       entry: "../backend",
       runtime: Runtime.PYTHON_3_13,
@@ -70,6 +78,7 @@ export class LambdaApiStack extends Stack {
       // No vpc config — Lambda is outside the VPC (Neon is reached over the public internet)
       environment: {
         POSTGRES_DSN_PARAM: dsnParam.parameterName,
+        GEOAPIFY_API_KEY_PARAM: geoapifyKeyParam.parameterName,
         COGNITO_USER_POOL_ID: cognitoStack.userPool.userPoolId,
         COGNITO_CLIENT_ID: cognitoStack.userPoolClient.userPoolClientId,
       },
@@ -90,8 +99,9 @@ export class LambdaApiStack extends Stack {
       },
     });
 
-    // Allow Lambda to read the Neon DSN SecureString parameter
+    // Allow Lambda to read the Neon DSN and Geoapify key SecureString parameters
     dsnParam.grantRead(recipeApi);
+    geoapifyKeyParam.grantRead(recipeApi);
 
     const httpApi = new HttpApi(this, "RecipeHttpApi", {
       apiName: constants.RECIPE_API_GATEWAY_NAME,
@@ -158,6 +168,20 @@ export class LambdaApiStack extends Stack {
 
     httpApi.addRoutes({
       path: "/cuisines",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/places/search",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/places/nearby",
       methods: [HttpMethod.GET],
       integration,
       authorizer,
