@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID as PythonUUID  # noqa: N811 — alias avoids collision with SQLAlchemy's UUID dialect type
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import CheckConstraint, Column, Date, DateTime, Enum, Float, ForeignKey, Integer, Numeric, String, Table, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,3 +46,69 @@ class RecipeModel(Base):
 
     # Author, eager-loaded so list/detail reads expose the display name without N+1.
     creator: Mapped["UserModel"] = relationship(lazy="joined")
+
+
+class CuisineModel(Base):
+    """Curated, extensible cuisine vocabulary. New entries are a data insert, not a migration."""
+
+    __tablename__ = "cuisines"
+
+    id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+
+
+restaurant_cuisines = Table(
+    "restaurant_cuisines",
+    Base.metadata,
+    Column("restaurant_id", UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="CASCADE"), primary_key=True),
+    Column("cuisine_id", UUID(as_uuid=True), ForeignKey("cuisines.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class RestaurantModel(Base):
+    __tablename__ = "restaurants"
+
+    __table_args__ = (CheckConstraint("price_level BETWEEN 1 AND 4", name="ck_restaurants_price_level_range"),)
+
+    id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    price_level: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="1-4, € to €€€€ — a fact about the venue, not a review score")
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True, comment="Reserved for Phase 2b (Google Places); unused for now")
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True, comment="Reserved for Phase 2b (Google Places); unused for now")
+    created_by: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False, comment="Whoever added it — informational only, does not gate writes")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    creator: Mapped["UserModel"] = relationship(lazy="joined")
+    cuisines: Mapped[list["CuisineModel"]] = relationship(secondary=restaurant_cuisines, lazy="selectin")
+
+
+class ReviewModel(Base):
+    __tablename__ = "reviews"
+
+    __table_args__ = (
+        CheckConstraint("location_score BETWEEN 0 AND 10", name="ck_reviews_location_score_range"),
+        CheckConstraint("food_score BETWEEN 0 AND 10", name="ck_reviews_food_score_range"),
+        CheckConstraint("service_score BETWEEN 0 AND 10", name="ck_reviews_service_score_range"),
+        CheckConstraint("value_score BETWEEN 0 AND 10", name="ck_reviews_value_score_range"),
+        CheckConstraint("mod(location_score * 2, 1) = 0", name="ck_reviews_location_score_step"),
+        CheckConstraint("mod(food_score * 2, 1) = 0", name="ck_reviews_food_score_step"),
+        CheckConstraint("mod(service_score * 2, 1) = 0", name="ck_reviews_service_score_step"),
+        CheckConstraint("mod(value_score * 2, 1) = 0", name="ck_reviews_value_score_step"),
+    )
+
+    id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    restaurant_id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False)
+    location_score: Mapped[float] = mapped_column(Numeric(3, 1), nullable=False)
+    food_score: Mapped[float] = mapped_column(Numeric(3, 1), nullable=False)
+    service_score: Mapped[float] = mapped_column(Numeric(3, 1), nullable=False)
+    value_score: Mapped[float] = mapped_column(Numeric(3, 1), nullable=False)
+    comment: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    visited_at: Mapped[date] = mapped_column(Date, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    # No unique constraint on (restaurant_id, user_id) — revisits are allowed, see docs/knowledge/improvement-plan.md
+    reviewer: Mapped["UserModel"] = relationship(lazy="joined")
