@@ -474,5 +474,5 @@ Deliberately deferred to the **EC2 phase** (next doc):
 - [`../knowledge/aws-rearchitecture-options.md`](../knowledge/aws-rearchitecture-options.md) — full decision background that led here.
 - [`../knowledge/platform-alternatives.md`](../knowledge/platform-alternatives.md) — earlier DIY-AWS vs Vercel/Railway/Fly comparison.
 - [`../knowledge/vpc-vs-no-vpc.md`](../knowledge/vpc-vs-no-vpc.md) — why the current VPC was overkill.
-- [`../knowledge/improvement-plan.md`](../knowledge/improvement-plan.md) — Phase 2 (restaurant reviews) — works on either Aurora or Neon.
+- [`./improvement-plan.md`](./improvement-plan.md) — Phase 2 (restaurant reviews) — works on either Aurora or Neon.
 - [`./ec2-migration-plan.md`](./ec2-migration-plan.md) — next phase: replace Lambda with EC2 + Docker.

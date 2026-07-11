@@ -308,4 +308,4 @@ This is the "Postgres ops" curriculum — exactly the learning Path A skips.
 - [`platform-alternatives.md`](./platform-alternatives.md) — earlier DIY-AWS vs Vercel/Railway/Fly comparison.
 - [`vpc-vs-no-vpc.md`](./vpc-vs-no-vpc.md) — why default VPC is fine for Path A/B.
 - [`aws-sql-db-networking.md`](./aws-sql-db-networking.md) — how the current Lambda↔Aurora networking works (useful before deleting it).
-- [`improvement-plan.md`](./improvement-plan.md) — Phase 2 (restaurant reviews) fits any of these paths.
+- [`../plans/improvement-plan.md`](../plans/improvement-plan.md) — Phase 2 (restaurant reviews) fits any of these paths.

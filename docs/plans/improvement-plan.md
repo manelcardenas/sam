@@ -133,47 +133,72 @@ dotenv (replaced by python-dotenv)
 
 ## Phase 2 — Restaurant Reviews Service
 
-**Goal:** Add a new domain — restaurants with ratings — on the same Aurora database.
+**Goal:** Add a new domain — a shared, community-editable log of restaurants with per-user reviews, visible to every authenticated user of the app. See `CONTEXT.md` for the full domain glossary (Restaurant, Review, Category Score, Value, Price Level, Overall, Cuisine, Visited At).
+
+> Superseded the original draft below (int 1–5 ratings, `food/service/ambiance/value/overall` categories, creator-only edits) after a design review with the user. Note this doc's Phase 1 section still targets Aurora; the project has since moved to Neon (see current `infra/` stack) — verify the actual DB target before writing the migration.
 
 ### Data model
 
 ```
 Restaurant
   id           UUID PK
-  created_by   str  FK → users.id (Cognito sub)
+  created_by   str  FK → users.id (Cognito sub) — informational only, does not gate writes
   name         str
   address      str (optional)
-  latitude     float (optional)
-  longitude    float (optional)
+  price_level  int (optional, 1–4, € to €€€€) — a fact about the venue, not a review score
+  latitude     float (optional, nullable)  — reserved for Phase 2b (maps), unused for now
+  longitude    float (optional, nullable)  — reserved for Phase 2b (maps), unused for now
   created_at   timestamptz
   updated_at   timestamptz
+
+Cuisine
+  id     UUID PK
+  name   str (unique) — curated, extensible list (Italian, Japanese, Chinese, Indian,
+                         Mediterranean, Spanish, Mexican, American, French, Thai,
+                         Vegan/Vegetarian, Other). New entries are a data insert, no migration.
+
+RestaurantCuisine (join table)
+  restaurant_id  UUID FK → restaurants.id
+  cuisine_id     UUID FK → cuisines.id
 
 Review
   id             UUID PK
   restaurant_id  UUID FK → restaurants.id (CASCADE DELETE)
   user_id        str  FK → users.id (Cognito sub)
-  food           int  1–5
-  service        int  1–5
-  ambiance       int  1–5
-  value          int  1–5
-  overall        int  1–5
-  notes          str (optional, max 1000 chars)
-  visited_at     date (optional)
+  location_score NUMERIC(3,1)  0.0–10.0, step 0.5  — location/decoration
+  food_score     NUMERIC(3,1)  0.0–10.0, step 0.5
+  service_score  NUMERIC(3,1)  0.0–10.0, step 0.5
+  value_score    NUMERIC(3,1)  0.0–10.0, step 0.5  — value for money, NOT price_level
+  comment        str (optional, max 1000 chars)
+  visited_at     date  — defaults to today at creation; not editable afterwards (no review-edit in v1)
   created_at     timestamptz
   updated_at     timestamptz
 ```
 
-**No unique constraint** on `(restaurant_id, user_id)` — each user can submit multiple reviews of the same restaurant (e.g., revisiting over time).
+**No unique constraint** on `(restaurant_id, user_id)` — a user can post multiple reviews of the same place over time. Revisits are the intended way to record a changed opinion, since reviews aren't editable in v1.
 
-**Cascade delete:** When a restaurant is deleted, all its reviews are deleted automatically (Postgres `ON DELETE CASCADE`).
+**`overall` is never stored** — always computed: per review, the average of the 4 category scores; per restaurant, the average of `overall` across all its reviews.
 
-**Computed aggregate:** `average_rating` per category, and a `total_average`, computed in SQL — not stored. Returned in the `GET /restaurants/{id}` response.
+**Cascade delete:** deleting a restaurant would delete all its reviews — this is exactly why restaurant deletion is **not exposed in v1** (see Authorization rules).
 
-### Location & map feature
+### Location & map feature (deferred to Phase 2b)
+
+v1 ships with **manual entry only** — no map, no autocomplete, no geocoding. `latitude`/`longitude` columns exist on `Restaurant` from day one but stay unused until Phase 2b, so adding map/Places search later needs no migration touching existing rows.
+
+When Phase 2b happens: use **Google Places** for restaurant search/autocomplete (this reverses the original recommendation below of OpenStreetMap-only — the user specifically wants Places-backed restaurant lookup so they don't have to type a name manually, not just free map tiles). Leaflet/OpenStreetMap may still be worth using for map *display* once coordinates exist; Places is for *search*.
+
+<details>
+<summary>Original (superseded) map recommendation</summary>
 
 For location, storing `latitude` / `longitude` as plain `FLOAT` columns is sufficient. The haversine formula (pure SQL math, no PostGIS) handles distance queries at this scale.
 
-For the **map view in the frontend**, use **Leaflet.js + OpenStreetMap** tiles — completely free, no API key, works perfectly in a static Next.js export. Google Maps API has a free tier (~$200/month credit) but requires a billing account and API key management; OpenStreetMap is simpler and has no risk of charges.
+For the map view in the frontend, Leaflet.js + OpenStreetMap tiles are completely free, no API key, and work in a static Next.js export — Google Maps requires a billing account and API key management. This reasoning still applies to map *display*, but not to restaurant *search*, which the user wants Places-backed.
+
+</details>
+
+### Restaurant dedup (v1, no Places API yet)
+
+Before creating a new restaurant, the create flow searches existing restaurants by name (case-insensitive `ILIKE`) and prompts the user to pick an existing match before falling back to "create new." A UX-level mitigation, not a hard constraint — duplicates can still occur.
 
 ### Clean architecture additions
 
@@ -181,24 +206,28 @@ Same pattern as recipes:
 
 ```
 domain/entities/restaurant.py
+domain/entities/cuisine.py
 domain/entities/review.py
 domain/ports/restaurant_repository.py
+domain/ports/cuisine_repository.py
 domain/ports/review_repository.py
 
 app/use_cases/
+  search_restaurants.py     # name search, used for dedup + browsing
   create_restaurant.py
-  get_restaurant.py         # includes aggregate ratings
-  list_restaurants.py       # optional: lat/lon + radius filtering
-  update_restaurant.py
-  delete_restaurant.py      # cascades to reviews
+  get_restaurant.py         # includes computed aggregate ratings
+  update_restaurant.py      # any authenticated user may call this
+  list_cuisines.py
   create_review.py
-  list_reviews.py           # for a given restaurant
-  delete_review.py          # user can delete their own review
+  list_reviews.py           # for a given restaurant; each reviewer's scores + comment
+  delete_review.py          # user can delete their own review only
 
 infra/adapters/repos/
   postgres_restaurant_repo.py
+  postgres_cuisine_repo.py
   postgres_review_repo.py
   in_memory_restaurant_repo.py
+  in_memory_cuisine_repo.py
   in_memory_review_repo.py
 
 infra/controllers/
@@ -206,33 +235,45 @@ infra/controllers/
   schemas.py
 ```
 
+No `delete_restaurant.py` or `update_review.py` in v1 — deliberately excluded (see Authorization rules; also ADR 0002 for why restaurant facts have no ownership check).
+
 ### API routes
 
 ```
-GET    /restaurants                          — list (optional ?lat=&lon=&radius_km=)
+GET    /restaurants                          — search/list (?q=name for dedup search)
 POST   /restaurants                          — create (auth required)
-GET    /restaurants/{id}                     — detail with aggregate ratings
-PUT    /restaurants/{id}                     — update (only creator)
-DELETE /restaurants/{id}                     — delete + cascade reviews (only creator)
+GET    /restaurants/{id}                     — detail with computed aggregate ratings
+PUT    /restaurants/{id}                     — update facts (any authenticated user)
+GET    /cuisines                             — list the curated cuisine vocabulary
 
-GET    /restaurants/{id}/reviews             — list all reviews
+GET    /restaurants/{id}/reviews             — list all reviews (scores + comment + visited_at + reviewer)
 POST   /restaurants/{id}/reviews             — submit a review (auth required)
 DELETE /restaurants/{id}/reviews/{review_id} — delete own review only
 ```
 
+No `DELETE /restaurants/{id}` and no `PUT /restaurants/{id}/reviews/{review_id}` in v1.
+
 ### Authorization rules
 
 - **Create restaurant:** any authenticated user
-- **Update/delete restaurant:** only the `created_by` user
+- **Update restaurant facts:** any authenticated user, no ownership check (ADR 0002)
+- **Delete restaurant:** not exposed in v1
 - **Submit review:** any authenticated user
+- **Edit review:** not exposed in v1 — delete + re-create instead
 - **Delete review:** only the review's `user_id`
-- Enforcement: controller checks `resource.user_id == current_user.sub`, raises `HTTP 403` otherwise
+- All endpoints require Cognito auth — no public/unauthenticated access
 
 ### Alembic migration
 
 New migration `phase_2_restaurants_reviews.py`:
-- Creates `restaurants` table
+- Creates `restaurants` table (with nullable `latitude`/`longitude`)
+- Creates `cuisines` table, seeded with the starter list
+- Creates `restaurant_cuisines` join table
 - Creates `reviews` table with FK to `restaurants` (`ON DELETE CASCADE`) and FK to `users`
+
+### Reminder: CDK route registration
+
+Every route above needs a matching `addRoutes()` entry in `infra/lib/application/lambda-api-stack.ts`, or API Gateway will 404 it even though the Lambda handles it fine.
 
 ---
 
