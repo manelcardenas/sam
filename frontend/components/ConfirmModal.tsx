@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Trash2, X } from "lucide-react";
 
 interface ConfirmModalProps {
@@ -17,8 +18,17 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  // Guard against double-fire: a second click while the async confirm is in
+  // flight would repeat the action (e.g. a DELETE that then 404s).
+  const [busy, setBusy] = useState(false);
+
   const handleConfirm = async () => {
-    await onConfirm();
+    setBusy(true);
+    try {
+      await onConfirm();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -51,13 +61,15 @@ export default function ConfirmModal({
         <div className="flex gap-3">
           <button
             onClick={handleConfirm}
-            className="flex-1 cursor-pointer rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            disabled={busy}
+            className="flex-1 cursor-pointer rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
-            {confirmLabel}
+            {busy ? "Working…" : confirmLabel}
           </button>
           <button
             onClick={onCancel}
-            className="flex-1 cursor-pointer rounded-full border border-line py-3 px-4 font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            disabled={busy}
+            className="flex-1 cursor-pointer rounded-full border border-line py-3 px-4 font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
             Cancel
           </button>
