@@ -142,6 +142,41 @@ export class LambdaApiStack extends Stack {
       authorizer,
     });
 
+    httpApi.addRoutes({
+      path: "/restaurants",
+      methods: [HttpMethod.GET, HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/restaurants/{restaurant_id}",
+      methods: [HttpMethod.GET, HttpMethod.PUT],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/cuisines",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/restaurants/{restaurant_id}/reviews",
+      methods: [HttpMethod.GET, HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/restaurants/{restaurant_id}/reviews/{review_id}",
+      methods: [HttpMethod.DELETE],
+      integration,
+      authorizer,
+    });
+
     new CfnOutput(this, "ApiEndpoint", {
       value: httpApi.apiEndpoint,
       description: "Recipe Manager HTTP API endpoint",
