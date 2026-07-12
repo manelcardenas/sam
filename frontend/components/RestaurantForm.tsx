@@ -1,14 +1,32 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LocateFixed, MapPin, Save, Search, X } from "lucide-react";
-import { apiClient, type Area, type Cuisine, type CreateRestaurantInput, type Place, type Restaurant } from "@/lib/api-client";
+import dynamic from "next/dynamic";
+import { Check, LocateFixed, MapPin, Save, Search, X } from "lucide-react";
+import {
+  apiClient,
+  type Area,
+  type Cuisine,
+  type CreateRestaurantInput,
+  type Place,
+  type Restaurant,
+  type RestaurantDetail,
+} from "@/lib/api-client";
+import { MapLoading } from "@/components/map/MapLoading";
+
+// MapLibre is heavy and DOM-only — fetched only when someone opens the pin picker.
+const PinPickerMap = dynamic(() => import("@/components/map/PinPickerMap"), {
+  ssr: false,
+  loading: () => <MapLoading className="h-64 w-full rounded-2xl border border-line" />,
+});
 
 interface RestaurantFormInitialData {
   name: string;
   address?: string | null;
   price_level?: 1 | 2 | 3 | 4 | null;
   cuisines: string[];
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 interface RestaurantFormProps {
@@ -52,6 +70,14 @@ export default function RestaurantForm({
   const [matches, setMatches] = useState<Restaurant[]>([]);
   const [placeMatches, setPlaceMatches] = useState<Place[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  // Pin drop: pendingPin follows the marker inside the open picker; pinnedCoords
+  // is the confirmed spot that gets submitted. Mutually exclusive with selectedPlace.
+  const [showPinMap, setShowPinMap] = useState(false);
+  const [pendingPin, setPendingPin] = useState<{ lat: number; lon: number } | null>(null);
+  const [pinnedCoords, setPinnedCoords] = useState<{ lat: number; lon: number } | null>(null);
+  // Everything already on SAM with coordinates — shown as neutral pins in the
+  // picker so nobody re-creates a restaurant that's sitting right there.
+  const [pinNeighbours, setPinNeighbours] = useState<RestaurantDetail[]>([]);
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -62,6 +88,14 @@ export default function RestaurantForm({
   const coordsRef = useRef<{ lat: number; lon: number } | null>(null);
 
   const creating = !initialData && !!onSelectExisting;
+
+  // Edit mode: the stored pin, shown as the picker's starting marker.
+  const initialCoords =
+    initialData?.latitude != null && initialData?.longitude != null
+      ? { lat: initialData.latitude, lon: initialData.longitude }
+      : null;
+  // What submit sends (edit): a confirmed pin move wins, else leave the stored one alone.
+  const effectiveCoords = pinnedCoords ?? initialCoords;
 
   useEffect(() => {
     apiClient.listCuisines().then(setCuisineOptions).catch(() => {});
@@ -187,8 +221,48 @@ export default function RestaurantForm({
     );
   };
 
+  const openPinMap = () => {
+    setPendingPin(null);
+    setShowPinMap(true);
+    // Dedup layer, create mode only (editing shows just the restaurant's own pin).
+    // Courtesy fetch — the picker works fine without it.
+    if (creating) {
+      apiClient
+        .searchRestaurants()
+        .then((all) => setPinNeighbours(all.filter((r) => r.latitude != null && r.longitude != null)))
+        .catch(() => {});
+    }
+  };
+
+  const confirmPin = async () => {
+    if (!pendingPin) {
+      setShowPinMap(false); // existing pin left where it was — nothing to change
+      return;
+    }
+    setPinnedCoords(pendingPin);
+    setShowPinMap(false);
+    if (creating) setSelectedPlace(null); // a hand-dropped pin replaces the provider link
+    // Courtesy prefill: never overwrite an address the user already typed.
+    if (!address.trim()) {
+      try {
+        const { address: found } = await apiClient.reverseGeocode(pendingPin);
+        if (found) setAddress(found);
+      } catch {
+        // prefill only — the pin itself is already set
+      }
+    }
+  };
+
+  const clearPin = () => {
+    setPinnedCoords(null);
+    setPendingPin(null);
+    setShowPinMap(false);
+  };
+
   const selectPlace = (place: Place) => {
     setSelectedPlace(place);
+    setPinnedCoords(null); // the provider's coordinates take over
+    setShowPinMap(false);
     setName(place.name);
     if (place.address) setAddress(place.address);
     // Prefill cuisines that match the curated vocabulary; unrecognized provider tags are dropped.
@@ -218,8 +292,11 @@ export default function RestaurantForm({
         price_level: priceLevel ?? undefined,
         cuisines: selectedCuisines,
         external_place_id: selectedPlace?.external_place_id,
-        latitude: selectedPlace?.latitude,
-        longitude: selectedPlace?.longitude,
+        // Geoapify first: a picked Place brings its own coordinates; a hand-dropped
+        // pin covers everything the provider doesn't know. Omitting both on edit
+        // leaves the stored location untouched (backend contract).
+        latitude: selectedPlace?.latitude ?? (creating ? pinnedCoords?.lat : effectiveCoords?.lat),
+        longitude: selectedPlace?.longitude ?? (creating ? pinnedCoords?.lon : effectiveCoords?.lon),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -295,6 +372,14 @@ export default function RestaurantForm({
                   </ul>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => (showPinMap ? setShowPinMap(false) : openPinMap())}
+                className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line px-3.5 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              >
+                <MapPin className="h-4 w-4" />
+                Drop a pin
+              </button>
             </div>
             {(selectedArea || nearYou || locateError) && (
               <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
@@ -324,6 +409,90 @@ export default function RestaurantForm({
                 )}
               </p>
             )}
+            {!showPinMap && !pinnedCoords && !selectedPlace && name.trim().length >= 2 && placeMatches.length === 0 && (
+              <p className="mt-1.5 text-xs text-muted">
+                Can&rsquo;t find it on the map?{" "}
+                <button
+                  type="button"
+                  onClick={openPinMap}
+                  className="cursor-pointer font-semibold text-tomato underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                >
+                  Drop a pin
+                </button>{" "}
+                instead.
+              </p>
+            )}
+          </div>
+        )}
+
+        {!creating && (
+          <div className="mt-3">
+            <span className="mb-1.5 block text-xs font-semibold text-muted">
+              Location <span className="font-normal">{initialCoords ? "(shown on the map)" : "(not on the map yet)"}</span>
+            </span>
+            {!showPinMap && (
+              <button
+                type="button"
+                onClick={openPinMap}
+                className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-3.5 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              >
+                <MapPin className="h-4 w-4" />
+                {effectiveCoords ? "Adjust the pin" : "Drop a pin on the map"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {showPinMap && (
+          <div className="mt-3 space-y-2">
+            <PinPickerMap
+              initial={effectiveCoords}
+              anchor={
+                selectedArea
+                  ? { lat: selectedArea.latitude, lon: selectedArea.longitude }
+                  : coordsRef.current
+              }
+              onChange={setPendingPin}
+              existing={creating ? pinNeighbours : []}
+              onPickExisting={onSelectExisting}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={confirmPin}
+                disabled={!pendingPin && !effectiveCoords}
+                className="flex cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              >
+                <Check className="h-4 w-4" />
+                Use this spot
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPinMap(false)}
+                className="cursor-pointer rounded-full border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {pinnedCoords && !selectedPlace && !showPinMap && (
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-tomato" />
+            <span className="truncate">
+              <span className="font-semibold text-fg">Pinned on the map</span>
+              {!creating && " — saved with your changes"}
+            </span>
+            <button
+              type="button"
+              onClick={clearPin}
+              title="Remove pin"
+              aria-label="Remove pin"
+              className="cursor-pointer rounded-full p-0.5 text-muted transition-colors hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
         )}
 
