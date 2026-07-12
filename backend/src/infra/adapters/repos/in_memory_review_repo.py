@@ -45,6 +45,21 @@ class InMemoryReviewRepository(ReviewRepository):
             )
         return result
 
+    def update_review(self, review: Review) -> Review:
+        existing = self.table.get(review.id)
+        if existing is None:
+            raise KeyError(f"Review with id {review.id} not found")
+        # Only the author-editable facts change; identity/authorship/created_at stay.
+        existing.update(
+            location_score=review.location_score,
+            food_score=review.food_score,
+            service_score=review.service_score,
+            value_score=review.value_score,
+            comment=review.comment,
+            visited_at=review.visited_at,
+        )
+        return Review(**existing)
+
     def delete_review(self, review_id: str) -> None:
         if review_id not in self.table:
             raise KeyError(f"Review with id {review_id} not found")

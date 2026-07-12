@@ -6,9 +6,10 @@ class InMemoryPlacesProvider(PlacesProvider):
     """In-memory provider for unit tests only. Seed it with Places/Areas; search
     matches case-insensitively on name, nearby returns everything seeded."""
 
-    def __init__(self, places: list[Place] | None = None, areas: list[Area] | None = None) -> None:
+    def __init__(self, places: list[Place] | None = None, areas: list[Area] | None = None, reverse_address: str | None = None) -> None:
         self.places = places or []
         self.areas = areas or []
+        self.reverse_address = reverse_address
 
     def search(self, text: str, bias_lat: float | None = None, bias_lon: float | None = None) -> list[Place]:  # noqa: ARG002 — bias is irrelevant in-memory
         text_lower = text.lower()
@@ -20,3 +21,6 @@ class InMemoryPlacesProvider(PlacesProvider):
     def search_areas(self, text: str) -> list[Area]:
         text_lower = text.lower()
         return [a.model_copy() for a in self.areas if text_lower in a.name.lower()]
+
+    def reverse_geocode(self, lat: float, lon: float) -> str | None:  # noqa: ARG002 — location is irrelevant in-memory
+        return self.reverse_address
