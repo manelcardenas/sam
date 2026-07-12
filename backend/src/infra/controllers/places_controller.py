@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from src.app.use_cases import NearbyPlaces, SearchPlaces
-from src.domain.entities import Place
+from src.app.use_cases import NearbyPlaces, SearchAreas, SearchPlaces
+from src.domain.entities import Area, Place
 from src.domain.ports import PlacesProvider, PlacesProviderError
 from src.infra.security import TokenPayload, get_current_user
 
@@ -41,6 +41,17 @@ class PlacesController:
             tags=["Places"],
         )
 
+        self.router.add_api_route(
+            "/places/areas",
+            self.search_areas,
+            methods=["GET"],
+            response_model=list[Area],
+            dependencies=[Depends(get_current_user)],
+            summary="Search areas",
+            description="Autocomplete for cities/addresses used to anchor a Place search somewhere else",
+            tags=["Places"],
+        )
+
     def search_places(
         self,
         q: str = Query(min_length=2, max_length=255),
@@ -66,5 +77,17 @@ class PlacesController:
         use_case = NearbyPlaces(self.places_provider)
         try:
             return use_case.execute(lat, lon, radius_m)
+        except PlacesProviderError as e:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)) from e
+
+    def search_areas(
+        self,
+        q: str = Query(min_length=2, max_length=255),
+        _current_user: TokenPayload = Depends(get_current_user),
+    ) -> list[Area]:
+        """Autocomplete cities/addresses to anchor a Place search elsewhere."""
+        use_case = SearchAreas(self.places_provider)
+        try:
+            return use_case.execute(q)
         except PlacesProviderError as e:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)) from e
