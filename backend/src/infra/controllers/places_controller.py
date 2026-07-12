@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from src.app.use_cases import NearbyPlaces, SearchAreas, SearchPlaces
+from src.app.use_cases import NearbyPlaces, ReverseGeocode, SearchAreas, SearchPlaces
 from src.domain.entities import Area, Place
 from src.domain.ports import PlacesProvider, PlacesProviderError
+from src.infra.controllers.schemas import ReverseGeocodeResponse
 from src.infra.security import TokenPayload, get_current_user
 
 
@@ -52,6 +53,17 @@ class PlacesController:
             tags=["Places"],
         )
 
+        self.router.add_api_route(
+            "/places/reverse",
+            self.reverse_geocode,
+            methods=["GET"],
+            response_model=ReverseGeocodeResponse,
+            dependencies=[Depends(get_current_user)],
+            summary="Reverse geocode",
+            description="Formatted address at ?lat=&lon= — used to prefill the address after a pin drop",
+            tags=["Places"],
+        )
+
     def search_places(
         self,
         q: str = Query(min_length=2, max_length=255),
@@ -89,5 +101,18 @@ class PlacesController:
         use_case = SearchAreas(self.places_provider)
         try:
             return use_case.execute(q)
+        except PlacesProviderError as e:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)) from e
+
+    def reverse_geocode(
+        self,
+        lat: float = Query(ge=-90, le=90),
+        lon: float = Query(ge=-180, le=180),
+        _current_user: TokenPayload = Depends(get_current_user),
+    ) -> ReverseGeocodeResponse:
+        """Address at a pin-dropped point. Ephemeral, never stored server-side."""
+        use_case = ReverseGeocode(self.places_provider)
+        try:
+            return ReverseGeocodeResponse(address=use_case.execute(lat, lon))
         except PlacesProviderError as e:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)) from e

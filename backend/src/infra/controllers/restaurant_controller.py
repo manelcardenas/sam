@@ -10,6 +10,7 @@ from src.app.use_cases import (
     ListReviews,
     SearchRestaurants,
     UpdateRestaurant,
+    UpdateReview,
 )
 from src.domain.entities import Cuisine, Restaurant, RestaurantDetail, Review
 from src.domain.ports import CuisineRepository, RestaurantRepository, ReviewRepository
@@ -113,6 +114,17 @@ class RestaurantController:
 
         self.router.add_api_route(
             "/restaurants/{restaurant_id}/reviews/{review_id}",
+            self.update_review,
+            methods=["PUT"],
+            response_model=Review,
+            dependencies=[Depends(get_current_user)],
+            summary="Edit a review",
+            description="Replaces a review's scores/comment/visit date — only its author may do this",
+            tags=["Reviews"],
+        )
+
+        self.router.add_api_route(
+            "/restaurants/{restaurant_id}/reviews/{review_id}",
             self.delete_review,
             methods=["DELETE"],
             status_code=status.HTTP_204_NO_CONTENT,
@@ -173,8 +185,9 @@ class RestaurantController:
             name=request.name,
             address=request.address,
             price_level=request.price_level,
-            latitude=existing.latitude,
-            longitude=existing.longitude,
+            # Pin moves send both coords; requests without them leave the stored pin alone.
+            latitude=request.latitude if request.latitude is not None and request.longitude is not None else existing.latitude,
+            longitude=request.longitude if request.latitude is not None and request.longitude is not None else existing.longitude,
             external_place_id=existing.external_place_id,  # mapping identity is not user-editable
             cuisines=request.cuisines,
             created_by=existing.created_by,
@@ -202,6 +215,19 @@ class RestaurantController:
         review = Review(restaurant_id=restaurant_id, user_id=current_user.sub, **request.model_dump())
         use_case = CreateReview(self.review_repository)
         return use_case.execute(review)
+
+    def update_review(self, restaurant_id: str, review_id: str, request: CreateReviewRequest, current_user: TokenPayload = Depends(get_current_user)) -> Review:
+        """Edit a review. Only its author may edit it; authorship and created_at are preserved."""
+        get_use_case = GetReview(self.review_repository)
+        existing_review = get_use_case.execute(review_id)
+        if existing_review is None or existing_review.restaurant_id != restaurant_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Review with id {review_id} not found")
+        if existing_review.user_id != current_user.sub:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the review's author can edit it")
+
+        updated = existing_review.model_copy(update=request.model_dump())
+        use_case = UpdateReview(self.review_repository)
+        return use_case.execute(updated)
 
     def delete_review(self, restaurant_id: str, review_id: str, current_user: TokenPayload = Depends(get_current_user)) -> None:
         """Delete a review. Only its author may delete it."""
