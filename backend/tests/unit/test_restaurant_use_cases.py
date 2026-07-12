@@ -9,11 +9,12 @@ from src.app.use_cases import (
     ListCuisines,
     ListReviews,
     NearbyPlaces,
+    SearchAreas,
     SearchPlaces,
     SearchRestaurants,
     UpdateRestaurant,
 )
-from src.domain.entities import Cuisine, Place, Restaurant, Review
+from src.domain.entities import Area, Cuisine, Place, Restaurant, Review
 from src.infra.adapters.places.in_memory_places_provider import InMemoryPlacesProvider
 from src.infra.adapters.repos.in_memory_cuisine_repo import InMemoryCuisineRepository
 from src.infra.adapters.repos.in_memory_restaurant_repo import InMemoryRestaurantRepository
@@ -63,22 +64,40 @@ class TestCreateRestaurant:
 
 
 class TestSearchRestaurants:
-    def test_filters_by_case_insensitive_name(self, restaurant_repo: InMemoryRestaurantRepository) -> None:
+    def test_filters_by_case_insensitive_name(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
         CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-1"))
         CreateRestaurant(restaurant_repo).execute(Restaurant(name="Noodle Bar", created_by="user-1"))
 
-        result = SearchRestaurants(restaurant_repo).execute("casa")
+        result = SearchRestaurants(restaurant_repo, review_repo).execute("casa")
 
         assert len(result) == 1
         assert result[0].name == "Casa Pepe"
 
-    def test_returns_all_when_no_query(self, restaurant_repo: InMemoryRestaurantRepository) -> None:
+    def test_returns_all_when_no_query(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
         CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-1"))
         CreateRestaurant(restaurant_repo).execute(Restaurant(name="Noodle Bar", created_by="user-1"))
 
-        result = SearchRestaurants(restaurant_repo).execute()
+        result = SearchRestaurants(restaurant_repo, review_repo).execute()
 
         assert len(result) == 2
+
+    def test_includes_aggregate_ratings_per_restaurant(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """List cards show overall + review count, so the list must carry aggregates."""
+        reviewed, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-1"))
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Noodle Bar", created_by="user-1"))
+        CreateReview(review_repo).execute(
+            Review(restaurant_id=reviewed.id, user_id="user-a", location_score=8, food_score=8, service_score=8, value_score=8, visited_at="2026-01-01")
+        )
+        CreateReview(review_repo).execute(
+            Review(restaurant_id=reviewed.id, user_id="user-b", location_score=10, food_score=10, service_score=10, value_score=10, visited_at="2026-01-02")
+        )
+
+        result = {r.name: r for r in SearchRestaurants(restaurant_repo, review_repo).execute()}
+
+        assert result["Casa Pepe"].review_count == 2
+        assert result["Casa Pepe"].average_overall == 9.0
+        assert result["Noodle Bar"].review_count == 0
+        assert result["Noodle Bar"].average_overall is None
 
 
 class TestUpdateRestaurant:
@@ -192,6 +211,18 @@ class TestPlaces:
         result = NearbyPlaces(places_provider).execute(41.4, 2.15)
 
         assert len(result) == 2
+
+    def test_search_areas_matches_by_name(self) -> None:
+        provider = InMemoryPlacesProvider(
+            areas=[
+                Area(name="Zaragoza", label="Zaragoza, Aragon, Spain", latitude=41.65, longitude=-0.88),
+                Area(name="Barcelona", label="Barcelona, Catalonia, Spain", latitude=41.39, longitude=2.17),
+            ]
+        )
+
+        result = SearchAreas(provider).execute("zara")
+
+        assert [a.name for a in result] == ["Zaragoza"]
 
 
 class TestListCuisines:

@@ -1,8 +1,9 @@
 import uuid
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.domain.entities import Review
+from src.domain.entities import Review, ReviewAggregate
 from src.domain.ports import ReviewRepository
 from src.infra.adapters.repos.ids import parse_uuid
 from src.infra.db import ReviewModel
@@ -69,6 +70,40 @@ class PostgresReviewRepository(ReviewRepository):
         with self._session_factory() as session:
             models = session.query(ReviewModel).filter(ReviewModel.restaurant_id == uid).order_by(ReviewModel.created_at.desc()).all()
             return [self._to_entity(m) for m in models]
+
+    def aggregate_for_restaurants(self, restaurant_ids: list[str]) -> dict[str, ReviewAggregate]:
+        ids = [uid for uid in (parse_uuid(r) for r in restaurant_ids) if uid is not None]
+        if not ids:
+            return {}
+        # Per-review overall is rounded to 1dp before averaging, matching Review.overall,
+        # so list cards and the detail view can never disagree on the same data.
+        overall = func.round((ReviewModel.location_score + ReviewModel.food_score + ReviewModel.service_score + ReviewModel.value_score) / 4, 1)
+        with self._session_factory() as session:
+            rows = (
+                session.query(
+                    ReviewModel.restaurant_id,
+                    func.count(ReviewModel.id),
+                    func.avg(ReviewModel.location_score),
+                    func.avg(ReviewModel.food_score),
+                    func.avg(ReviewModel.service_score),
+                    func.avg(ReviewModel.value_score),
+                    func.avg(overall),
+                )
+                .filter(ReviewModel.restaurant_id.in_(ids))
+                .group_by(ReviewModel.restaurant_id)
+                .all()
+            )
+        return {
+            str(restaurant_id): ReviewAggregate(
+                review_count=count,
+                average_location=round(float(avg_location), 1),
+                average_food=round(float(avg_food), 1),
+                average_service=round(float(avg_service), 1),
+                average_value=round(float(avg_value), 1),
+                average_overall=round(float(avg_overall), 1),
+            )
+            for restaurant_id, count, avg_location, avg_food, avg_service, avg_value, avg_overall in rows
+        }
 
     def delete_review(self, review_id: str) -> None:
         uid = parse_uuid(review_id)

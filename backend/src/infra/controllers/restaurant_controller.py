@@ -36,10 +36,10 @@ class RestaurantController:
             "/restaurants",
             self.list_restaurants,
             methods=["GET"],
-            response_model=list[Restaurant],
+            response_model=list[RestaurantDetail],
             dependencies=[Depends(get_current_user)],
             summary="Search restaurants",
-            description="Lists restaurants, optionally filtered by a case-insensitive name match via ?q=",
+            description="Lists restaurants with aggregate ratings, optionally filtered by a case-insensitive name match via ?q=",
             tags=["Restaurants"],
         )
 
@@ -122,9 +122,9 @@ class RestaurantController:
             tags=["Reviews"],
         )
 
-    def list_restaurants(self, q: str | None = None, _current_user: TokenPayload = Depends(get_current_user)) -> list[Restaurant]:
-        """List restaurants, optionally filtered by name (used for browsing and create-time dedup)."""
-        use_case = SearchRestaurants(self.restaurant_repository)
+    def list_restaurants(self, q: str | None = None, _current_user: TokenPayload = Depends(get_current_user)) -> list[RestaurantDetail]:
+        """List restaurants with aggregate ratings, optionally filtered by name (used for browsing and create-time dedup)."""
+        use_case = SearchRestaurants(self.restaurant_repository, self.review_repository)
         return use_case.execute(q)
 
     def _validate_cuisines(self, names: list[str]) -> None:

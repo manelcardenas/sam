@@ -1,12 +1,5 @@
-from collections.abc import Iterable
-
 from src.domain.entities import RestaurantDetail
 from src.domain.ports import RestaurantRepository, ReviewRepository
-
-
-def _average(values: Iterable[float]) -> float:
-    values = list(values)
-    return round(sum(values) / len(values), 1)
 
 
 class GetRestaurant:
@@ -19,12 +12,5 @@ class GetRestaurant:
         if restaurant is None:
             return None
 
-        reviews = self.review_repository.list_reviews_for_restaurant(restaurant_id)
-        detail = RestaurantDetail(**restaurant.model_dump(), review_count=len(reviews))
-        if reviews:
-            detail.average_location = _average(r.location_score for r in reviews)
-            detail.average_food = _average(r.food_score for r in reviews)
-            detail.average_service = _average(r.service_score for r in reviews)
-            detail.average_value = _average(r.value_score for r in reviews)
-            detail.average_overall = _average(r.overall for r in reviews)
-        return detail
+        aggregate = self.review_repository.aggregate_for_restaurants([restaurant_id]).get(restaurant_id)
+        return RestaurantDetail(**restaurant.model_dump(), **(aggregate.model_dump() if aggregate else {}))

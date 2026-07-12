@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.domain.entities import Place
+from src.domain.entities import Area, Place
 
 
 class PlacesProviderError(Exception):
@@ -18,3 +18,7 @@ class PlacesProvider(ABC):
     @abstractmethod
     def nearby(self, lat: float, lon: float, radius_m: int = 500) -> list[Place]:
         """Restaurants around a point, nearest first."""
+
+    @abstractmethod
+    def search_areas(self, text: str) -> list[Area]:
+        """Autocomplete for cities/addresses, used to anchor a Place search elsewhere."""

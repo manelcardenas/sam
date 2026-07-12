@@ -188,6 +188,13 @@ export class LambdaApiStack extends Stack {
     });
 
     httpApi.addRoutes({
+      path: "/places/areas",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
       path: "/restaurants/{restaurant_id}/reviews",
       methods: [HttpMethod.GET, HttpMethod.POST],
       integration,
