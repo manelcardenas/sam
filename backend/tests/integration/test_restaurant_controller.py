@@ -10,7 +10,7 @@ import pytest
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import ValidationError
 
-from src.domain.entities import Cuisine, Place
+from src.domain.entities import Area, Cuisine, Place
 from src.infra.adapters.places.in_memory_places_provider import InMemoryPlacesProvider
 from src.infra.adapters.repos.in_memory_cuisine_repo import InMemoryCuisineRepository
 from src.infra.adapters.repos.in_memory_restaurant_repo import InMemoryRestaurantRepository
@@ -223,3 +223,13 @@ def test_nearby_places_returns_seeded_places() -> None:
 
     assert len(result) == 1
     assert result[0].distance_m == 120
+
+
+def test_search_areas_returns_matching_areas() -> None:
+    area = Area(name="Zaragoza", label="Zaragoza, Aragon, Spain", latitude=41.65, longitude=-0.88)
+    controller = PlacesController(InMemoryPlacesProvider(areas=[area]), APIRouter())
+
+    result = controller.search_areas(q="zarag", _current_user=USER)
+
+    assert len(result) == 1
+    assert result[0].label == "Zaragoza, Aragon, Spain"
