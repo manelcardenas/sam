@@ -1,6 +1,16 @@
 from pydantic import BaseModel, Field
 
 
+class Area(BaseModel):
+    """A city/neighbourhood/address used to anchor a Place search somewhere
+    else. Ephemeral like Place — never stored."""
+
+    name: str  # short name, e.g. "Zaragoza"
+    label: str  # disambiguated display label, e.g. "Zaragoza, Aragon, Spain"
+    latitude: float
+    longitude: float
+
+
 class Place(BaseModel):
     """The external map provider's record of a physical venue, shown as a
     search result when adding a Restaurant. Never persisted — picking one

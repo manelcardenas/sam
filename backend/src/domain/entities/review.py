@@ -23,3 +23,17 @@ class Review(BaseModel):
     def overall(self) -> float:
         """Average of the 4 category scores. Never entered directly, never stored — always computed."""
         return round((self.location_score + self.food_score + self.service_score + self.value_score) / 4, 1)
+
+
+class ReviewAggregate(BaseModel):
+    """Aggregate ratings for one Restaurant, computed from its Reviews — never stored.
+
+    Field names deliberately mirror RestaurantDetail so the two can be merged
+    with model_dump()."""
+
+    review_count: int = 0
+    average_location: float | None = None
+    average_food: float | None = None
+    average_service: float | None = None
+    average_value: float | None = None
+    average_overall: float | None = None
