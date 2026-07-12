@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { getCurrentUser } from "aws-amplify/auth";
 import { configureAmplify } from "@/lib/amplify";
 import {
@@ -18,9 +19,34 @@ import RestaurantForm from "@/components/RestaurantForm";
 import ReviewForm from "@/components/ReviewForm";
 import ConfirmModal from "@/components/ConfirmModal";
 import { Loader } from "@/components/ui/Loader";
-import { ArrowLeft, Edit, MapPin, Plus, Star, Trash2, UtensilsCrossed } from "lucide-react";
+import { MapLoading } from "@/components/map/MapLoading";
+import {
+  ArrowLeft,
+  Edit,
+  LayoutGrid,
+  Map as MapIcon,
+  MapPin,
+  Plus,
+  Star,
+  Trash2,
+  UtensilsCrossed,
+} from "lucide-react";
 
-type View = "list" | "detail" | "add-restaurant" | "edit-restaurant" | "add-review";
+// MapLibre needs the DOM and is heavy — keep it out of the static export
+// pass and out of the initial bundle; it downloads only when a map shows.
+const RestaurantsMap = dynamic(() => import("@/components/map/RestaurantsMap"), {
+  ssr: false,
+  loading: () => (
+    <MapLoading className="h-[65vh] min-h-[420px] rounded-4xl border border-line shadow-paw" />
+  ),
+});
+const LocationMap = dynamic(() => import("@/components/map/LocationMap"), {
+  ssr: false,
+  loading: () => <MapLoading className="h-full w-full" />,
+});
+
+type View = "list" | "detail" | "add-restaurant" | "edit-restaurant" | "add-review" | "edit-review";
+type ListMode = "cards" | "map";
 
 /** Price as €…€€€€ with the unused tier dimmed. */
 function PriceLevel({ level }: { level: number }) {
@@ -65,9 +91,11 @@ export default function DinePage() {
   const [notice, setNotice] = useState("");
 
   const [view, setView] = useState<View>("list");
+  const [listMode, setListMode] = useState<ListMode>("cards");
   const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewToDelete, setReviewToDelete] = useState<Review | null>(null);
+  const [reviewToEdit, setReviewToEdit] = useState<Review | null>(null);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -145,6 +173,13 @@ export default function DinePage() {
     await openRestaurant(selectedRestaurant);
   };
 
+  const handleUpdateReview = async (data: CreateReviewInput) => {
+    if (!reviewToEdit || !selectedRestaurant) return;
+    await apiClient.updateReview(selectedRestaurant.id, reviewToEdit.id, data);
+    setReviewToEdit(null);
+    await openRestaurant(selectedRestaurant);
+  };
+
   const handleDeleteReview = async () => {
     if (!reviewToDelete || !selectedRestaurant) return;
     try {
@@ -163,10 +198,14 @@ export default function DinePage() {
     ? restaurants.filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase()))
     : restaurants;
 
+  const mappedVisible = visibleRestaurants.filter((r) => r.latitude != null && r.longitude != null);
+  const unmappedVisible = visibleRestaurants.length - mappedVisible.length;
+
   // ── Navigation helpers ───────────────────────────────────────────────────────
 
   const goBack = () => {
-    if (view === "add-review" || view === "edit-restaurant") {
+    if (view === "add-review" || view === "edit-review" || view === "edit-restaurant") {
+      setReviewToEdit(null);
       setView("detail");
       return;
     }
@@ -231,13 +270,43 @@ export default function DinePage() {
           </header>
 
           {restaurants.length > 0 && (
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search restaurants…"
-              className="mb-5 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
-            />
+            <div className="mb-5 flex items-stretch gap-2">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search restaurants…"
+                className="min-w-0 flex-1 rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+              />
+              <div
+                role="group"
+                aria-label="View as"
+                className="flex shrink-0 items-center gap-1 rounded-2xl border border-line bg-surface p-1"
+              >
+                <button
+                  type="button"
+                  onClick={() => setListMode("cards")}
+                  aria-pressed={listMode === "cards"}
+                  className={`flex h-full cursor-pointer items-center gap-1.5 rounded-xl px-3 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+                    listMode === "cards" ? "bg-tomato text-white shadow-pop" : "text-muted hover:text-fg"
+                  }`}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  <span className="hidden sm:inline">Cards</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListMode("map")}
+                  aria-pressed={listMode === "map"}
+                  className={`flex h-full cursor-pointer items-center gap-1.5 rounded-xl px-3 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+                    listMode === "map" ? "bg-tomato text-white shadow-pop" : "text-muted hover:text-fg"
+                  }`}
+                >
+                  <MapIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Map</span>
+                </button>
+              </div>
+            </div>
           )}
 
           {restaurants.length === 0 ? (
@@ -254,6 +323,27 @@ export default function DinePage() {
             </div>
           ) : visibleRestaurants.length === 0 ? (
             <p className="py-10 text-center text-muted">No restaurants match &ldquo;{query}&rdquo;.</p>
+          ) : listMode === "map" ? (
+            mappedVisible.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-line bg-surface py-16 text-center">
+                <MapPin className="mx-auto mb-3 h-10 w-10 text-muted" />
+                <p className="mx-auto max-w-sm text-muted">
+                  None of these restaurants have a location yet. Pick a match from the map
+                  search when adding one and it&rsquo;ll show up here.
+                </p>
+              </div>
+            ) : (
+              <>
+                <RestaurantsMap restaurants={visibleRestaurants} onOpenRestaurant={openRestaurant} />
+                {unmappedVisible > 0 && (
+                  <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-sm text-muted">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    {unmappedVisible} {unmappedVisible === 1 ? "restaurant has" : "restaurants have"} no
+                    location and {unmappedVisible === 1 ? "isn't" : "aren't"} on the map.
+                  </p>
+                )}
+              </>
+            )
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {visibleRestaurants.map((r) => (
@@ -291,6 +381,16 @@ export default function DinePage() {
                 <Edit className="h-4 w-4" />
               </button>
             </div>
+
+            {selectedRestaurant.latitude != null && selectedRestaurant.longitude != null && (
+              <div className="relative h-48 border-b border-line sm:h-56">
+                <LocationMap
+                  name={selectedRestaurant.name}
+                  latitude={selectedRestaurant.latitude}
+                  longitude={selectedRestaurant.longitude}
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4 px-6 py-5 sm:grid-cols-3">
               <div className="col-span-2 flex flex-col items-center justify-center rounded-3xl bg-tomato/10 py-4 sm:col-span-1">
@@ -347,14 +447,27 @@ export default function DinePage() {
                         </p>
                       </div>
                       {review.user_id === currentUserId && (
-                        <button
-                          onClick={() => setReviewToDelete(review)}
-                          title="Delete review"
-                          aria-label="Delete review"
-                          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <div className="flex shrink-0 items-center">
+                          <button
+                            onClick={() => {
+                              setReviewToEdit(review);
+                              setView("edit-review");
+                            }}
+                            title="Edit review"
+                            aria-label="Edit review"
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setReviewToDelete(review)}
+                            title="Delete review"
+                            aria-label="Delete review"
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -400,6 +513,8 @@ export default function DinePage() {
                 address: selectedRestaurant.address,
                 price_level: selectedRestaurant.price_level,
                 cuisines: selectedRestaurant.cuisines,
+                latitude: selectedRestaurant.latitude,
+                longitude: selectedRestaurant.longitude,
               }}
               onSubmit={handleUpdateRestaurant}
               onCancel={goBack}
@@ -416,6 +531,29 @@ export default function DinePage() {
           <p className="mb-6 text-muted">{selectedRestaurant.name}</p>
           <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
             <ReviewForm onSubmit={handleCreateReview} onCancel={goBack} />
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT REVIEW ── */}
+      {view === "edit-review" && selectedRestaurant && reviewToEdit && (
+        <div className="mx-auto max-w-xl">
+          <h1 className="mb-1 font-display text-2xl font-bold text-fg sm:text-3xl">Edit your review</h1>
+          <p className="mb-6 text-muted">{selectedRestaurant.name}</p>
+          <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
+            <ReviewForm
+              initialData={{
+                location_score: reviewToEdit.location_score,
+                food_score: reviewToEdit.food_score,
+                service_score: reviewToEdit.service_score,
+                value_score: reviewToEdit.value_score,
+                comment: reviewToEdit.comment ?? undefined,
+                visited_at: reviewToEdit.visited_at,
+              }}
+              submitLabel="Save changes"
+              onSubmit={handleUpdateReview}
+              onCancel={goBack}
+            />
           </div>
         </div>
       )}

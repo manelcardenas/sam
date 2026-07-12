@@ -22,5 +22,10 @@ class ReviewRepository(ABC):
         pass
 
     @abstractmethod
+    def update_review(self, review: Review) -> Review:
+        """Persist new scores/comment/visited_at for an existing review. Raises KeyError if absent."""
+        pass
+
+    @abstractmethod
     def delete_review(self, review_id: str) -> None:
         pass

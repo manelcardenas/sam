@@ -105,6 +105,26 @@ class PostgresReviewRepository(ReviewRepository):
             for restaurant_id, count, avg_location, avg_food, avg_service, avg_value, avg_overall in rows
         }
 
+    def update_review(self, review: Review) -> Review:
+        uid = parse_uuid(review.id)
+        if uid is None:
+            raise KeyError(f"Review with id {review.id} not found")
+        with self._session_factory() as session:
+            model = session.get(ReviewModel, uid)
+            if model is None:
+                raise KeyError(f"Review with id {review.id} not found")
+            # Only the author-editable facts — identity, authorship and
+            # created_at never change (updated_at bumps via onupdate).
+            model.location_score = review.location_score
+            model.food_score = review.food_score
+            model.service_score = review.service_score
+            model.value_score = review.value_score
+            model.comment = review.comment
+            model.visited_at = review.visited_at
+            session.commit()
+            session.refresh(model)
+            return self._to_entity(model)
+
     def delete_review(self, review_id: str) -> None:
         uid = parse_uuid(review_id)
         if uid is None:

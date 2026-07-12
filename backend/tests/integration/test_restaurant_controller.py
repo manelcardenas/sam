@@ -109,6 +109,50 @@ def test_delete_review_by_non_author_raises_403() -> None:
     assert controller.review_repository.get_review(review.id) is not None
 
 
+def test_update_review_by_author_replaces_fields_and_preserves_identity() -> None:
+    controller = _controller()
+    restaurant = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
+    review = controller.create_review(restaurant.id, _review_request(), current_user=USER)
+
+    result = controller.update_review(
+        restaurant.id,
+        review.id,
+        _review_request(location_score=10, food_score=10, service_score=10, value_score=9, comment="Even better this time"),
+        current_user=USER,
+    )
+
+    assert result.id == review.id
+    assert result.user_id == "user-123"
+    assert result.created_at == review.created_at
+    assert result.comment == "Even better this time"
+    assert result.overall == 9.8  # recomputed server-side from the new scores
+
+
+def test_update_review_by_non_author_raises_403() -> None:
+    controller = _controller()
+    restaurant = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
+    review = controller.create_review(restaurant.id, _review_request(), current_user=USER)
+
+    with pytest.raises(HTTPException) as exc_info:
+        controller.update_review(restaurant.id, review.id, _review_request(location_score=0), current_user=OTHER_USER)
+
+    assert exc_info.value.status_code == 403
+    # Untouched — the original scores must survive.
+    assert controller.review_repository.get_review(review.id).location_score == 8
+
+
+def test_update_review_under_wrong_restaurant_raises_404() -> None:
+    controller = _controller()
+    restaurant = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
+    other = controller.create_restaurant(CreateRestaurantRequest(name="La Mafia"), Response(), current_user=USER)
+    review = controller.create_review(restaurant.id, _review_request(), current_user=USER)
+
+    with pytest.raises(HTTPException) as exc_info:
+        controller.update_review(other.id, review.id, _review_request(), current_user=USER)
+
+    assert exc_info.value.status_code == 404
+
+
 @pytest.mark.parametrize("bad_score", [7.3, -1, 10.5, 11])
 def test_create_review_rejects_invalid_scores(bad_score: float) -> None:
     with pytest.raises(ValidationError):
@@ -202,6 +246,33 @@ def test_update_preserves_mapping_identity() -> None:
     assert result.latitude == 41.4
 
 
+def test_update_can_pin_coordinates_on_an_unlocated_restaurant() -> None:
+    """Pin drop on edit: sending both coords sets them, without granting a mapping identity."""
+    controller = _controller()
+    created = controller.create_restaurant(CreateRestaurantRequest(name="Casa Pepe"), Response(), current_user=USER)
+
+    result = controller.update_restaurant(
+        created.id,
+        UpdateRestaurantRequest(name="Casa Pepe", latitude=41.65, longitude=-0.88),
+        _current_user=OTHER_USER,
+    )
+
+    assert result.latitude == 41.65
+    assert result.longitude == -0.88
+    assert result.external_place_id is None
+
+
+def test_update_without_coords_preserves_stored_pin() -> None:
+    """Omitting coordinates means "unchanged" — older payloads can't wipe a location."""
+    controller = _controller()
+    created = controller.create_restaurant(_mapped_request(), Response(), current_user=USER)
+
+    result = controller.update_restaurant(created.id, UpdateRestaurantRequest(name="Casa Pepe (fixed)"), _current_user=USER)
+
+    assert result.latitude == 41.4
+    assert result.longitude == 2.15
+
+
 def _places_controller(places: list[Place]) -> PlacesController:
     return PlacesController(InMemoryPlacesProvider(places), APIRouter())
 
@@ -233,3 +304,11 @@ def test_search_areas_returns_matching_areas() -> None:
 
     assert len(result) == 1
     assert result[0].label == "Zaragoza, Aragon, Spain"
+
+
+def test_reverse_geocode_returns_address_at_point() -> None:
+    controller = PlacesController(InMemoryPlacesProvider(reverse_address="Calle Mayor 1, Zaragoza"), APIRouter())
+
+    result = controller.reverse_geocode(lat=41.65, lon=-0.88, _current_user=USER)
+
+    assert result.address == "Calle Mayor 1, Zaragoza"
