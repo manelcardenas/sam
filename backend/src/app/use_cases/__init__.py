@@ -11,12 +11,14 @@ from src.app.use_cases.list_cuisines import ListCuisines
 from src.app.use_cases.list_recipes import ListRecipes
 from src.app.use_cases.list_reviews import ListReviews
 from src.app.use_cases.nearby_places import NearbyPlaces
+from src.app.use_cases.reverse_geocode import ReverseGeocode
 from src.app.use_cases.search_areas import SearchAreas
 from src.app.use_cases.search_places import SearchPlaces
 from src.app.use_cases.search_restaurants import SearchRestaurants
 from src.app.use_cases.update_display_name import UpdateDisplayName
 from src.app.use_cases.update_recipe import UpdateRecipe
 from src.app.use_cases.update_restaurant import UpdateRestaurant
+from src.app.use_cases.update_review import UpdateReview
 
 __all__ = [
     "CreateRecipe",
@@ -32,10 +34,12 @@ __all__ = [
     "ListRecipes",
     "ListReviews",
     "NearbyPlaces",
+    "ReverseGeocode",
     "SearchAreas",
     "SearchPlaces",
     "SearchRestaurants",
     "UpdateDisplayName",
     "UpdateRecipe",
     "UpdateRestaurant",
+    "UpdateReview",
 ]
