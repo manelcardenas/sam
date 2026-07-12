@@ -3,7 +3,7 @@ import os
 
 import httpx
 
-from src.domain.entities import Place
+from src.domain.entities import Area, Place
 from src.domain.ports import PlacesProvider, PlacesProviderError
 
 logger = logging.getLogger(__name__)
@@ -75,6 +75,19 @@ class GeoapifyPlacesProvider(PlacesProvider):
         }
         features = self._get("/v2/places", params)
         return [place for place in map(self._to_place, features) if place is not None]
+
+    def search_areas(self, text: str) -> list[Area]:
+        params: dict[str, str | int] = {"text": text, "limit": 5}
+        features = self._get("/v1/geocode/autocomplete", params)
+        areas = []
+        for feature in features:
+            props = feature.get("properties", {})
+            lat, lon = props.get("lat"), props.get("lon")
+            label = props.get("formatted")
+            if lat is None or lon is None or not label or props.get("result_type") == "amenity":
+                continue
+            areas.append(Area(name=props.get("name") or props.get("city") or label, label=label, latitude=lat, longitude=lon))
+        return areas
 
     def _get(self, path: str, params: dict[str, str | int]) -> list[dict]:
         if not self._api_key:

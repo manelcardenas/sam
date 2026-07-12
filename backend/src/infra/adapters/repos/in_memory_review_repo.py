@@ -1,5 +1,9 @@
-from src.domain.entities import Review
+from src.domain.entities import Review, ReviewAggregate
 from src.domain.ports import ReviewRepository
+
+
+def _average(values: list[float]) -> float:
+    return round(sum(values) / len(values), 1)
 
 
 class InMemoryReviewRepository(ReviewRepository):
@@ -24,6 +28,22 @@ class InMemoryReviewRepository(ReviewRepository):
 
     def list_reviews_for_restaurant(self, restaurant_id: str) -> list[Review]:
         return [Review(**data) for data in self.table.values() if data["restaurant_id"] == restaurant_id]
+
+    def aggregate_for_restaurants(self, restaurant_ids: list[str]) -> dict[str, ReviewAggregate]:
+        result: dict[str, ReviewAggregate] = {}
+        for restaurant_id in restaurant_ids:
+            reviews = self.list_reviews_for_restaurant(restaurant_id)
+            if not reviews:
+                continue
+            result[restaurant_id] = ReviewAggregate(
+                review_count=len(reviews),
+                average_location=_average([r.location_score for r in reviews]),
+                average_food=_average([r.food_score for r in reviews]),
+                average_service=_average([r.service_score for r in reviews]),
+                average_value=_average([r.value_score for r in reviews]),
+                average_overall=_average([r.overall for r in reviews]),
+            )
+        return result
 
     def delete_review(self, review_id: str) -> None:
         if review_id not in self.table:

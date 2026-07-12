@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.domain.entities import Review
+from src.domain.entities import Review, ReviewAggregate
 
 
 class ReviewRepository(ABC):
@@ -14,6 +14,11 @@ class ReviewRepository(ABC):
 
     @abstractmethod
     def list_reviews_for_restaurant(self, restaurant_id: str) -> list[Review]:
+        pass
+
+    @abstractmethod
+    def aggregate_for_restaurants(self, restaurant_ids: list[str]) -> dict[str, ReviewAggregate]:
+        """Aggregate ratings per restaurant id; restaurants with no reviews are absent from the result."""
         pass
 
     @abstractmethod
