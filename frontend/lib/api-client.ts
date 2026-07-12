@@ -91,6 +91,14 @@ export interface CreateRestaurantInput {
   longitude?: number;
 }
 
+/** A city/neighbourhood/address anchoring a Place search somewhere else — ephemeral, never stored. */
+export interface Area {
+  name: string; // short name, e.g. "Zaragoza"
+  label: string; // disambiguated, e.g. "Zaragoza, Aragon, Spain"
+  latitude: number;
+  longitude: number;
+}
+
 /** The map provider's record of a venue — never stored by SAM; picking one creates a Mapped restaurant. */
 export interface Place {
   external_place_id: string;
@@ -231,9 +239,9 @@ export class RecipeAPIClient {
     });
   }
 
-  async searchRestaurants(query?: string): Promise<Restaurant[]> {
+  async searchRestaurants(query?: string): Promise<RestaurantDetail[]> {
     const qs = query?.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
-    return this.request<Restaurant[]>(`/restaurants${qs}`);
+    return this.request<RestaurantDetail[]>(`/restaurants${qs}`);
   }
 
   async getRestaurant(id: string): Promise<RestaurantDetail> {
@@ -255,6 +263,10 @@ export class RecipeAPIClient {
       params.set("lon", String(coords.lon));
     }
     return this.request<Place[]>(`/places/search?${params}`);
+  }
+
+  async searchAreas(query: string): Promise<Area[]> {
+    return this.request<Area[]>(`/places/areas?q=${encodeURIComponent(query.trim())}`);
   }
 
   async nearbyPlaces(coords: { lat: number; lon: number }, radiusM = 500): Promise<Place[]> {

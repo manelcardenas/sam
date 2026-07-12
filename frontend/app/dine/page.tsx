@@ -59,7 +59,7 @@ export default function DinePage() {
   const [userName, setUserName] = useState("");
   const [currentUserId, setCurrentUserId] = useState("");
 
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [restaurants, setRestaurants] = useState<RestaurantDetail[]>([]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
