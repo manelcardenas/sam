@@ -152,6 +152,23 @@ export class LambdaApiStack extends Stack {
       authorizer,
     });
 
+    // Sub-paths are NOT covered by /users/me — HTTP API matches routes exactly,
+    // so each one needs its own entry or the gateway 404s it before the Lambda
+    // is ever invoked.
+    httpApi.addRoutes({
+      path: "/users/me/reviews",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/users/me/stats",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
     httpApi.addRoutes({
       path: "/restaurants",
       methods: [HttpMethod.GET, HttpMethod.POST],

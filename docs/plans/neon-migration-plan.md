@@ -1,4 +1,10 @@
-# Migration Plan — Aurora → Neon
+# Migration Plan — Aurora → Neon ✅ DONE (2026-05-30)
+
+> **Status:** complete — landed in PR #35 (`8acc84e`). Aurora and the VPC stack were
+> destroyed in `20d5b25`; the Lambda now reads the Neon DSN from SSM
+> (`infra/lib/application/lambda-api-stack.ts`) and CI runs `alembic upgrade head`
+> against Neon's direct endpoint (`.github/workflows/deploy-backend.yml`).
+> Kept as the record of how and why the move was made — no action left in it.
 
 > **Scope of THIS plan:** only the database swap. Lambda + API Gateway + Amplify + Cognito stay exactly where they are. After this migration is verified, you'll have **Lambda → Neon (Postgres in Frankfurt)** with Aurora deleted. The EC2 backend migration is a separate phase, planned afterwards.
 
@@ -86,12 +92,12 @@ The difference between the two:
 | **Cost** | ~$7/mo | **$0/mo** |
 | **Environments** | one (prod) | one (prod) — staging deferred |
 
-Success criteria:
-- [ ] Lambda in eu-west-3 reads/writes to Neon in eu-central-1 over TLS.
-- [ ] All 10 unit + integration tests green against Neon.
-- [ ] Existing seeded recipes present in Neon.
-- [ ] Aurora stack and VPC stack **destroyed** — `cdk destroy` with no remaining resources.
-- [ ] No Aurora snapshots, secrets, or KMS keys left behind incurring cost.
+Success criteria — all met:
+- [x] Lambda in eu-west-3 reads/writes to Neon in eu-central-1 over TLS.
+- [x] All unit + integration tests green against Neon.
+- [x] Existing seeded recipes present in Neon.
+- [x] Aurora stack and VPC stack **destroyed** — `infra/lib/infrastructure/` is gone (`20d5b25`).
+- [x] No Aurora snapshots, secrets, or KMS keys left behind incurring cost.
 
 ---
 
@@ -475,4 +481,4 @@ Deliberately deferred to the **EC2 phase** (next doc):
 - [`../knowledge/platform-alternatives.md`](../knowledge/platform-alternatives.md) — earlier DIY-AWS vs Vercel/Railway/Fly comparison.
 - [`../knowledge/vpc-vs-no-vpc.md`](../knowledge/vpc-vs-no-vpc.md) — why the current VPC was overkill.
 - [`./improvement-plan.md`](./improvement-plan.md) — Phase 2 (restaurant reviews) — works on either Aurora or Neon.
-- [`./ec2-migration-plan.md`](./ec2-migration-plan.md) — next phase: replace Lambda with EC2 + Docker.
+- [`./ec2-migration-plan.md`](./ec2-migration-plan.md) — **shelved.** Lambda is the chosen shape; kept as a worked-out option, not a queued phase.

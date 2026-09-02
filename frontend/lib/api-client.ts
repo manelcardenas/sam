@@ -62,6 +62,39 @@ export interface RestaurantDetail extends Restaurant {
   average_service: number | null;
   average_value: number | null;
   average_overall: number | null;
+
+  // ── Scrapbook fields (docs/adr/0005) — the human trace of a visit ──
+  last_visited_at: string | null; // "YYYY-MM-DD"; also the list's default sort key
+  reviewer_names: string[]; // distinct reviewers, alphabetical
+  /** Newest review that actually has a comment — not necessarily the newest review. */
+  last_comment: string | null;
+  last_comment_by: string | null;
+  last_comment_at: string | null; // the quoted visit's date, which can predate last_visited_at
+}
+
+export type RestaurantSort = "recent" | "name";
+
+/** How the dine list narrows itself. Everything is optional; the default is the whole archive, most recent first. */
+export interface RestaurantQuery {
+  q?: string;
+  cuisines?: string[];
+  priceLevels?: number[];
+  minScore?: number | null;
+  /** Only restaurants the signed-in user has reviewed. Resolved server-side from the JWT. */
+  mine?: boolean;
+  sort?: RestaurantSort;
+}
+
+/** A review shown outside its restaurant's page, so it carries the restaurant's name. */
+export interface UserReview extends Review {
+  restaurant_name: string;
+}
+
+export interface UserStats {
+  reviews_written: number;
+  places_reviewed: number;
+  average_score_given: number | null;
+  top_cuisine: string | null;
 }
 
 export interface Review {
@@ -239,9 +272,17 @@ export class RecipeAPIClient {
     });
   }
 
-  async searchRestaurants(query?: string): Promise<RestaurantDetail[]> {
-    const qs = query?.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
-    return this.request<RestaurantDetail[]>(`/restaurants${qs}`);
+  async searchRestaurants(query: RestaurantQuery = {}): Promise<RestaurantDetail[]> {
+    const params = new URLSearchParams();
+    if (query.q?.trim()) params.set("q", query.q.trim());
+    // Repeated keys, not comma-joined: FastAPI reads list[str] query params that way.
+    query.cuisines?.forEach((c) => params.append("cuisines", c));
+    query.priceLevels?.forEach((p) => params.append("price_levels", String(p)));
+    if (query.minScore != null) params.set("min_score", String(query.minScore));
+    if (query.mine) params.set("mine", "true");
+    if (query.sort) params.set("sort", query.sort);
+    const qs = params.toString();
+    return this.request<RestaurantDetail[]>(`/restaurants${qs ? `?${qs}` : ""}`);
   }
 
   async getRestaurant(id: string): Promise<RestaurantDetail> {
@@ -318,6 +359,14 @@ export class RecipeAPIClient {
     await this.request<void>(`/restaurants/${restaurantId}/reviews/${reviewId}`, {
       method: "DELETE",
     });
+  }
+
+  async listMyReviews(): Promise<UserReview[]> {
+    return this.request<UserReview[]>("/users/me/reviews");
+  }
+
+  async getMyStats(): Promise<UserStats> {
+    return this.request<UserStats>("/users/me/stats");
   }
 
   async getMe(): Promise<UserProfile> {

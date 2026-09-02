@@ -1,4 +1,22 @@
-# Migration Plan — Lambda → EC2 (Docker)
+# Migration Plan — Lambda → EC2 (Docker) — 🅿️ SHELVED
+
+> **Status (2026-09-01): not happening for now — we are staying on Lambda.**
+> This is a deliberate decision, not a stalled task: Lambda + API Gateway is the
+> chosen compute shape, and none of the §3 open questions below (custom domain,
+> DNS, instance size, Free Tier, environments) need answering while that holds.
+> Nothing here is queued or blocking.
+>
+> **Partially adopted anyway:** the groundwork patterns from §0 were taken into the
+> current Lambda stack and are live today — the three-layer `foundation/` /
+> `application/` / `utils/` split (§0e) and `utils/constants.ts` +
+> `utils/naming-convention.ts` (§0a). The EC2-specific pieces (`infrastructure/`
+> layer, `ecr-stack`, `ec2-backend-stack`, `environment-variables.ts`,
+> `deployment-version.ts`) were not built.
+>
+> **Revisit only if** real cold-start or performance data makes the move worth it —
+> see [`./future-roadmap.md`](./future-roadmap.md) item 2. Until then this document
+> is a worked-out option on the shelf, kept so the analysis doesn't have to be
+> redone. Read the rest of it in that light: it is written as an active plan.
 
 > **Prerequisite:** the [Neon migration](./neon-migration-plan.md) is fully done — Aurora destroyed, Lambda already talking to Neon. This plan does **not** touch the database; only the compute layer.
 >
@@ -585,9 +603,18 @@ Out of scope, deliberately:
 
 ---
 
-## 11. After both migrations land
+## 11. Where the remaining work actually lives
 
-The infra and platform work is essentially done. Remaining work tracked in the project lives in two places:
+The infra and platform work is done (Neon landed; EC2 shelved, see the banner at the
+top). Remaining project work is tracked in:
 
-- [`../../TODO.md`](../../TODO.md) — user-profile follow-ups: show recipe author in the FE, profile-completion flow forcing users to set their own `display_name` instead of the auto-derived email prefix, plus the backend `PATCH /users/me` endpoint that makes that possible.
-- [`./improvement-plan.md`](./improvement-plan.md) — Phases 2-4 (restaurant reviews + maps, CI/CD reusable workflow refactor, FE UI improvements). Phase 1 is already DONE; the rest of the document is the to-do list.
+- [`./improvement-plan.md`](./improvement-plan.md) — Phases 1–3 are DONE; **Phase 4
+  (frontend UI)** is the open one.
+- [`./geoapify-places-plan.md`](./geoapify-places-plan.md) — scope A shipped; **scope B
+  (map display)** and **scope C (Place Details)** still open.
+- [`./future-roadmap.md`](./future-roadmap.md) — unscoped backlog.
+
+> The old root `TODO.md` referenced here is gone, and so is its content: the
+> user-profile follow-ups (profile-completion flow, user-set `display_name`, the
+> backend endpoint behind it) all shipped — see `backend/src/app/use_cases/update_display_name.py`
+> and `frontend/app/profile/complete/page.tsx`.

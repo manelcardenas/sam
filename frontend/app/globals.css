@@ -32,7 +32,11 @@ html {
 body {
   background-color: rgb(var(--bg));
   color: rgb(var(--fg));
-  font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  /* --font-sans is Arimo, set in app/layout.tsx. This previously referenced
+     --font-nunito, a leftover from an earlier theme that nothing defines — so
+     body copy silently fell back to system UI while headings (font-display)
+     rendered in Arimo. */
+  font-family: var(--font-sans), "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 @layer utilities {
@@ -49,6 +53,39 @@ body {
   /* Used on entrances to start hidden before the staggered animation fires. */
   .will-fetch {
     opacity: 0;
+  }
+
+  /* Horizontal rails: hide the scrollbar but keep the element scrollable, and
+     stop a sideways swipe from triggering the browser's back-navigation. */
+  .rail-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overscroll-behavior-x: contain;
+  }
+  .rail-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Torn-ticket edge for rail cards — a row of cream half-circles punched out
+     of the bottom, so a saved visit reads as a stub rather than a <div>. */
+  .ticket-edge {
+    -webkit-mask-image: radial-gradient(circle 6px at 6px 100%, transparent 98%, #000 100%);
+    mask-image: radial-gradient(circle 6px at 6px 100%, transparent 98%, #000 100%);
+    -webkit-mask-size: 18px 100%;
+    mask-size: 18px 100%;
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+  }
+
+  /* Skeleton fill: a sweep of light across the surface tone. */
+  .skeleton {
+    background-image: linear-gradient(
+      100deg,
+      rgb(var(--surface-2)) 20%,
+      rgb(var(--surface)) 40%,
+      rgb(var(--surface-2)) 60%
+    );
+    background-size: 220% 100%;
   }
 }
 

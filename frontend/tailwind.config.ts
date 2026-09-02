@@ -27,6 +27,9 @@ export default {
       fontFamily: {
         display: ['var(--font-sans)', '"Helvetica Neue"', "Helvetica", "Arial", "sans-serif"],
         sans: ['var(--font-sans)', '"Helvetica Neue"', "Helvetica", "Arial", "sans-serif"],
+        // The scrapbook voice — review quotes, score numerals, section eyebrows.
+        // Scoped deliberately; the UI itself stays on the sans stack.
+        serif: ['var(--font-serif)', "Georgia", '"Times New Roman"', "serif"],
       },
       borderRadius: {
         "4xl": "2rem",
@@ -58,6 +61,11 @@ export default {
           "0%,80%,100%": { transform: "translateY(0)", opacity: ".45" },
           "40%": { transform: "translateY(-9px)", opacity: "1" },
         },
+        // Skeleton shimmer — a light sweep, calmer than pulsing opacity.
+        sweep: {
+          "0%": { backgroundPosition: "-160% 0" },
+          "100%": { backgroundPosition: "260% 0" },
+        },
       },
       animation: {
         // High-impact entrances; `both` keeps the start state before delay fires.
@@ -66,6 +74,7 @@ export default {
         wag: "wag .55s ease-in-out infinite",
         pop: "pop .3s ease-out",
         "bounce-dot": "bounceDot 1.2s ease-in-out infinite",
+        sweep: "sweep 1.6s ease-in-out infinite",
       },
     },
   },

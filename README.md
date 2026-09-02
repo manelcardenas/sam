@@ -12,8 +12,8 @@ cd frontend && npm install && npm run dev  # 3. web  → http://localhost:8080
 
 Open **http://localhost:8080** and sign in with the test account
 (`test@example.com` / `TestPass123!`). The DB comes pre-seeded with 14 recipes
-(author **Nel**); a brand-new login is sent to `/profile/complete` to choose a
-display name first.
+plus 10 restaurants and their reviews (authors **Nel** and **Martina**); a
+brand-new login is sent to `/profile/complete` to choose a display name first.
 
 <details>
 <summary>First-time setup (env + test user) — run once</summary>
@@ -89,14 +89,14 @@ uv run alembic downgrade -1
 
 ## Seed Data
 
-Load the 14 original recipes into a fresh database:
+`uv run start` already migrates **and seeds** before serving, so a fresh DB
+needs nothing extra. To (re)seed without restarting the API:
 
 ```bash
-# Postgres must be running first
-uv run python -m backend.scripts.seed
+cd backend && uv run seed     # Postgres must be running
 ```
 
-The script is idempotent — safe to run multiple times.
+Never run that against Neon.
 
 ## Testing
 

@@ -7,9 +7,11 @@ from src.app.use_cases.get_current_user import GetCurrentUser
 from src.app.use_cases.get_recipe import GetRecipe
 from src.app.use_cases.get_restaurant import GetRestaurant
 from src.app.use_cases.get_review import GetReview
+from src.app.use_cases.get_user_stats import GetUserStats
 from src.app.use_cases.list_cuisines import ListCuisines
 from src.app.use_cases.list_recipes import ListRecipes
 from src.app.use_cases.list_reviews import ListReviews
+from src.app.use_cases.list_user_reviews import ListUserReviews
 from src.app.use_cases.nearby_places import NearbyPlaces
 from src.app.use_cases.reverse_geocode import ReverseGeocode
 from src.app.use_cases.search_areas import SearchAreas
@@ -30,9 +32,11 @@ __all__ = [
     "GetRecipe",
     "GetRestaurant",
     "GetReview",
+    "GetUserStats",
     "ListCuisines",
     "ListRecipes",
     "ListReviews",
+    "ListUserReviews",
     "NearbyPlaces",
     "ReverseGeocode",
     "SearchAreas",

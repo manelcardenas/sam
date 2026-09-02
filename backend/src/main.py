@@ -60,7 +60,7 @@ def create_app() -> FastAPI:
 
     router = APIRouter()
     RecipeController(recipe_repository, router)
-    UserController(user_repository, router)
+    UserController(user_repository, review_repository, router)
     RestaurantController(restaurant_repository, review_repository, cuisine_repository, router)
     PlacesController(places_provider, router)
     app.include_router(router)
@@ -100,7 +100,7 @@ def serve() -> None:
     from scripts.seed import run
 
     command.upgrade(Config("alembic.ini"), "head")  # apply pending migrations
-    run()  # idempotent — loads the demo recipes + seed user
+    run()  # idempotent — loads the demo recipes, the dine fixture, and both seed users
 
     uvicorn.run(
         "src.main:app",

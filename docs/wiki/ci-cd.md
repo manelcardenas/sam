@@ -178,7 +178,5 @@ RecipeManagerAmplifyStack        application, deployed by deploy-frontend.yml
 
 ## Cross-links
 
-- [`./deployment.md`](./deployment.md) — ⚠️ **stale** (Aurora/VPC/DynamoDB era,
-  superseded by the Neon migration). Kept for history only.
 - [`../plans/neon-migration-plan.md`](../plans/neon-migration-plan.md) — how the DB moved to Neon.
-- [`../plans/ec2-migration-plan.md`](../plans/ec2-migration-plan.md) — a *possible* future Lambda→EC2 move (not planned; Lambda is the chosen shape).
+- [`../plans/ec2-migration-plan.md`](../plans/ec2-migration-plan.md) — a shelved Lambda→EC2 move. **Not planned** (decided 2026-09-01); Lambda is the chosen shape.

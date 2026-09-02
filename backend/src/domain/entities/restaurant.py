@@ -1,5 +1,6 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
@@ -29,3 +30,29 @@ class RestaurantDetail(Restaurant):
     average_service: float | None = None
     average_value: float | None = None
     average_overall: float | None = None
+    last_visited_at: date | None = None
+    reviewer_names: list[str] = Field(default_factory=list)
+    last_comment: str | None = None
+    last_comment_by: str | None = None
+    last_comment_at: date | None = None
+
+
+class RestaurantSort(StrEnum):
+    RECENT = "recent"
+    NAME = "name"
+
+
+class RestaurantFilters(BaseModel):
+    """How the dine list narrows and orders itself.."""
+
+    query: str | None = None  # case-insensitive name match
+    cuisines: list[str] = Field(default_factory=list)  # any-of
+    price_levels: list[int] = Field(default_factory=list)  # any-of
+    min_score: float | None = None  # floor on average overall; excludes unreviewed restaurants when set
+    reviewed_by: str | None = None  # user id — restaurants this user has reviewed
+    sort: RestaurantSort = RestaurantSort.RECENT
+
+    @property
+    def is_empty(self) -> bool:
+        """True when nothing is being narrowed — used to decide whether the UI is showing the whole archive."""
+        return not (self.query or self.cuisines or self.price_levels or self.min_score is not None or self.reviewed_by)

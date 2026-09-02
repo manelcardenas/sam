@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-from src.domain.entities import Restaurant
-from src.domain.ports import DuplicateExternalPlaceError, RestaurantRepository
+from src.domain.entities import Restaurant, RestaurantFilters, RestaurantSort
+from src.domain.ports import DuplicateExternalPlaceError, RestaurantRepository, ReviewRepository
 
 
 class InMemoryRestaurantRepository(RestaurantRepository):
@@ -11,8 +11,9 @@ class InMemoryRestaurantRepository(RestaurantRepository):
     any database or Docker dependency.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, reviews: ReviewRepository | None = None) -> None:
         self.table: dict[str, dict] = {}
+        self.reviews = reviews
 
     def add_restaurant(self, restaurant: Restaurant) -> Restaurant:
         # Simulates the partial unique index on external_place_id.
@@ -33,12 +34,43 @@ class InMemoryRestaurantRepository(RestaurantRepository):
             return None
         return Restaurant(**data)
 
-    def search_restaurants(self, query: str | None = None) -> list[Restaurant]:
+    def search_restaurants(self, filters: RestaurantFilters | None = None) -> list[Restaurant]:
+        filters = filters or RestaurantFilters()
         restaurants = [Restaurant(**data) for data in self.table.values()]
-        if query:
-            query_lower = query.lower()
+
+        if filters.query:
+            query_lower = filters.query.lower()
             restaurants = [r for r in restaurants if query_lower in r.name.lower()]
-        return restaurants
+        if filters.cuisines:
+            wanted = set(filters.cuisines)
+            restaurants = [r for r in restaurants if wanted & set(r.cuisines)]
+        if filters.price_levels:
+            restaurants = [r for r in restaurants if r.price_level in filters.price_levels]
+
+        # Review-derived filters and the recency sort need review data, which this
+        # repository doesn't hold. Tests that exercise them inject a review
+        # repository via `reviews`; without one, they're no-ops and the order
+        # falls back to name.
+        if self.reviews is not None:
+            if filters.reviewed_by:
+                restaurants = [r for r in restaurants if any(review.user_id == filters.reviewed_by for review in self.reviews.list_reviews_for_restaurant(r.id))]
+            aggregates = self.reviews.aggregate_for_restaurants([r.id for r in restaurants])
+            if filters.min_score is not None:
+                restaurants = [
+                    r for r in restaurants if (agg := aggregates.get(r.id)) is not None and agg.average_overall is not None and agg.average_overall >= filters.min_score
+                ]
+            if filters.sort is RestaurantSort.RECENT:
+                # None sorts last, matching the SQL's NULLS LAST; name breaks ties.
+                return sorted(
+                    restaurants,
+                    key=lambda r: (
+                        (agg := aggregates.get(r.id)) is None or agg.last_visited_at is None,
+                        -(agg.last_visited_at.toordinal() if agg and agg.last_visited_at else 0),
+                        r.name,
+                    ),
+                )
+
+        return sorted(restaurants, key=lambda r: r.name)
 
     def update_restaurant(self, restaurant: Restaurant) -> Restaurant:
         if restaurant.id not in self.table:

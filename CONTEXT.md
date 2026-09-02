@@ -40,6 +40,10 @@ _Avoid_: Rating, Average
 The external map provider's record of a physical venue, shown as a search result when adding a Restaurant. A Place is never stored by SAM — picking one creates (or links to) a Mapped Restaurant by copying its facts and keeping a reference to its external identity.
 _Avoid_: Restaurant, Result, Suggestion
 
+**Area**:
+A city, neighbourhood, or address used to anchor a Place search somewhere other than where the user currently is. Like a Place, an Area is never stored — it only biases the search that finds a Place.
+_Avoid_: Location, City, Region
+
 **Mapped**:
 A Restaurant that is linked to the external map provider's record of the physical place: it carries that external identity and coordinates. An Unmapped Restaurant has no such link. Mapping happens by picking a search result at creation time; manual entry remains allowed because the map provider does not know every restaurant.
 _Avoid_: Verified, Geocoded

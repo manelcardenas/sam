@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.domain.entities import Review, ReviewAggregate
+from src.domain.entities import Review, ReviewAggregate, UserReview, UserStats
 
 
 class ReviewRepository(ABC):
@@ -17,8 +17,18 @@ class ReviewRepository(ABC):
         pass
 
     @abstractmethod
+    def list_reviews_by_user(self, user_id: str) -> list[UserReview]:
+        """Every review this user has written, newest visit first, each carrying its restaurant's name."""
+        pass
+
+    @abstractmethod
     def aggregate_for_restaurants(self, restaurant_ids: list[str]) -> dict[str, ReviewAggregate]:
         """Aggregate ratings per restaurant id; restaurants with no reviews are absent from the result."""
+        pass
+
+    @abstractmethod
+    def stats_for_user(self, user_id: str) -> UserStats:
+        """Headline counts for the profile stats strip. Returns zeroed stats for a user with no reviews."""
         pass
 
     @abstractmethod

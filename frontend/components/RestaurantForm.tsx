@@ -138,7 +138,9 @@ export default function RestaurantForm({
     debounceRef.current = setTimeout(() => {
       // Both searches are a courtesy, not critical — each fails silently.
       apiClient
-        .searchRestaurants(trimmed)
+        // Dedup lookup: name match only, ordered by name so the panel is stable
+        // while typing rather than reshuffling by recency.
+        .searchRestaurants({ q: trimmed, sort: "name" })
         .then(setMatches)
         .catch(() => {});
       // A picked Area anchors the search with real coordinates ("La Mafia" near

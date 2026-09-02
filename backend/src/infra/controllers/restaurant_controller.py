@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import Field
 
 from src.app.use_cases import (
     CreateRestaurant,
@@ -12,10 +15,16 @@ from src.app.use_cases import (
     UpdateRestaurant,
     UpdateReview,
 )
-from src.domain.entities import Cuisine, Restaurant, RestaurantDetail, Review
+from src.domain.entities import Cuisine, Restaurant, RestaurantDetail, RestaurantFilters, RestaurantSort, Review
 from src.domain.ports import CuisineRepository, RestaurantRepository, ReviewRepository
 from src.infra.controllers.schemas import CreateRestaurantRequest, CreateReviewRequest, UpdateRestaurantRequest
 from src.infra.security import TokenPayload, get_current_user
+
+# Constraints on a repeated query param belong on the *element* type. Passing
+# ge/le to Query() applies them to the list object itself, and Pydantic then
+# raises "Unable to apply constraint 'ge' to supplied value []" on every
+# request — including the default empty list, so the endpoint 500s outright.
+PriceLevelParam = Annotated[int, Field(ge=1, le=4)]
 
 
 class RestaurantController:
@@ -40,7 +49,7 @@ class RestaurantController:
             response_model=list[RestaurantDetail],
             dependencies=[Depends(get_current_user)],
             summary="Search restaurants",
-            description="Lists restaurants with aggregate ratings, optionally filtered by a case-insensitive name match via ?q=",
+            description="Lists restaurants with aggregate ratings, most recently visited first. Narrow with ?q=, ?cuisines=, ?price_levels=, ?min_score=, ?mine=; order with ?sort=",
             tags=["Restaurants"],
         )
 
@@ -134,10 +143,33 @@ class RestaurantController:
             tags=["Reviews"],
         )
 
-    def list_restaurants(self, q: str | None = None, _current_user: TokenPayload = Depends(get_current_user)) -> list[RestaurantDetail]:
-        """List restaurants with aggregate ratings, optionally filtered by name (used for browsing and create-time dedup)."""
+    def list_restaurants(
+        self,
+        q: str | None = Query(default=None, max_length=255, description="Case-insensitive name match"),
+        cuisines: list[str] = Query(default_factory=list, description="Any-of cuisine tags"),
+        price_levels: list[PriceLevelParam] = Query(default_factory=list, description="Any-of price levels, 1-4"),
+        min_score: float | None = Query(default=None, ge=0, le=10, description="Floor on average overall; excludes unreviewed restaurants"),
+        mine: bool = Query(default=False, description="Only restaurants the caller has reviewed"),
+        sort: RestaurantSort = Query(default=RestaurantSort.RECENT, description="recent = most recently visited first"),
+        current_user: TokenPayload = Depends(get_current_user),
+    ) -> list[RestaurantDetail]:
+        """List restaurants with aggregate ratings, narrowed by the filter params.
+
+        Defaults to most-recently-visited order: the list is a record of meals,
+        not an inventory of venues. Also used for create-time dedup, which passes only `q`.
+        """
+        filters = RestaurantFilters(
+            query=q,
+            cuisines=cuisines,
+            price_levels=price_levels,
+            min_score=min_score,
+            # `mine` is resolved from the JWT rather than accepting a user id from
+            # the client — nobody gets to filter by someone else's identity.
+            reviewed_by=current_user.sub if mine else None,
+            sort=sort,
+        )
         use_case = SearchRestaurants(self.restaurant_repository, self.review_repository)
-        return use_case.execute(q)
+        return use_case.execute(filters)
 
     def _validate_cuisines(self, names: list[str]) -> None:
         """Reject unknown cuisine tags — the Postgres repo would otherwise drop them silently."""
