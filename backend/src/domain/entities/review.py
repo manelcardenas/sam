@@ -37,3 +37,27 @@ class ReviewAggregate(BaseModel):
     average_service: float | None = None
     average_value: float | None = None
     average_overall: float | None = None
+    last_visited_at: date | None = None  # newest visited_at; also the default sort key for the list
+    reviewer_names: list[str] = Field(default_factory=list)  # distinct reviewers, alphabetical
+    last_comment: str | None = None
+    last_comment_by: str | None = None
+    last_comment_at: date | None = None
+
+
+class UserStats(BaseModel):
+    """Everything the profile's stats strip shows, computed from a user's Reviews."""
+
+    reviews_written: int = 0
+    places_reviewed: int = 0  # distinct restaurants, which differs from reviews_written because revisits are allowed
+    average_score_given: float | None = None
+    top_cuisine: str | None = None  # most frequent cuisine across the restaurants reviewed
+
+
+class UserReview(Review):
+    """A Review carrying the name of the restaurant it belongs to.
+
+    Used only by the profile's "your reviews" list: the rows are read outside a
+    restaurant's page, so each needs to say where it was — resolved via join
+    rather than a per-row lookup from the frontend."""
+
+    restaurant_name: str
