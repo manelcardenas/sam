@@ -1,4 +1,4 @@
-from src.domain.entities import RestaurantDetail
+from src.domain.entities import RestaurantDetail, RestaurantFilters
 from src.domain.ports import RestaurantRepository, ReviewRepository
 
 
@@ -7,10 +7,14 @@ class SearchRestaurants:
         self.restaurant_repository = restaurant_repository
         self.review_repository = review_repository
 
-    def execute(self, query: str | None = None) -> list[RestaurantDetail]:
+    def execute(self, filters: RestaurantFilters | None = None) -> list[RestaurantDetail]:
         """List restaurants with their aggregate ratings, so list cards can show
-        overall score and review count without a per-restaurant fetch."""
-        restaurants = self.restaurant_repository.search_restaurants(query)
+        the score, who went and what they said without a per-restaurant fetch.
+
+        Narrowing and ordering happen in the repository (they depend on review
+        data); this only decorates the result. The repository's order is the
+        render order — do not re-sort here."""
+        restaurants = self.restaurant_repository.search_restaurants(filters)
         if not restaurants:
             return []
         aggregates = self.review_repository.aggregate_for_restaurants([r.id for r in restaurants])
