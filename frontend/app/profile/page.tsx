@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser } from "aws-amplify/auth";
 import { configureAmplify } from "@/lib/amplify";
-import { apiClient, ApiError, type Recipe } from "@/lib/api-client";
+import { apiClient, ApiError, type Recipe, type UserReview, type UserStats } from "@/lib/api-client";
 import { FOOD_TYPES } from "@/lib/constants";
 import { AppShell } from "@/components/shell/AppShell";
 import { Loader } from "@/components/ui/Loader";
-import { Check } from "lucide-react";
+import { StatsStrip } from "@/components/profile/StatsStrip";
+import { QuoteBlock, ScoreBadge } from "@/components/dine/atoms";
+import { formatRelativeDate, formatVisitedDate } from "@/lib/format";
+import { Check, UtensilsCrossed } from "lucide-react";
 
 const fieldClass =
   "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
@@ -20,6 +23,8 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState("");
   const [savedName, setSavedName] = useState("");
   const [myRecipes, setMyRecipes] = useState<Recipe[]>([]);
+  const [myReviews, setMyReviews] = useState<UserReview[]>([]);
+  const [stats, setStats] = useState<UserStats | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -29,11 +34,21 @@ export default function ProfilePage() {
     (async () => {
       try {
         await getCurrentUser();
-        const [me, recipes] = await Promise.all([apiClient.getMe(), apiClient.listRecipes()]);
+        const [me, recipes, reviews, userStats] = await Promise.all([
+          apiClient.getMe(),
+          apiClient.listRecipes(),
+          apiClient.listMyReviews(),
+          apiClient.getMyStats(),
+        ]);
         setEmail(me.email);
         setDisplayName(me.display_name ?? "");
         setSavedName(me.display_name ?? "");
+        // TODO: recipes are still filtered client-side because /recipes has no
+        // `mine` filter yet — unlike reviews, which are fetched already scoped.
+        // Worth adding for symmetry once the recipe list grows.
         setMyRecipes(recipes.filter((r) => r.created_by === me.id));
+        setMyReviews(reviews);
+        setStats(userStats);
         setLoading(false);
       } catch {
         router.replace("/");
@@ -70,11 +85,12 @@ export default function ProfilePage() {
   return (
     <AppShell userName={savedName || displayName}>
       <header className="mb-6">
-        <h1 className="font-display text-3xl font-bold text-fg sm:text-4xl">Your profile</h1>
-        <p className="mt-1 text-muted">Your name, and everything you&apos;ve cooked up.</p>
+        <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-4xl">Your profile</h1>
+        <p className="mt-1 text-muted">Everything you&apos;ve cooked up, and everywhere you&apos;ve eaten.</p>
       </header>
 
       <div className="space-y-8">
+        {stats && <StatsStrip stats={stats} />}
         {/* Account editor */}
         <section className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
           <h2 className="font-display text-lg font-semibold text-fg">Account</h2>
@@ -135,10 +151,7 @@ export default function ProfilePage() {
 
         {/* My recipes */}
         <section>
-          <h2 className="mb-4 font-display text-lg font-semibold text-fg">
-            Your recipes{" "}
-            <span className="font-normal text-muted">({myRecipes.length})</span>
-          </h2>
+          <SectionHeading title="Your recipes" count={myRecipes.length} />
 
           {myRecipes.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-line bg-surface py-12 text-center text-muted">
@@ -179,7 +192,75 @@ export default function ProfilePage() {
             </ul>
           )}
         </section>
+
+        {/* My reviews — fetched already scoped to the signed-in user. */}
+        <section>
+          <SectionHeading title="Your reviews" count={myReviews.length} />
+
+          {myReviews.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-line bg-surface px-6 py-12 text-center">
+              <UtensilsCrossed className="mx-auto mb-3 h-8 w-8 text-muted" aria-hidden />
+              <p className="text-muted">You haven&apos;t reviewed anywhere yet.</p>
+              <button
+                onClick={() => router.push("/dine")}
+                className="mt-4 inline-flex cursor-pointer items-center rounded-full border border-line bg-surface px-4 py-2.5 font-display text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              >
+                Find somewhere to eat
+              </button>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {myReviews.map((review, i) => (
+                <li
+                  key={review.id}
+                  // Stagger capped: past the first screenful the cascade reads as lag.
+                  className={i < 8 ? "will-fetch animate-fetch-in" : undefined}
+                  style={i < 8 ? { animationDelay: `${i * 40}ms` } : undefined}
+                >
+                  <article className="group relative rounded-3xl border border-line bg-surface p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-tomato/40 hover:shadow-paw">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-display text-[1.05rem] font-semibold leading-snug text-fg transition-colors group-hover:text-tomato">
+                          <button
+                            type="button"
+                            onClick={() => router.push("/dine")}
+                            className="block w-full cursor-pointer text-left focus:outline-none after:absolute after:inset-0 after:rounded-3xl focus-visible:after:ring-2 focus-visible:after:ring-tomato/50"
+                          >
+                            <span className="line-clamp-2">{review.restaurant_name}</span>
+                          </button>
+                        </h3>
+                        <p
+                          className="mt-1 text-[0.8rem] text-muted"
+                          title={formatVisitedDate(review.visited_at)}
+                        >
+                          Visited {formatRelativeDate(review.visited_at)}
+                        </p>
+                      </div>
+                      <ScoreBadge score={review.overall} />
+                    </div>
+
+                    {review.comment && (
+                      <QuoteBlock comment={review.comment} className="mt-4" />
+                    )}
+                  </article>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </AppShell>
+  );
+}
+
+/** Shared heading for the profile's list sections. */
+function SectionHeading({ title, count }: { title: string; count: number }) {
+  return (
+    <h2 className="mb-4 flex items-baseline gap-2 font-serif text-xl font-semibold italic text-fg">
+      {title}
+      <span className="font-sans text-sm font-semibold not-italic tabular-nums text-muted">
+        {count}
+      </span>
+    </h2>
   );
 }
