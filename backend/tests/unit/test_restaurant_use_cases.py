@@ -6,15 +6,17 @@ from src.app.use_cases import (
     DeleteReview,
     GetRestaurant,
     GetReview,
+    GetUserStats,
     ListCuisines,
     ListReviews,
+    ListUserReviews,
     NearbyPlaces,
     SearchAreas,
     SearchPlaces,
     SearchRestaurants,
     UpdateRestaurant,
 )
-from src.domain.entities import Area, Cuisine, Place, Restaurant, Review
+from src.domain.entities import Area, Cuisine, Place, Restaurant, RestaurantFilters, RestaurantSort, Review
 from src.infra.adapters.places.in_memory_places_provider import InMemoryPlacesProvider
 from src.infra.adapters.repos.in_memory_cuisine_repo import InMemoryCuisineRepository
 from src.infra.adapters.repos.in_memory_restaurant_repo import InMemoryRestaurantRepository
@@ -22,13 +24,15 @@ from src.infra.adapters.repos.in_memory_review_repo import InMemoryReviewReposit
 
 
 @pytest.fixture
-def restaurant_repo() -> InMemoryRestaurantRepository:
-    return InMemoryRestaurantRepository()
+def review_repo() -> InMemoryReviewRepository:
+    return InMemoryReviewRepository()
 
 
 @pytest.fixture
-def review_repo() -> InMemoryReviewRepository:
-    return InMemoryReviewRepository()
+def restaurant_repo(review_repo: InMemoryReviewRepository) -> InMemoryRestaurantRepository:
+    # Wired to the review repo so the score/reviewer filters and the recency sort
+    # behave as they do against Postgres, where they resolve in one joined query.
+    return InMemoryRestaurantRepository(reviews=review_repo)
 
 
 @pytest.fixture
@@ -68,7 +72,7 @@ class TestSearchRestaurants:
         CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-1"))
         CreateRestaurant(restaurant_repo).execute(Restaurant(name="Noodle Bar", created_by="user-1"))
 
-        result = SearchRestaurants(restaurant_repo, review_repo).execute("casa")
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(query="casa"))
 
         assert len(result) == 1
         assert result[0].name == "Casa Pepe"
@@ -232,3 +236,182 @@ class TestListCuisines:
         result = ListCuisines(repo).execute()
 
         assert [c.name for c in result] == ["Italian", "Japanese"]
+
+
+def _review(restaurant_id: str, user_id: str, visited_at: str, score: float = 8, comment: str | None = None) -> Review:
+    return Review(
+        restaurant_id=restaurant_id,
+        user_id=user_id,
+        location_score=score,
+        food_score=score,
+        service_score=score,
+        value_score=score,
+        comment=comment,
+        visited_at=visited_at,
+    )
+
+
+class TestScrapbookOrderingAndFilters:
+    """The dine list is a record of meals, ordered by when you were there (docs/adr/0005)."""
+
+    def test_orders_by_most_recent_visit(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        old, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa Old Place", created_by="user-1"))
+        recent, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Recent Place", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(old.id, "user-a", "2026-01-01"))
+        CreateReview(review_repo).execute(_review(recent.id, "user-a", "2026-08-01"))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute()
+
+        # Alphabetically "Aaa" would win; recency puts the August visit first.
+        assert [r.name for r in result] == ["Zzz Recent Place", "Aaa Old Place"]
+
+    def test_unreviewed_restaurants_sort_last_but_are_not_hidden(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """They must stay findable to ever receive a first review."""
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa Never Reviewed", created_by="user-1"))
+        reviewed, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Reviewed", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(reviewed.id, "user-a", "2026-01-01"))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute()
+
+        assert [r.name for r in result] == ["Zzz Reviewed", "Aaa Never Reviewed"]
+
+    def test_sort_by_name_is_still_available(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        recent, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Recent", created_by="user-1"))
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa Old", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(recent.id, "user-a", "2026-08-01"))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(sort=RestaurantSort.NAME))
+
+        assert [r.name for r in result] == ["Aaa Old", "Zzz Recent"]
+
+    def test_filters_by_cuisine_any_of(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Wok", cuisines=["Chinese"], created_by="user-1"))
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Trattoria", cuisines=["Italian", "Mediterranean"], created_by="user-1"))
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Taqueria", cuisines=["Mexican"], created_by="user-1"))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(cuisines=["Chinese", "Mediterranean"]))
+
+        assert {r.name for r in result} == {"Wok", "Trattoria"}
+
+    def test_filters_by_price_level(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Cheap", price_level=1, created_by="user-1"))
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Fancy", price_level=4, created_by="user-1"))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(price_levels=[4]))
+
+        assert [r.name for r in result] == ["Fancy"]
+
+    def test_min_score_excludes_unreviewed_restaurants(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """A score floor is a statement about quality — 'no score' can't clear it."""
+        good, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Good", created_by="user-1"))
+        poor, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Poor", created_by="user-1"))
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Unrated", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(good.id, "user-a", "2026-01-01", score=9))
+        CreateReview(review_repo).execute(_review(poor.id, "user-a", "2026-01-01", score=4))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(min_score=8))
+
+        assert [r.name for r in result] == ["Good"]
+
+    def test_reviewed_by_returns_only_that_users_places(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        mine, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Mine", created_by="user-1"))
+        theirs, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Theirs", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(mine.id, "user-a", "2026-01-01"))
+        CreateReview(review_repo).execute(_review(theirs.id, "user-b", "2026-01-01"))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(reviewed_by="user-a"))
+
+        assert [r.name for r in result] == ["Mine"]
+
+
+class TestScrapbookCardContent:
+    """Cards carry the human traces of a visit, not just the venue's facts."""
+
+    def test_surfaces_latest_visit_and_reviewers(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        restaurant, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-1"))
+        review_repo.user_names = {"user-a": "Nel", "user-b": "Martina"}
+        CreateReview(review_repo).execute(_review(restaurant.id, "user-a", "2026-03-01"))
+        CreateReview(review_repo).execute(_review(restaurant.id, "user-b", "2026-07-15"))
+
+        [result] = SearchRestaurants(restaurant_repo, review_repo).execute()
+
+        assert str(result.last_visited_at) == "2026-07-15"
+        assert result.reviewer_names == ["Martina", "Nel"]
+
+    def test_quote_comes_from_the_newest_review_that_has_one(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """Most recent reviews often carry no comment; the card shows the newest
+        one that does, attributed to that visit rather than the latest."""
+        restaurant, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-1"))
+        review_repo.user_names = {"user-a": "Nel", "user-b": "Martina"}
+        CreateReview(review_repo).execute(_review(restaurant.id, "user-a", "2026-03-01", comment="the dumplings were unreal"))
+        CreateReview(review_repo).execute(_review(restaurant.id, "user-b", "2026-07-15", comment=None))
+
+        [result] = SearchRestaurants(restaurant_repo, review_repo).execute()
+
+        assert result.last_comment == "the dumplings were unreal"
+        assert result.last_comment_by == "Nel"
+        assert str(result.last_comment_at) == "2026-03-01"
+        # The visit date is still the newest visit, not the quoted one.
+        assert str(result.last_visited_at) == "2026-07-15"
+
+    def test_blank_comments_do_not_count_as_a_quote(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        restaurant, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(restaurant.id, "user-a", "2026-03-01", comment="   "))
+
+        [result] = SearchRestaurants(restaurant_repo, review_repo).execute()
+
+        assert result.last_comment is None
+
+
+class TestProfileReviewsAndStats:
+    def test_lists_a_users_reviews_newest_visit_first_with_restaurant_names(
+        self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository
+    ) -> None:
+        casa, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-1"))
+        wok, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Wok", created_by="user-1"))
+        review_repo.restaurant_names = {casa.id: "Casa Pepe", wok.id: "Wok"}
+        CreateReview(review_repo).execute(_review(casa.id, "user-a", "2026-01-01"))
+        CreateReview(review_repo).execute(_review(wok.id, "user-a", "2026-06-01"))
+        CreateReview(review_repo).execute(_review(casa.id, "user-b", "2026-09-01"))
+
+        result = ListUserReviews(review_repo).execute("user-a")
+
+        assert [(r.restaurant_name, str(r.visited_at)) for r in result] == [("Wok", "2026-06-01"), ("Casa Pepe", "2026-01-01")]
+
+    def test_stats_count_revisits_once_for_places_but_twice_for_reviews(
+        self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository
+    ) -> None:
+        casa, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", cuisines=["Spanish"], created_by="user-1"))
+        review_repo.restaurant_cuisines = {casa.id: ["Spanish"]}
+        CreateReview(review_repo).execute(_review(casa.id, "user-a", "2026-01-01", score=8))
+        CreateReview(review_repo).execute(_review(casa.id, "user-a", "2026-06-01", score=6))
+
+        result = GetUserStats(review_repo).execute("user-a")
+
+        assert result.reviews_written == 2
+        assert result.places_reviewed == 1
+        assert result.average_score_given == 7.0
+        assert result.top_cuisine == "Spanish"
+
+    def test_top_cuisine_counts_distinct_places_not_visits(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """Three visits to one Spanish place shouldn't outrank two different Chinese ones."""
+        casa, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", cuisines=["Spanish"], created_by="user-1"))
+        wok, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Wok", cuisines=["Chinese"], created_by="user-1"))
+        noodle, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Noodle", cuisines=["Chinese"], created_by="user-1"))
+        review_repo.restaurant_cuisines = {casa.id: ["Spanish"], wok.id: ["Chinese"], noodle.id: ["Chinese"]}
+        for visited in ("2026-01-01", "2026-02-01", "2026-03-01"):
+            CreateReview(review_repo).execute(_review(casa.id, "user-a", visited))
+        CreateReview(review_repo).execute(_review(wok.id, "user-a", "2026-04-01"))
+        CreateReview(review_repo).execute(_review(noodle.id, "user-a", "2026-05-01"))
+
+        result = GetUserStats(review_repo).execute("user-a")
+
+        assert result.top_cuisine == "Chinese"
+
+    def test_stats_are_zeroed_for_a_user_with_no_reviews(self, review_repo: InMemoryReviewRepository) -> None:
+        result = GetUserStats(review_repo).execute("user-nobody")
+
+        assert result.reviews_written == 0
+        assert result.places_reviewed == 0
+        assert result.average_score_given is None
+        assert result.top_cuisine is None
