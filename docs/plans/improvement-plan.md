@@ -4,7 +4,17 @@
 
 Four distinct workstreams, ordered by dependency. Each section describes **what**, **how**, and key **concerns/tradeoffs**.
 
+> **Status (2026-09-01):** Phases 1, 2, 2b and 3 are **done**. **Phase 4 (frontend UI)
+> is the only open workstream.** Each phase heading below carries its own status.
+>
+> Two things to keep in mind while reading: the DB is **Neon**, not Aurora — Phase 1's
+> text still describes the Aurora era it was written in (see
+> [`./neon-migration-plan.md`](./neon-migration-plan.md)) — and compute stays on
+> **Lambda**; the EC2 move is shelved (see [`./ec2-migration-plan.md`](./ec2-migration-plan.md)).
+
 ## Phase 1 — SQL Database Migration (DynamoDB → Aurora PostgreSQL) + User Profiles ✅ DONE
+
+> Historical: the Aurora target described here was later replaced by Neon (2026-05-30). The DynamoDB→SQL move, the `User` entity and the clean-architecture wiring all still stand — only the DB host changed.
 
 **Goal:** Replace DynamoDB with PostgreSQL locally (Docker) and Aurora Serverless v2 in AWS. Add a real `User` entity.
 
@@ -131,7 +141,13 @@ dotenv (replaced by python-dotenv)
 
 ---
 
-## Phase 2 — Restaurant Reviews Service
+## Phase 2 — Restaurant Reviews Service ✅ DONE (2026-07-11, PR #42)
+
+> Shipped as designed: migration `874c491875f4_phase_2_restaurants_reviews`, the
+> `Restaurant`/`Review`/`Cuisine` entities, their repositories and use cases, and the
+> `restaurant_controller` routes. Authorization landed as specced (ADR-0002): restaurant
+> facts editable by any authenticated user, reviews deletable only by their author, no
+> restaurant-delete endpoint exposed.
 
 **Goal:** Add a new domain — a shared, community-editable log of restaurants with per-user reviews, visible to every authenticated user of the app. See `CONTEXT.md` for the full domain glossary (Restaurant, Review, Category Score, Value, Price Level, Overall, Cuisine, Visited At).
 
@@ -185,7 +201,7 @@ Review
 
 v1 ships with **manual entry only** — no map, no autocomplete, no geocoding. `latitude`/`longitude` columns exist on `Restaurant` from day one but stay unused until Phase 2b, so adding map/Places search later needs no migration touching existing rows.
 
-Phase 2b is now planned: **Geoapify** for Place search/autocomplete/nearby, superseding the earlier Google Places idea — Google's ToS forbids persisting Place facts (name/address/price) in our own DB, which is exactly SAM's data model. See `docs/adr/0003-geoapify-as-places-provider.md` for the decision and `docs/plans/geoapify-places-plan.md` for the implementation plan. Leaflet/OpenStreetMap remains the candidate for map *display* (scope B, later) once coordinates accumulate.
+Phase 2b **shipped (scope A, 2026-07-11/12, PRs #42 + #43)**: **Geoapify** for Place search/autocomplete/nearby, superseding the earlier Google Places idea — Google's ToS forbids persisting Place facts (name/address/price) in our own DB, which is exactly SAM's data model. See `docs/adr/0003-geoapify-as-places-provider.md` for the decision and `docs/plans/geoapify-places-plan.md` for the implementation plan and what shipped. Area-anchored search was added on top of the original scope — see `docs/adr/0004-area-anchored-place-search.md`. Map *display* (scope B) is still open: no map library is installed yet, so `latitude`/`longitude` are stored but not yet rendered.
 
 <details>
 <summary>Original (superseded) map recommendation</summary>
@@ -277,115 +293,124 @@ Every route above needs a matching `addRoutes()` entry in `infra/lib/application
 
 ---
 
-## Phase 3 — GitHub Actions Pipelines
+## Phase 3 — GitHub Actions Pipelines ✅ DONE (2026-05-30) — shipped differently
 
-**Goal:** Restructure into composable, reusable workflows.
+**Goal:** move off two flat monolithic workflows (`test.yml`, `deploy.yml`) onto a
+structure where a change to one part of the repo doesn't redeploy everything.
 
-### Current state
+> **This phase was delivered, but not with the shape planned below.** The original
+> design (a `ci.yml` + `deploy.yml` pair calling three `_reusable-*.yml` workflows,
+> with migrations applied by invoking a dedicated migration Lambda) was dropped in
+> favour of **three independent, path-filtered workflows**. The reusable-workflow
+> indirection wasn't worth it for three jobs, and the migration Lambda was never
+> built — CI runs Alembic directly, which is simpler and needs no extra deployed
+> resource. The original plan is preserved at the bottom of this section for context.
 
-Two flat monolithic workflows: `test.yml` and `deploy.yml`.
+### What actually exists
 
-### Target structure
+```
+.github/workflows/
+  pr-health-checks.yml   — quality gate: PRs + post-merge safety net on main
+  deploy-backend.yml     — push to main touching backend/infra → migrate + deploy Lambda
+  deploy-frontend.yml    — push to main touching frontend → deploy Amplify + start build
+```
+
+**`pr-health-checks.yml`** — three parallel jobs, no AWS credentials needed:
+- `backend`: `uv sync --group dev`, `ruff check`, `ruff format --check`, `pytest tests/ -v`
+- `frontend`: `npm ci`, `next lint`, `next build` (which is also the type-check gate; a
+  placeholder `NEXT_PUBLIC_API_URL` is injected because the static export prerenders pages
+  whose API-client constructor throws when it is unset)
+- `infra`: `tsc --noEmit`, `npm test` (CDK jest assertions), `cdk synth --all`
+
+**`deploy-backend.yml`** — OIDC into `AWS_ROLE_ARN`, then in one job:
+1. **Migrations first** (expand-contract: additive schema before new code). The runtime
+   DSN comes from SSM `/recipe-manager/db/dsn`, and the workflow strips `-pooler` from
+   the host to derive Neon's **direct** endpoint — PgBouncer transaction pooling breaks
+   Alembic's DDL and advisory locks.
+2. `cdk deploy RecipeManagerLambdaApiStack --require-approval never`, then prints the API
+   endpoint from `outputs.json`.
+
+**`deploy-frontend.yml`** — OIDC, `cdk deploy RecipeManagerAmplifyStack` (fetching the
+GitHub PAT from SSM and passing it via `--context`, since CloudFormation can't reference
+a SecureString in `AWS::Amplify::App`), then `aws amplify start-job` to trigger the build.
+
+### Design points worth keeping in mind
+
+- **Path filters** on both deploy workflows mean a frontend-only PR never touches the
+  Lambda, and vice versa.
+- **`concurrency` groups**: deploys are serialised with `cancel-in-progress: false` (never
+  kill a half-finished deploy); health checks use `cancel-in-progress: true` so only the
+  newest commit on a branch is checked.
+- **Deploys don't run tests** — `pr-health-checks.yml` also runs on push to `main` as the
+  post-merge safety net.
+- Both deploys are `workflow_dispatch`-able for manual runs.
+
+### IAM `ci-role-stack.ts` — as shipped
+
+DynamoDB permissions are gone. The role holds CloudFormation, Lambda create/update/delete
+(scoped to `recipe-manager-*`), Amplify, ECR/asset-bucket access for CDK, and SSM
+`GetParameter` + `kms:Decrypt` for the SecureStrings (Neon DSN, Geoapify key, GitHub PAT).
+There is **no** `lambda:InvokeFunction` for a migration Lambda and **no** RDS/Secrets
+Manager permissions — neither is needed: migrations run Alembic from the runner, and Neon
+is not an AWS resource.
+
+<details>
+<summary>Original (superseded) reusable-workflow design</summary>
+
+Target structure was:
 
 ```
 .github/workflows/
   ci.yml                     — PR/push quality gate
   deploy.yml                 — push to main → full deploy
   _reusable-test.yml         — lint + test
-  _reusable-cdk-deploy.yml   — CDK stack deploy
-  _reusable-migrate.yml      — invoke migration Lambda
+  _reusable-cdk-deploy.yml   — CDK stack deploy (inputs: space-separated stack names)
+  _reusable-migrate.yml      — aws lambda invoke recipe-manager-migration-fn
 ```
 
-### `ci.yml` (every push and PR)
+with `deploy.yml` chaining `test → deploy-infra (AuroraStack LambdaApiStack AmplifyStack)
+→ migrate → notify`. Dropped because: the `AuroraStack` in that list no longer exists
+(Neon migration), the migration Lambda was never built, and three small workflows proved
+clearer than two workflows plus three reusable fragments.
 
-```yaml
-jobs:
-  quality:
-    uses: ./.github/workflows/_reusable-test.yml
-
-  infra-synth:
-    - npm ci in infra/
-    - cdk synth (validates CDK TypeScript compiles; no AWS calls, no deploy)
-```
-
-### `deploy.yml` (push to main only)
-
-```yaml
-jobs:
-  test:
-    uses: ./.github/workflows/_reusable-test.yml
-
-  deploy-infra:
-    needs: test
-    uses: ./.github/workflows/_reusable-cdk-deploy.yml
-    with:
-      stacks: "AuroraStack LambdaApiStack AmplifyStack"
-
-  migrate:
-    needs: deploy-infra
-    uses: ./.github/workflows/_reusable-migrate.yml
-
-  notify:
-    needs: [deploy-infra, migrate]
-    steps:
-      - Print API endpoint and frontend URL as job summary
-```
-
-### `_reusable-test.yml`
-
-```yaml
-jobs:
-  lint-and-test:
-    - uv sync --group dev
-    - ruff check .
-    - ruff format --check .
-    - pytest tests/ -v --cov=backend/src
-```
-
-### `_reusable-cdk-deploy.yml`
-
-```yaml
-inputs:
-  stacks: string   # space-separated CDK stack names
-
-jobs:
-  deploy:
-    - Configure AWS credentials (OIDC, existing role)
-    - npm ci in infra/
-    - cdk deploy {stacks} --require-approval never
-```
-
-### `_reusable-migrate.yml`
-
-```yaml
-jobs:
-  migrate:
-    - Configure AWS credentials (OIDC)
-    - aws lambda invoke --function-name recipe-manager-migration-fn response.json
-    - cat response.json (print output to logs)
-    - Check for errors in response payload
-```
-
-### IAM `ci-role-stack.ts` updates
-
-- Remove DynamoDB permissions
-- Add `lambda:InvokeFunction` on the migration Lambda ARN
-- Add `rds:DescribeDBClusters`, `secretsmanager:GetSecretValue` (scoped to the Aurora secret ARN)
-- Keep existing CloudFormation, Lambda deploy, Amplify, SSM permissions
+</details>
 
 ---
 
-## Phase 4 — Frontend UI Improvements
+## Phase 4 — Frontend UI Improvements 🔨 OPEN (the only remaining workstream)
+
+> **Now planned in detail:** [`./frontend-ux-plan.md`](./frontend-ux-plan.md) is the concrete
+> execution plan for this phase (scoped 2026-09-01) — the dine-page scrapbook rebuild, the
+> profile page, and the iOS home-screen fix. The section below is the original wish-list and
+> the per-item status; go to that plan for what actually gets built.
 
 **Goal:** Improve the UI within the constraints of Amplify static export.
 
 > **Hard constraint:** `next.config.ts` must keep `output: 'export'`. No SSR, no server components, no API routes. All data is fetched client-side.
 
-### What to improve
+### Where it stands today
 
-#### Structural refactor
+| Item | Status |
+| --- | --- |
+| Split the `dashboard/page.tsx` mega-file | ⚠️ Partial — routes were split by *domain* (`app/dine/`, `app/recipes/`, `app/profile/`), not into the list/detail/new tree below. `dashboard/page.tsx` is still 403 lines and `dine/page.tsx` is 434. |
+| Sidebar / app-level navigation | ✅ Done differently — `components/ui/AppShell.tsx` (plus `ThemeToggle.tsx`, which was never planned). |
+| Loading skeletons | ⚠️ Partial — `components/ui/Loader.tsx` exists; it is a spinner, not per-view skeletons. |
+| Toast notifications | ❌ Not done — no `react-hot-toast`; feedback is inline (`ConfirmModal.tsx` / form-level messages). |
+| Responsive mobile layout | ⚠️ Unverified — no explicit pass done. |
+| Map view | ❌ Not started — no map library installed. Tracked as **scope B** in [`./geoapify-places-plan.md`](./geoapify-places-plan.md); deferred again in [`./frontend-ux-plan.md`](./frontend-ux-plan.md). |
+| Restaurant rating display | ✅ Done — `RestaurantCard.tsx`, `ReviewForm.tsx`, with aggregates from `get_restaurant.py`. |
 
-Replace the mega-file `dashboard/page.tsx` (one file with 5 inline views) with proper Next.js App Router pages:
+### What's left to decide before picking this up
+
+The routing tree below was drawn before Phase 2 shipped, and reality diverged: there is no
+`restaurants/[id]` detail route — restaurant detail and reviews live inside `dine/page.tsx`.
+So the open question isn't "execute the tree below" but **whether the detail views are worth
+extracting into real routes** (shareable URLs, smaller files) or whether the current
+single-page-per-domain shape is fine. Decide that first; the rest of this section is the
+original wish-list, still broadly valid.
+
+<details>
+<summary>Original structural refactor proposal (pre-Phase 2, not followed)</summary>
 
 ```
 app/
@@ -401,54 +426,59 @@ app/
       new/page.tsx        — create restaurant form
 ```
 
-#### UX improvements
+</details>
 
-- Loading skeletons instead of plain text `Loading...`
+### UX improvements — still wanted
+
+- Loading skeletons instead of the generic spinner
 - Toast notifications for CRUD actions (`react-hot-toast` — tiny, free)
-- Sidebar navigation (Recipes / Restaurants) instead of category grid as the top-level nav
-- Responsive mobile layout
+- Responsive mobile layout pass
 
-#### Map view (free)
+### Map view — moved
 
-`react-leaflet` + OpenStreetMap tiles for the restaurants map:
-- No API key required
-- No usage fees
-- Requires `dynamic(() => import(...), { ssr: false })` wrapper (no `window` object in static export build)
-- Shows restaurant pins with name/rating popups
-- Optional: browser geolocation to center map on user's position
+Map *display* is no longer scoped here. It is **scope B** of
+[`./geoapify-places-plan.md`](./geoapify-places-plan.md), and the tile provider question
+has moved on: Geoapify tiles (same free credit pool already in use) are the leading option
+over raw OSM. The static-export constraint still applies — any map component needs a
+`dynamic(() => import(...), { ssr: false })` wrapper, since there is no `window` at build time.
 
-#### Restaurant rating display
+### Restaurant rating display — shipped
 
-Per-restaurant detail page shows:
-- Five category scores (food, service, ambiance, value, overall) as star ratings or bar charts
-- Total average
-- Review list with per-user breakdown
-- "Add review" form with 1–5 sliders per category
+Delivered in Phase 2 with the **four** Category Scores from `CONTEXT.md`
+(Location/Decoration, Food, Service, Value), scored **0–10 in steps of 0.5** — not the five
+1–5 star categories this section originally described, which came from the superseded
+Phase 2 draft. Overall is computed, never stored.
 
-#### `amplify.yml`
+### `amplify.yml`
 
 No changes needed. The existing build spec is correct.
 
 ### New frontend dependencies
 
 ```
-react-hot-toast     — toast notifications
-react-leaflet       — map component
-leaflet             — underlying map library
+react-hot-toast     — toast notifications (still to add)
 ```
+
+Map libraries are deferred with scope B.
 
 ---
 
 ## Execution Order & Dependencies
 
 ```
-Phase 1 (Aurora + User profiles) ✅ DONE   ← must complete before Phase 2
+Phase 1 (SQL DB + User profiles)  ✅ DONE  (Aurora; later migrated to Neon)
     ↓
-Phase 2 (Restaurant Reviews)               ← needs DB and User entity
+Phase 2 (Restaurant Reviews)      ✅ DONE  2026-07-11
     ↓
-Phase 3 (CI/CD)       ← can start in parallel with Phase 2 (needs Aurora CDK from Phase 1)
-Phase 4 (UI)          ← needs Phase 2 API endpoints complete
+Phase 2b (Geoapify Places)        ✅ DONE  2026-07-12 (scope A only)
+Phase 3 (CI/CD)                   ✅ DONE  2026-05-30 (shipped differently — see the phase)
+    ↓
+Phase 4 (Frontend UI)             🔨 OPEN  ← the only remaining workstream here
 ```
+
+Phase 4 is planned in [`./frontend-ux-plan.md`](./frontend-ux-plan.md). Still open elsewhere:
+scope B/C of [`./geoapify-places-plan.md`](./geoapify-places-plan.md) and the unscoped backlog
+in [`./future-roadmap.md`](./future-roadmap.md).
 
 ---
 
@@ -457,11 +487,11 @@ Phase 4 (UI)          ← needs Phase 2 API endpoints complete
 | Question | Decision |
 |---|---|
 | `boto3` needed? | No — removed from runtime deps. `jwt_handler.py` uses `httpx`. |
-| Migration strategy | Manual `alembic upgrade head` from laptop for now. Migration Lambda planned for Phase 3. |
+| Migration strategy | ~~Manual from laptop; migration Lambda in Phase 3.~~ **Superseded:** CI runs `alembic upgrade head` directly against Neon's *direct* (non-pooled) endpoint before each Lambda deploy. No migration Lambda was ever built. |
 | Sync vs async DB driver | Sync `psycopg2` with `NullPool` — correct for Lambda's single-invocation model. See `docs/knowledge/sync-vs-async.md`. |
-| Aurora networking | Public subnets + `publiclyAccessible=true`, Lambda outside VPC — no NAT Gateway needed. See `docs/knowledge/vpc-vs-no-vpc.md`. |
+| Aurora networking | ~~Public subnets + `publiclyAccessible=true`.~~ **Superseded by Neon** (2026-05-30): no VPC at all, Lambda still outside a VPC, still no NAT Gateway. See `docs/knowledge/vpc-vs-no-vpc.md` and [`./neon-migration-plan.md`](./neon-migration-plan.md). |
 | Multiple reviews per user/restaurant? | Yes — no unique constraint |
 | Restaurant deletion | Hard delete + `ON DELETE CASCADE` to reviews |
-| Map provider | OpenStreetMap + Leaflet (free, no API key) |
+| Map provider | **Search:** Geoapify (OSM-backed) — ADR-0003. **Display:** still undecided, Geoapify tiles leading; deferred to scope B. |
 | Environments | Single deployed environment only |
 | User identity | Cognito `sub` is the user PK — no separate UUID generated |
