@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
 
+from sqlalchemy import exists, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.domain.entities import Restaurant
+from src.domain.entities import Restaurant, RestaurantFilters, RestaurantSort
 from src.domain.ports import DuplicateExternalPlaceError, RestaurantRepository
 from src.infra.adapters.repos.ids import parse_uuid
-from src.infra.db import CuisineModel, RestaurantModel
+from src.infra.db import CuisineModel, RestaurantModel, ReviewModel
 
 
 class PostgresRestaurantRepository(RestaurantRepository):
@@ -80,15 +81,57 @@ class PostgresRestaurantRepository(RestaurantRepository):
                 return None
             return self._to_entity(model)
 
-    def search_restaurants(self, query: str | None = None) -> list[Restaurant]:
+    def search_restaurants(self, filters: RestaurantFilters | None = None) -> list[Restaurant]:
+        filters = filters or RestaurantFilters()
         with self._session_factory() as session:
             q = session.query(RestaurantModel)
-            if query:
+
+            if filters.query:
                 # Escape LIKE metacharacters so a user typing "100%" or "a_b" gets literal matches, not wildcards.
-                escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                escaped = filters.query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
                 q = q.filter(RestaurantModel.name.ilike(f"%{escaped}%", escape="\\"))
-            models = q.order_by(RestaurantModel.name).all()
-            return [self._to_entity(m) for m in models]
+
+            if filters.cuisines:
+                # any-of: a restaurant tagged Italian AND Mediterranean matches either chip.
+                q = q.filter(RestaurantModel.cuisines.any(CuisineModel.name.in_(filters.cuisines)))
+
+            if filters.price_levels:
+                q = q.filter(RestaurantModel.price_level.in_(filters.price_levels))
+
+            if filters.reviewed_by:
+                q = q.filter(
+                    exists().where(
+                        ReviewModel.restaurant_id == RestaurantModel.id,
+                        ReviewModel.user_id == filters.reviewed_by,
+                    )
+                )
+
+            # Last visit per restaurant: drives the default ordering, and doubles as
+            # the join target for the score filter. LEFT JOIN, because restaurants
+            # with no reviews must stay findable — they sink to the bottom rather
+            # than dropping out.
+            visits = (
+                select(
+                    ReviewModel.restaurant_id.label("restaurant_id"),
+                    func.max(ReviewModel.visited_at).label("last_visited_at"),
+                    func.avg((ReviewModel.location_score + ReviewModel.food_score + ReviewModel.service_score + ReviewModel.value_score) / 4).label("average_overall"),
+                )
+                .group_by(ReviewModel.restaurant_id)
+                .subquery()
+            )
+            q = q.outerjoin(visits, visits.c.restaurant_id == RestaurantModel.id)
+
+            if filters.min_score is not None:
+                # An explicit score floor is a statement about quality, so unreviewed
+                # restaurants (average NULL) are correctly excluded here.
+                q = q.filter(visits.c.average_overall >= filters.min_score)
+
+            if filters.sort is RestaurantSort.NAME:
+                q = q.order_by(RestaurantModel.name)
+            else:
+                q = q.order_by(visits.c.last_visited_at.desc().nullslast(), RestaurantModel.name)
+
+            return [self._to_entity(m) for m in q.all()]
 
     def update_restaurant(self, restaurant: Restaurant) -> Restaurant:
         uid = parse_uuid(restaurant.id)

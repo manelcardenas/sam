@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.domain.entities import Restaurant
+from src.domain.entities import Restaurant, RestaurantFilters
 
 
 class DuplicateExternalPlaceError(Exception):
@@ -22,8 +22,8 @@ class RestaurantRepository(ABC):
         pass
 
     @abstractmethod
-    def search_restaurants(self, query: str | None = None) -> list[Restaurant]:
-        """List restaurants, optionally filtered by a case-insensitive name match (used both for browsing and for create-time dedup)."""
+    def search_restaurants(self, filters: RestaurantFilters | None = None) -> list[Restaurant]:
+        """List restaurants narrowed and ordered by `filters` (used both for browsing and for create-time dedup)."""
         pass
 
     @abstractmethod
