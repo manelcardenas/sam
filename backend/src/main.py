@@ -60,7 +60,7 @@ def create_app() -> FastAPI:
 
     router = APIRouter()
     RecipeController(recipe_repository, router)
-    UserController(user_repository, router)
+    UserController(user_repository, review_repository, router)
     RestaurantController(restaurant_repository, review_repository, cuisine_repository, router)
     PlacesController(places_provider, router)
     app.include_router(router)
