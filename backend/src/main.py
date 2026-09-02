@@ -100,7 +100,7 @@ def serve() -> None:
     from scripts.seed import run
 
     command.upgrade(Config("alembic.ini"), "head")  # apply pending migrations
-    run()  # idempotent — loads the demo recipes + seed user
+    run()  # idempotent — loads the demo recipes, the dine fixture, and both seed users
 
     uvicorn.run(
         "src.main:app",

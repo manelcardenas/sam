@@ -1,4 +1,4 @@
-"""Seed script — loads the 14 real recipes into PostgreSQL.
+"""Seed script — loads the 14 real recipes plus a DINE dev fixture into PostgreSQL.
 
 HOW TO RUN (local)
 ------------------
@@ -8,7 +8,8 @@ Make sure postgres is running, then from the repo root:
     uv run alembic upgrade head       # (only needed on a fresh DB)
     uv run python -m backend.scripts.seed
 
-The script is IDEMPOTENT — it skips recipes whose title already exists. Safe to re-run.
+The script is IDEMPOTENT — it skips recipes and restaurants whose title/name
+already exists. Safe to re-run.
 
 SCHEMA
 ------
@@ -16,6 +17,29 @@ SCHEMA
   ingredients  (JSONB) — {"servings": null, "items": [{"name": x} for x in list]}
   food_type            — comida/postre/bebida/aperitivo
   created_by           — seed placeholder user (see SEED_USER below)
+
+DINE FIXTURE
+------------
+RESTAURANTS/REVIEWS below are invented, not copied from production: local dev
+data lives in git, and real people's review comments should not. The set is
+chosen to cover every state the dine page can render — see the comment above
+RESTAURANTS.
+
+Review dates are offsets from *today*, so the "Lately" rail is always populated
+no matter when the seed runs. Hardcoded dates would silently age out of it.
+
+RESETTING THE DINE FIXTURE (local only)
+---------------------------------------
+The seed skips restaurants whose name already exists, so editing an entry above
+has no effect until the old row is gone. To drop everything this script created
+and nothing else — reviews cascade from restaurants:
+
+    DELETE FROM restaurants WHERE created_by IN (
+        'dev-martina', 'f16970fe-00a1-70cc-f835-a81fff1fadec');
+    DELETE FROM users WHERE id = 'dev-martina';
+
+Restaurants you added yourself through the UI have a different created_by and
+are left alone. Never run this against Neon.
 """
 
 import sys
@@ -28,10 +52,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from datetime import date, timedelta  # noqa: E402
+
 from sqlalchemy import select  # noqa: E402
 
 from src.domain.entities.recipe import FoodType  # noqa: E402
-from src.infra.db import DatabaseConnectionPool, RecipeModel, UserModel, build_dsn  # noqa: E402
+from src.infra.db import (  # noqa: E402
+    CuisineModel,
+    DatabaseConnectionPool,
+    RecipeModel,
+    RestaurantModel,
+    ReviewModel,
+    UserModel,
+    build_dsn,
+)
 
 # ---------------------------------------------------------------------------
 # Placeholder user — all seeded recipes are attributed to this system user.
@@ -42,6 +76,16 @@ SEED_USER = {
     "id": SEED_USER_ID,
     "display_name": "Nel",  # a non-NULL name — already "chosen", skips the /profile/complete gate
     "email": "manelcardenas5@gmail.com",
+}
+
+# A second reviewer, so cards can show more than one name and the "Reviewed by
+# me" filter has something to exclude. Obviously-fake id: nothing in prod can
+# collide with it, which makes the cleanup query in this module's docstring safe.
+DEV_USER_ID = "dev-martina"
+DEV_USER = {
+    "id": DEV_USER_ID,
+    "display_name": "Martina",
+    "email": "martina@example.com",
 }
 
 
@@ -225,19 +269,229 @@ RECIPES: list[dict] = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# The DINE fixture. Invented places — see the module docstring.
+#
+# Every entry exists to put the dine page into a state that is otherwise
+# awkward to reach by hand:
+#
+#   Cal Peret ............. two reviewers, newest visit has a comment (the happy path)
+#   Sakura Ramen-ya ....... newest visit has NO comment, an older one does, so
+#                           last_comment_at != last_visited_at and the quote
+#                           must carry its own date
+#   El Racó del Mar ....... reviewed but never commented -> "N visits, no notes written"
+#   Curry Leaf ............ no reviews at all -> "Not reviewed yet", and null score badge
+#   Bao & Bun ............. comment long enough to hit the line clamp
+#   Casa de Comidas ... ... name long enough to hit the two-line heading clamp
+#   Chez Amelie ........... Unmapped: no coordinates, no external_place_id
+#   Taqueria Don Chuy ..... three reviews from two people -> review_count > reviewers
+#
+# `days_ago` is subtracted from today at run time.
+# ---------------------------------------------------------------------------
+RESTAURANTS: list[dict] = [
+    {
+        "name": "Cal Peret",
+        "address": "Carrer de Blai 22, Barcelona",
+        "price_level": 2,
+        "latitude": 41.3742,
+        "longitude": 2.1631,
+        "cuisines": ["Spanish"],
+        "created_by": SEED_USER_ID,
+        "reviews": [
+            {
+                "user_id": SEED_USER_ID,
+                "scores": (7.0, 8.5, 7.5, 8.0),
+                "comment": "Les braves son les millors del barri, tornarem segur.",
+                "days_ago": 3,
+            },
+            {"user_id": DEV_USER_ID, "scores": (7.5, 8.0, 8.0, 8.5), "comment": None, "days_ago": 24},
+        ],
+    },
+    {
+        "name": "Trattoria da Lucia",
+        "address": "Carrer de Girona 61, Barcelona",
+        "price_level": 3,
+        "latitude": 41.3925,
+        "longitude": 2.1712,
+        "cuisines": ["Italian"],
+        "created_by": DEV_USER_ID,
+        "reviews": [
+            {
+                "user_id": DEV_USER_ID,
+                "scores": (8.0, 9.0, 8.5, 7.0),
+                "comment": "Cacio e pepe fet a taula. Car pero val la pena.",
+                "days_ago": 6,
+            },
+        ],
+    },
+    {
+        # The case that justifies last_comment_at existing as its own field.
+        "name": "Sakura Ramen-ya",
+        "address": "Carrer del Consell de Cent 300, Barcelona",
+        "price_level": 2,
+        "latitude": 41.3889,
+        "longitude": 2.1620,
+        "cuisines": ["Japanese"],
+        "created_by": SEED_USER_ID,
+        "reviews": [
+            # Newest visit, deliberately silent.
+            {"user_id": SEED_USER_ID, "scores": (6.5, 8.5, 7.0, 8.0), "comment": None, "days_ago": 9},
+            # so the card has to quote this one, and say when it was said.
+            {
+                "user_id": DEV_USER_ID,
+                "scores": (7.0, 9.0, 7.5, 8.0),
+                "comment": "El tonkotsu es espes com ha de ser. Cua llarga a les 21h.",
+                "days_ago": 41,
+            },
+        ],
+    },
+    {
+        "name": "El Raco del Mar",
+        "address": "Passeig Joan de Borbo 44, Barcelona",
+        "price_level": 4,
+        "latitude": 41.3765,
+        "longitude": 2.1889,
+        "cuisines": ["Mediterranean", "Spanish"],
+        "created_by": SEED_USER_ID,
+        # Reviewed, never commented.
+        "reviews": [
+            {"user_id": SEED_USER_ID, "scores": (9.0, 8.0, 7.0, 5.5), "comment": None, "days_ago": 15},
+        ],
+    },
+    {
+        "name": "Bao & Bun",
+        "address": "Carrer de Sepulveda 130, Barcelona",
+        "price_level": 1,
+        "latitude": 41.3831,
+        "longitude": 2.1585,
+        "cuisines": ["Chinese"],
+        "created_by": DEV_USER_ID,
+        "reviews": [
+            {
+                "user_id": DEV_USER_ID,
+                "scores": (6.0, 8.5, 7.0, 9.5),
+                # Long on purpose: the card clamps at two lines, the rail at three.
+                "comment": (
+                    "Vam demanar de tot i encara vam pagar menys de vint euros cadascun. "
+                    "El bao de porc esta molt be, el de bolets una mica sec, i la sopa "
+                    "picant es massa picant si no avises. Local petit, sense reserves, "
+                    "millor anar-hi aviat."
+                ),
+                "days_ago": 12,
+            },
+        ],
+    },
+    {
+        "name": "Verd Vega",
+        "address": "Carrer de Verdi 18, Barcelona",
+        "price_level": 2,
+        "latitude": 41.4041,
+        "longitude": 2.1573,
+        "cuisines": ["Vegan/Vegetarian"],
+        "created_by": SEED_USER_ID,
+        "reviews": [
+            {
+                "user_id": DEV_USER_ID,
+                "scores": (8.5, 8.0, 8.5, 7.5),
+                "comment": "El menu del dia canvia cada setmana i sempre encerten.",
+                "days_ago": 19,
+            },
+            {
+                "user_id": SEED_USER_ID,
+                "scores": (8.0, 7.5, 8.0, 7.5),
+                "comment": "Massa soroll a dins pero el hummus de remolatxa s'ho val.",
+                "days_ago": 52,
+            },
+        ],
+    },
+    {
+        # Long name: exercises the two-line heading clamp on the card.
+        "name": "Casa de Comidas La Providencia del Barrio Antiguo",
+        "address": "Carrer dels Tallers 77, Barcelona",
+        "price_level": 1,
+        "latitude": 41.3846,
+        "longitude": 2.1673,
+        "cuisines": ["Spanish"],
+        "created_by": SEED_USER_ID,
+        "reviews": [
+            {
+                "user_id": SEED_USER_ID,
+                "scores": (5.0, 7.5, 6.5, 9.0),
+                "comment": "Menu de 12 euros amb vi inclos. No hi vagis per la decoracio.",
+                "days_ago": 31,
+            },
+        ],
+    },
+    {
+        # Unmapped: added by hand, so no coordinates and no external_place_id.
+        "name": "Chez Amelie",
+        "address": None,
+        "price_level": 3,
+        "latitude": None,
+        "longitude": None,
+        "cuisines": ["French"],
+        "created_by": DEV_USER_ID,
+        "reviews": [
+            {
+                "user_id": DEV_USER_ID,
+                "scores": (8.0, 8.5, 9.0, 6.5),
+                "comment": "Nomes vuit taules. Cal reservar amb dies.",
+                "days_ago": 62,
+            },
+        ],
+    },
+    {
+        # Three reviews from two people: review_count must not be read as reviewer count.
+        "name": "Taqueria Don Chuy",
+        "address": "Carrer de Bailen 40, Barcelona",
+        "price_level": 1,
+        "latitude": 41.3936,
+        "longitude": 2.1745,
+        "cuisines": ["Mexican"],
+        "created_by": SEED_USER_ID,
+        "reviews": [
+            {
+                "user_id": SEED_USER_ID,
+                "scores": (6.0, 9.0, 7.5, 9.0),
+                "comment": "El pastor amb pinya, sempre. Tercera vegada aquest mes.",
+                "days_ago": 5,
+            },
+            {"user_id": SEED_USER_ID, "scores": (6.0, 8.5, 7.0, 9.0), "comment": None, "days_ago": 28},
+            {
+                "user_id": DEV_USER_ID,
+                "scores": (6.5, 8.0, 8.0, 8.5),
+                "comment": "Salsa verda perillosa.",
+                "days_ago": 70,
+            },
+        ],
+    },
+    {
+        # No reviews at all: null score badge and the "be the first" empty state.
+        "name": "Curry Leaf",
+        "address": "Carrer de Casanova 90, Barcelona",
+        "price_level": 2,
+        "latitude": 41.3866,
+        "longitude": 2.1546,
+        "cuisines": ["Indian"],
+        "created_by": DEV_USER_ID,
+        "reviews": [],
+    },
+]
+
+
 def run() -> None:
     db = DatabaseConnectionPool(dsn=build_dsn())
     db.open()
 
     with db.session_factory() as session:
-        # --- Ensure the seed user exists (FK on recipes.created_by) ---
-        existing_user = session.get(UserModel, SEED_USER_ID)
-        if existing_user is None:
-            session.add(UserModel(**SEED_USER))
-            session.commit()
-            print(f"✓ Created seed user: {SEED_USER['email']}")
-        else:
-            print(f"  Seed user already exists: {SEED_USER['email']}")
+        # --- Ensure the seed users exist (FK on recipes/restaurants.created_by) ---
+        for user in (SEED_USER, DEV_USER):
+            if session.get(UserModel, user["id"]) is None:
+                session.add(UserModel(**user))
+                session.commit()
+                print(f"✓ Created seed user: {user['email']}")
+            else:
+                print(f"  Seed user already exists: {user['email']}")
 
         # --- Insert recipes, skipping titles that already exist ---
         inserted = 0
@@ -266,9 +520,65 @@ def run() -> None:
             print(f"✓ Inserting: {data['title']}")
 
         session.commit()
+        print(f"\nRecipes — {inserted} inserted, {skipped} skipped.")
+
+        # --- Insert the dine fixture, skipping names that already exist ---
+        vocabulary = {c.name: c for c in session.execute(select(CuisineModel)).scalars()}
+        places_added = 0
+        places_skipped = 0
+        reviews_added = 0
+        today = date.today()
+
+        for data in RESTAURANTS:
+            exists = session.execute(select(RestaurantModel).where(RestaurantModel.name == data["name"])).scalar_one_or_none()
+            if exists is not None:
+                print(f"  Skipping (already exists): {data['name']}")
+                places_skipped += 1
+                continue
+
+            # Unknown tags would be dropped silently by the association below,
+            # leaving a restaurant with no cuisine and no explanation.
+            unknown = [name for name in data["cuisines"] if name not in vocabulary]
+            if unknown:
+                raise SystemExit(f"Cuisine(s) {unknown} for {data['name']} are not in the vocabulary — run `alembic upgrade head` first.")
+
+            restaurant = RestaurantModel(
+                name=data["name"],
+                address=data["address"],
+                price_level=data["price_level"],
+                latitude=data["latitude"],
+                longitude=data["longitude"],
+                created_by=data["created_by"],
+                cuisines=[vocabulary[name] for name in data["cuisines"]],
+            )
+            session.add(restaurant)
+            # Flush rather than commit: restaurant.id is server-generated and the
+            # reviews need it, but the whole fixture should still land atomically.
+            session.flush()
+
+            for review in data["reviews"]:
+                location, food, service, value = review["scores"]
+                session.add(
+                    ReviewModel(
+                        restaurant_id=restaurant.id,
+                        user_id=review["user_id"],
+                        location_score=location,
+                        food_score=food,
+                        service_score=service,
+                        value_score=value,
+                        comment=review["comment"],
+                        visited_at=today - timedelta(days=review["days_ago"]),
+                    )
+                )
+                reviews_added += 1
+
+            places_added += 1
+            print(f"✓ Inserting: {data['name']} ({len(data['reviews'])} review(s))")
+
+        session.commit()
 
     db.close()
-    print(f"\nDone — {inserted} inserted, {skipped} skipped.")
+    print(f"Restaurants — {places_added} inserted, {places_skipped} skipped, {reviews_added} review(s) added.")
 
 
 if __name__ == "__main__":
