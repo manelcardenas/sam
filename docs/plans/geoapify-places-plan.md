@@ -1,17 +1,8 @@
-# Geoapify Places integration plan (Phase 2b, scope A) ✅ SCOPE A DONE
-
-> **Status:** scope A shipped 2026-07-11/12 (PRs #42 and #43). Everything in the Backend,
-> Infra and Frontend sections below is live. **Scopes B and C remain open** — see
-> "Out of scope" at the foot of this document; that is now the live to-do list.
->
-> **Added beyond the original scope:** area-anchored search (`GET /places/areas`, the
-> `Area` entity, `search_areas`), so a user can search for a Place in a city they are not
-> currently standing in — the original plan only had typed autocomplete plus "📍 near me".
-> Decision recorded in [`../adr/0004-area-anchored-place-search.md`](../adr/0004-area-anchored-place-search.md).
+# Geoapify Places integration plan (Phase 2b, scope A)
 
 Decisions behind this plan: `docs/adr/0003-geoapify-as-places-provider.md`. Vocabulary: **Place** and **Mapped** in `CONTEXT.md`.
 
-**Scope A (this plan):** select-a-Place flow in the restaurant creation form — unified search (own DB + Geoapify) plus a "near me" nearby list. No map rendering. **Scope B (later):** Leaflet/OSM map display on restaurant detail / dine page.
+**Scope A (this plan):** select-a-Place flow in the restaurant creation form — unified search (own DB + Geoapify) plus a "near me" nearby list. No map rendering. **Scope B (shipped):** map display on restaurant detail / dine page — see "Out of scope" section for what was built.
 
 ## Decisions recap
 
@@ -55,7 +46,8 @@ Decisions behind this plan: `docs/adr/0003-geoapify-as-places-provider.md`. Voca
 
 ## Out of scope (explicitly) — and where it goes next
 
-- **Map display (scope B)** — *also deferred by [`./frontend-ux-plan.md`](./frontend-ux-plan.md), which notes a map is arguably the strongest reliving surface and that 23 of 24 restaurants already have coordinates.* Leaflet on the restaurant detail page (and later the dine list), using **Geoapify map tiles** (prettier than raw OSM, same free credit pool) and the **Marker Icon API** for pins. Only Mapped restaurants can appear; do this once coordinates have accumulated. An intermediate cheap step: the **Static Maps API** as a single `<img>` with a pin on the detail page.
+- **Map display (scope B)** — ✅ SHIPPED, with one deviation from the sketch above: **MapLibre GL + OpenFreeMap vector tiles** instead of Leaflet + Geoapify tiles. Tile requests must come from the browser, and Geoapify tiles would have put the API key in the bundle; OpenFreeMap needs no key at all (and is free/unlimited), so the key stays server-side and Geoapify remains the *places* provider only. Built: cards/map toggle on the dine list (`components/map/RestaurantsMap.tsx` — score-pill markers, tap → slide-up card → detail) and an embedded location band with a Directions deep-link on the restaurant detail view (`components/map/LocationMap.tsx`). Positron basemap; dark mode via a canvas invert filter keyed off the app's `.dark` class; MapLibre is code-split behind `next/dynamic` (ssr: false). Only Mapped restaurants appear; the map view counts the unmapped ones.
+- **Pin drop (shipped alongside scope B)** — Geoapify doesn't know every restaurant, so the form also offers a hand-dropped pin (`components/map/PinPickerMap.tsx`): coordinates without a provider identity — the restaurant appears on the map but stays Unmapped (see **Pinned** in CONTEXT.md). Geoapify remains the first-class path; the pin is the fallback, nudged when a search comes up dry. Confirming a pin reverse-geocodes it (`GET /places/reverse`) to prefill the address. `PUT /restaurants/{id}` now accepts latitude/longitude as editable facts (both-or-nothing, so old payloads can't wipe a location); `external_place_id` stays non-editable.
 - **Place Details enrichment (scope C, optional)** — on the detail page of a Mapped restaurant, fetch the Place live by `external_place_id` (opening hours, website, phone) and display it **without storing** — ephemeral use, no schema change, cleanest ToS posture.
 - Refresh-from-source of mapped facts (ADR-0002 addendum) and any editability lockdown.
 - Fuzzy geo-dedup between manual and picker entries — name-`ILIKE` panel remains the only defense; accepted gap.

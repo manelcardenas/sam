@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { getCurrentUser } from "aws-amplify/auth";
 import { configureAmplify } from "@/lib/amplify";
 import {
@@ -31,9 +32,35 @@ import { DineSkeleton } from "@/components/dine/DineSkeleton";
 import { PriceLevel, ScoreBadge } from "@/components/dine/atoms";
 import { formatRelativeDate, formatVisitedDate } from "@/lib/format";
 import { useFlipGrid } from "@/lib/useFlipGrid";
-import { ArrowLeft, Edit, MapPin, Plus, SearchX, Star, Trash2, UtensilsCrossed } from "lucide-react";
+import { MapLoading } from "@/components/map/MapLoading";
+import {
+  ArrowLeft,
+  Edit,
+  LayoutGrid,
+  Map as MapIcon,
+  MapPin,
+  Plus,
+  SearchX,
+  Star,
+  Trash2,
+  UtensilsCrossed,
+} from "lucide-react";
 
-type View = "list" | "detail" | "add-restaurant" | "edit-restaurant" | "add-review";
+// MapLibre needs the DOM and is heavy — keep it out of the static export
+// pass and out of the initial bundle; it downloads only when a map shows.
+const RestaurantsMap = dynamic(() => import("@/components/map/RestaurantsMap"), {
+  ssr: false,
+  loading: () => (
+    <MapLoading className="h-[65vh] min-h-[420px] rounded-4xl border border-line shadow-paw" />
+  ),
+});
+const LocationMap = dynamic(() => import("@/components/map/LocationMap"), {
+  ssr: false,
+  loading: () => <MapLoading className="h-full w-full" />,
+});
+
+type View = "list" | "detail" | "add-restaurant" | "edit-restaurant" | "add-review" | "edit-review";
+type ListMode = "cards" | "map";
 
 /** How long to sit on a keystroke before asking the server. */
 const SEARCH_DEBOUNCE_MS = 250;
@@ -67,9 +94,11 @@ export default function DinePage() {
   const [pending, startTransition] = useTransition();
 
   const [view, setView] = useState<View>("list");
+  const [listMode, setListMode] = useState<ListMode>("cards");
   const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewToDelete, setReviewToDelete] = useState<Review | null>(null);
+  const [reviewToEdit, setReviewToEdit] = useState<Review | null>(null);
 
   // ── Data ────────────────────────────────────────────────────────────────────
 
@@ -190,6 +219,13 @@ export default function DinePage() {
     await openRestaurant(selectedRestaurant);
   };
 
+  const handleUpdateReview = async (data: CreateReviewInput) => {
+    if (!reviewToEdit || !selectedRestaurant) return;
+    await apiClient.updateReview(selectedRestaurant.id, reviewToEdit.id, data);
+    setReviewToEdit(null);
+    await openRestaurant(selectedRestaurant);
+  };
+
   const handleDeleteReview = async () => {
     if (!reviewToDelete || !selectedRestaurant) return;
     try {
@@ -224,10 +260,20 @@ export default function DinePage() {
   // Re-runs the FLIP measurement whenever the rendered set changes identity.
   const gridRef = useFlipGrid<HTMLDivElement>(restaurants.map((r) => r.id).join(","));
 
+  // The map can only plot Mapped/Pinned restaurants, and it plots whatever the
+  // filters currently select — `restaurants` is already the narrowed set, since
+  // filtering moved server-side (the old client-side `visibleRestaurants` is gone).
+  const mapped = useMemo(
+    () => restaurants.filter((r) => r.latitude != null && r.longitude != null),
+    [restaurants],
+  );
+  const unmappedCount = restaurants.length - mapped.length;
+
   // ── Navigation helpers ───────────────────────────────────────────────────────
 
   const goBack = () => {
-    if (view === "add-review" || view === "edit-restaurant") {
+    if (view === "add-review" || view === "edit-review" || view === "edit-restaurant") {
+      setReviewToEdit(null);
       setView("detail");
       return;
     }
@@ -313,13 +359,37 @@ export default function DinePage() {
 
           {archive.length > 0 && (
             <>
-              <div className="mb-4 flex items-baseline justify-between gap-3">
-                <h2 className="font-serif text-xl font-semibold italic text-fg sm:text-2xl">
-                  {filtering ? "Matching" : "Everywhere"}
-                </h2>
-                <span className="shrink-0 text-sm tabular-nums text-muted">
-                  {restaurants.length} of {archive.length}
-                </span>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="font-serif text-xl font-semibold italic text-fg sm:text-2xl">
+                    {filtering ? "Matching" : "Everywhere"}
+                  </h2>
+                  <span className="text-sm tabular-nums text-muted">
+                    {restaurants.length} of {archive.length}
+                  </span>
+                </div>
+
+                {/* Cards/map is a way of looking at the same filtered set, so it
+                    sits with the heading rather than in the filter row — the
+                    filters apply to both views. */}
+                <div
+                  role="group"
+                  aria-label="View as"
+                  className="flex shrink-0 items-center gap-1 rounded-2xl border border-line bg-surface p-1"
+                >
+                  <ModeButton
+                    active={listMode === "cards"}
+                    onClick={() => setListMode("cards")}
+                    icon={<LayoutGrid className="h-4 w-4" aria-hidden />}
+                    label="Cards"
+                  />
+                  <ModeButton
+                    active={listMode === "map"}
+                    onClick={() => setListMode("map")}
+                    icon={<MapIcon className="h-4 w-4" aria-hidden />}
+                    label="Map"
+                  />
+                </div>
               </div>
 
               <RestaurantFilters
@@ -362,6 +432,39 @@ export default function DinePage() {
                 </button>
               }
             />
+          ) : listMode === "map" ? (
+            mapped.length === 0 ? (
+              <EmptyState
+                icon={<MapPin className="mx-auto mb-3 h-10 w-10 text-muted" aria-hidden />}
+                title="Nothing to plot."
+                body={
+                  filtering
+                    ? "None of the matching restaurants have a location. Loosen a filter, or switch back to cards."
+                    : "None of these have a location yet. Pick a match from the map search when adding one and it'll show up here."
+                }
+                action={
+                  filtering ? (
+                    <button
+                      onClick={() => setFilters(EMPTY_FILTERS)}
+                      className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-3 font-display text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    >
+                      Clear filters
+                    </button>
+                  ) : null
+                }
+              />
+            ) : (
+              <>
+                <RestaurantsMap restaurants={mapped} onOpenRestaurant={openRestaurant} />
+                {unmappedCount > 0 && (
+                  <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-sm text-muted">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {unmappedCount} {unmappedCount === 1 ? "restaurant has" : "restaurants have"} no
+                    location and {unmappedCount === 1 ? "isn't" : "aren't"} on the map.
+                  </p>
+                )}
+              </>
+            )
           ) : (
             <div
               ref={gridRef}
@@ -413,6 +516,16 @@ export default function DinePage() {
                 <Edit className="h-4 w-4" />
               </button>
             </div>
+
+            {selectedRestaurant.latitude != null && selectedRestaurant.longitude != null && (
+              <div className="relative h-48 border-b border-line sm:h-56">
+                <LocationMap
+                  name={selectedRestaurant.name}
+                  latitude={selectedRestaurant.latitude}
+                  longitude={selectedRestaurant.longitude}
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4 px-6 py-5 sm:grid-cols-3">
               <div className="col-span-2 flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-tomato/10 py-4 sm:col-span-1">
@@ -466,14 +579,27 @@ export default function DinePage() {
                         </p>
                       </div>
                       {review.user_id === currentUserId && (
-                        <button
-                          onClick={() => setReviewToDelete(review)}
-                          title="Delete review"
-                          aria-label="Delete review"
-                          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <div className="flex shrink-0 items-center">
+                          <button
+                            onClick={() => {
+                              setReviewToEdit(review);
+                              setView("edit-review");
+                            }}
+                            title="Edit review"
+                            aria-label="Edit review"
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setReviewToDelete(review)}
+                            title="Delete review"
+                            aria-label="Delete review"
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -519,6 +645,8 @@ export default function DinePage() {
                 address: selectedRestaurant.address,
                 price_level: selectedRestaurant.price_level,
                 cuisines: selectedRestaurant.cuisines,
+                latitude: selectedRestaurant.latitude,
+                longitude: selectedRestaurant.longitude,
               }}
               onSubmit={handleUpdateRestaurant}
               onCancel={goBack}
@@ -539,6 +667,29 @@ export default function DinePage() {
         </div>
       )}
 
+      {/* ── EDIT REVIEW ── */}
+      {view === "edit-review" && selectedRestaurant && reviewToEdit && (
+        <div className="mx-auto max-w-xl">
+          <h1 className="mb-1 font-display text-2xl font-bold text-fg sm:text-3xl">Edit your review</h1>
+          <p className="mb-6 text-muted">{selectedRestaurant.name}</p>
+          <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
+            <ReviewForm
+              initialData={{
+                location_score: reviewToEdit.location_score,
+                food_score: reviewToEdit.food_score,
+                service_score: reviewToEdit.service_score,
+                value_score: reviewToEdit.value_score,
+                comment: reviewToEdit.comment ?? undefined,
+                visited_at: reviewToEdit.visited_at,
+              }}
+              submitLabel="Save changes"
+              onSubmit={handleUpdateReview}
+              onCancel={goBack}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── DELETE REVIEW MODAL ── */}
       {reviewToDelete && (
         <ConfirmModal
@@ -554,6 +705,33 @@ export default function DinePage() {
 
 
 /** Consistent empty/no-match panel — same shape for "nothing yet" and "nothing matches". */
+/** One half of the cards/map switch. Both halves share every style but the icon and label. */
+function ModeButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex h-9 cursor-pointer items-center gap-1.5 rounded-xl px-3 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+        active ? "bg-tomato text-white shadow-pop" : "text-muted hover:text-fg"
+      }`}
+    >
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
+
 function EmptyState({
   icon,
   title,
@@ -563,7 +741,7 @@ function EmptyState({
   icon: React.ReactNode;
   title: string;
   body: string;
-  action: React.ReactNode;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="rounded-4xl border border-dashed border-line bg-surface px-6 py-16 text-center">

@@ -22,3 +22,7 @@ class PlacesProvider(ABC):
     @abstractmethod
     def search_areas(self, text: str) -> list[Area]:
         """Autocomplete for cities/addresses, used to anchor a Place search elsewhere."""
+
+    @abstractmethod
+    def reverse_geocode(self, lat: float, lon: float) -> str | None:
+        """Formatted address at a point (used to prefill after a pin drop), or None if unknown."""

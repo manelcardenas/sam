@@ -212,6 +212,13 @@ export class LambdaApiStack extends Stack {
     });
 
     httpApi.addRoutes({
+      path: "/places/reverse",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
       path: "/restaurants/{restaurant_id}/reviews",
       methods: [HttpMethod.GET, HttpMethod.POST],
       integration,
@@ -220,7 +227,7 @@ export class LambdaApiStack extends Stack {
 
     httpApi.addRoutes({
       path: "/restaurants/{restaurant_id}/reviews/{review_id}",
-      methods: [HttpMethod.DELETE],
+      methods: [HttpMethod.PUT, HttpMethod.DELETE],
       integration,
       authorizer,
     });

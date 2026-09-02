@@ -310,6 +310,12 @@ export class RecipeAPIClient {
     return this.request<Area[]>(`/places/areas?q=${encodeURIComponent(query.trim())}`);
   }
 
+  /** Address at a pin-dropped point — used to prefill the address field, never stored. */
+  async reverseGeocode(coords: { lat: number; lon: number }): Promise<{ address: string | null }> {
+    const params = new URLSearchParams({ lat: String(coords.lat), lon: String(coords.lon) });
+    return this.request<{ address: string | null }>(`/places/reverse?${params}`);
+  }
+
   async nearbyPlaces(coords: { lat: number; lon: number }, radiusM = 500): Promise<Place[]> {
     const params = new URLSearchParams({
       lat: String(coords.lat),
@@ -337,6 +343,14 @@ export class RecipeAPIClient {
   async createReview(restaurantId: string, data: CreateReviewInput): Promise<Review> {
     return this.request<Review>(`/restaurants/${restaurantId}/reviews`, {
       method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Author-only (backend enforces 403 otherwise). */
+  async updateReview(restaurantId: string, reviewId: string, data: CreateReviewInput): Promise<Review> {
+    return this.request<Review>(`/restaurants/${restaurantId}/reviews/${reviewId}`, {
+      method: "PUT",
       body: JSON.stringify(data),
     });
   }

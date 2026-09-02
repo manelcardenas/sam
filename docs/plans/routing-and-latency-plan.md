@@ -187,8 +187,9 @@ ADR-0005), and Redis as a learning exercise (item 5 — note its JWKS premise is
 §2.1 above, and its aggregate-caching premise partly overlaps §4.3).
 
 From [`./frontend-ux-plan.md`](./frontend-ux-plan.md): sort controls (closest / best rated),
-the map (scope B of [`./geoapify-places-plan.md`](./geoapify-places-plan.md)), photos, and
-full PWA/offline.
+photos, and full PWA/offline. (The map — scope B of
+[`./geoapify-places-plan.md`](./geoapify-places-plan.md) — is no longer queued: it shipped in
+PR #44 and is merged into the dine list as a cards/map toggle.)
 
 ## Cross-links
 

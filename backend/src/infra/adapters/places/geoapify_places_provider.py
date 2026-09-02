@@ -89,7 +89,14 @@ class GeoapifyPlacesProvider(PlacesProvider):
             areas.append(Area(name=props.get("name") or props.get("city") or label, label=label, latitude=lat, longitude=lon))
         return areas
 
-    def _get(self, path: str, params: dict[str, str | int]) -> list[dict]:
+    def reverse_geocode(self, lat: float, lon: float) -> str | None:
+        params: dict[str, str | int | float] = {"lat": lat, "lon": lon, "limit": 1}
+        features = self._get("/v1/geocode/reverse", params)
+        if not features:
+            return None
+        return features[0].get("properties", {}).get("formatted")
+
+    def _get(self, path: str, params: dict[str, str | int | float]) -> list[dict]:
         if not self._api_key:
             raise PlacesProviderError("Geoapify is not configured — set GEOAPIFY_API_KEY (local) or GEOAPIFY_API_KEY_PARAM (Lambda)")
         try:

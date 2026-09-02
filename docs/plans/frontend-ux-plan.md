@@ -260,10 +260,11 @@ the reviews route.
   viable later (23/24 restaurants have coordinates) but needs browser geolocation, a haversine
   calculation, and a defined behaviour for the 1 restaurant without coordinates. The `sort` query
   param above is where it plugs in.
-- **Map display.** A map of everywhere you've been is arguably *the* reliving surface, and the
-  coordinates are already there — but it is **scope B** of
-  [`./geoapify-places-plan.md`](./geoapify-places-plan.md), with its own tile-provider decision, and it
-  would dominate this plan.
+- ~~**Map display.**~~ **Shipped in parallel** (PR #44, merged 2026-09-02) while this plan was being
+  built — MapLibre GL + OpenFreeMap, not the Leaflet/Geoapify-tiles sketch; see
+  [`./geoapify-places-plan.md`](./geoapify-places-plan.md) scope B. Merging the two produced the
+  cards/map toggle now sitting beside the "Everywhere" heading: the filters here narrow the set and
+  the toggle chooses how to look at it, so the map plots whatever the chips currently select.
 - **Splitting `dine/page.tsx` into real routes.** It is 434 lines with a 5-way view state machine, and
   this plan adds a rail, filters and richer cards to it. Extracting `/dine/[id]` would give shareable
   links and a maintainable file, but it is refactor work with no visible payoff — do it when the file
@@ -280,6 +281,6 @@ the reviews route.
 
 - [`../adr/0005-restaurant-list-is-a-scrapbook.md`](../adr/0005-restaurant-list-is-a-scrapbook.md) — the decision behind §2.
 - [`./improvement-plan.md`](./improvement-plan.md) — Phase 4, which this plan implements.
-- [`./geoapify-places-plan.md`](./geoapify-places-plan.md) — scope B (map) picks up where §2 stops.
+- [`./geoapify-places-plan.md`](./geoapify-places-plan.md) — scope B (map), shipped alongside this plan and merged into §2's list.
 - [`./future-roadmap.md`](./future-roadmap.md) — item 4 (search) is the long-term end of §2b.
 - [`../../CONTEXT.md`](../../CONTEXT.md) — Restaurant, Review, Visited At, Cuisine, Price Level, Overall.

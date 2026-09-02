@@ -78,12 +78,26 @@ class CreateRestaurantRequest(BaseModel):
 
 
 class UpdateRestaurantRequest(BaseModel):
-    """Request body for updating a restaurant's shared facts. Any authenticated user may call this — see ADR 0002."""
+    """Request body for updating a restaurant's shared facts. Any authenticated user may call this — see ADR 0002.
+
+    Coordinates are editable facts too (pin drop / pin correction), but only
+    when BOTH are sent — omitting them means "leave the stored ones alone",
+    so older clients can't accidentally wipe a location. The mapping identity
+    (external_place_id) is never editable.
+    """
 
     name: str = Field(min_length=1, max_length=255)
     address: str | None = Field(default=None, max_length=500)  # matches the VARCHAR(500) column — 422 here beats a 500 from Postgres
     price_level: int | None = Field(default=None, ge=1, le=4, description="1-4, € to €€€€")
     cuisines: list[str] = Field(default_factory=list)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+
+class ReverseGeocodeResponse(BaseModel):
+    """Address at a pin-dropped point — display/prefill only, never stored server-side."""
+
+    address: str | None
 
 
 def _validate_score(v: float) -> float:
@@ -96,7 +110,7 @@ def _validate_score(v: float) -> float:
 
 
 class CreateReviewRequest(BaseModel):
-    """Request body for submitting a review. Reviews aren't editable in v1 — delete and re-post instead."""
+    """Request body for submitting or editing a review (PUT replaces all fields)."""
 
     location_score: float = Field(description="0-10, step 0.5 — location/decoration")
     food_score: float = Field(description="0-10, step 0.5")

@@ -17,7 +17,7 @@ A shared, community-maintained record of a place to eat. Any authenticated user 
 _Avoid_: Venue, Place
 
 **Review**:
-One user's rated account of a single visit to a Restaurant: four Category Scores, an optional comment, and the date visited. A user may post multiple Reviews of the same Restaurant over time (revisits); Reviews cannot be edited after creation, only deleted and re-posted.
+One user's rated account of a single visit to a Restaurant: four Category Scores, an optional comment, and the date visited. A user may post multiple Reviews of the same Restaurant over time (revisits). Only its author may edit or delete a Review — unlike Restaurant facts, a Review is owned.
 _Avoid_: Rating
 
 **Category Score**:
@@ -45,8 +45,12 @@ A city, neighbourhood, or address used to anchor a Place search somewhere other 
 _Avoid_: Location, City, Region
 
 **Mapped**:
-A Restaurant that is linked to the external map provider's record of the physical place: it carries that external identity and coordinates. An Unmapped Restaurant was entered manually and has neither. Mapping happens by picking a search result at creation time; manual entry remains allowed because the map provider does not know every restaurant.
+A Restaurant that is linked to the external map provider's record of the physical place: it carries that external identity and coordinates. An Unmapped Restaurant has no such link. Mapping happens by picking a search result at creation time; manual entry remains allowed because the map provider does not know every restaurant.
 _Avoid_: Verified, Geocoded
+
+**Pinned**:
+A Restaurant whose coordinates were set by hand — dropping a pin on a map — rather than copied from a Place. Pinned Restaurants appear on the map but stay Unmapped: coordinates without an external identity, so they can't deduplicate against other users' picks. Coordinates are editable facts like any other; the mapping link is not.
+_Avoid_: Located, Geotagged
 
 **Cuisine**:
 One tag from a curated, extensible vocabulary describing a Restaurant's style of food (e.g. Italian, Japanese). A Restaurant can have more than one.

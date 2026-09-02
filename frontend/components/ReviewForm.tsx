@@ -7,6 +7,9 @@ import type { CreateReviewInput } from "@/lib/api-client";
 interface ReviewFormProps {
   onSubmit: (data: CreateReviewInput) => Promise<void>;
   onCancel: () => void;
+  /** When set, the form starts from an existing review (edit mode). */
+  initialData?: CreateReviewInput;
+  submitLabel?: string;
 }
 
 type ScoreKey = "location_score" | "food_score" | "service_score" | "value_score";
@@ -59,15 +62,15 @@ function ScoreSlider({
   );
 }
 
-export default function ReviewForm({ onSubmit, onCancel }: ReviewFormProps) {
+export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabel = "Post review" }: ReviewFormProps) {
   const [scores, setScores] = useState<Record<ScoreKey, number>>({
-    location_score: 5,
-    food_score: 5,
-    service_score: 5,
-    value_score: 5,
+    location_score: initialData?.location_score ?? 5,
+    food_score: initialData?.food_score ?? 5,
+    service_score: initialData?.service_score ?? 5,
+    value_score: initialData?.value_score ?? 5,
   });
-  const [comment, setComment] = useState("");
-  const [visitedAt, setVisitedAt] = useState(todayIsoDate());
+  const [comment, setComment] = useState(initialData?.comment ?? "");
+  const [visitedAt, setVisitedAt] = useState(initialData?.visited_at ?? todayIsoDate());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -155,7 +158,7 @@ export default function ReviewForm({ onSubmit, onCancel }: ReviewFormProps) {
           className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
         >
           <Save className="h-4 w-4" />
-          {submitting ? "Saving…" : "Post review"}
+          {submitting ? "Saving…" : submitLabel}
         </button>
         <button
           type="button"
