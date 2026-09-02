@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser } from "aws-amplify/auth";
 import { configureAmplify } from "@/lib/amplify";
@@ -17,37 +17,32 @@ import { RestaurantCard } from "@/components/RestaurantCard";
 import RestaurantForm from "@/components/RestaurantForm";
 import ReviewForm from "@/components/ReviewForm";
 import ConfirmModal from "@/components/ConfirmModal";
-import { Loader } from "@/components/ui/Loader";
-import { ArrowLeft, Edit, MapPin, Plus, Star, Trash2, UtensilsCrossed } from "lucide-react";
+import { RecentVisitsRail } from "@/components/dine/RecentVisitsRail";
+import {
+  EMPTY_FILTERS,
+  RestaurantFilters,
+  fromSearchParams,
+  isFiltered,
+  toQuery,
+  toSearchParams,
+  type FilterState,
+} from "@/components/dine/RestaurantFilters";
+import { DineSkeleton } from "@/components/dine/DineSkeleton";
+import { PriceLevel, ScoreBadge } from "@/components/dine/atoms";
+import { formatRelativeDate, formatVisitedDate } from "@/lib/format";
+import { useFlipGrid } from "@/lib/useFlipGrid";
+import { ArrowLeft, Edit, MapPin, Plus, SearchX, Star, Trash2, UtensilsCrossed } from "lucide-react";
 
 type View = "list" | "detail" | "add-restaurant" | "edit-restaurant" | "add-review";
 
-/** Price as €…€€€€ with the unused tier dimmed. */
-function PriceLevel({ level }: { level: number }) {
-  return (
-    <span className="font-semibold tracking-tight" aria-label={`Price level ${level} of 4`}>
-      {[1, 2, 3, 4].map((n) => (
-        <span key={n} className={n <= level ? "text-fg" : "text-muted/40"}>
-          €
-        </span>
-      ))}
-    </span>
-  );
-}
-
-/** Render a date-only "YYYY-MM-DD" string in the viewer's locale without the
- * UTC-midnight shift of new Date(string) — which shows the previous day in
- * timezones west of UTC. */
-function formatVisitedDate(isoDate: string) {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
-}
+/** How long to sit on a keystroke before asking the server. */
+const SEARCH_DEBOUNCE_MS = 250;
 
 function ScoreRow({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
       <span className="text-muted">{label}</span>
-      <span className="font-semibold text-fg">{value != null ? value.toFixed(1) : "—"}</span>
+      <span className="font-semibold tabular-nums text-fg">{value != null ? value.toFixed(1) : "—"}</span>
     </div>
   );
 }
@@ -60,14 +55,35 @@ export default function DinePage() {
   const [currentUserId, setCurrentUserId] = useState("");
 
   const [restaurants, setRestaurants] = useState<RestaurantDetail[]>([]);
-  const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  // Filters are the list's narrowing controls; the unfiltered set is kept
+  // separately so the "Lately" rail and the chip vocabulary stay stable while
+  // you filter — a rail that empties as you narrow would be disorienting, and
+  // chips that vanish when deselected are a dead end.
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const [archive, setArchive] = useState<RestaurantDetail[]>([]);
+  const [pending, startTransition] = useTransition();
 
   const [view, setView] = useState<View>("list");
   const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewToDelete, setReviewToDelete] = useState<Review | null>(null);
+
+  // ── Data ────────────────────────────────────────────────────────────────────
+
+  const loadRestaurants = useCallback(async (state: FilterState) => {
+    try {
+      setError("");
+      const results = await apiClient.searchRestaurants(toQuery(state));
+      setRestaurants(results);
+      // The unfiltered fetch doubles as the archive snapshot.
+      if (!isFiltered(state)) setArchive(results);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load restaurants");
+    }
+  }, []);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -83,7 +99,11 @@ export default function DinePage() {
         }
         setUserName(me.display_name);
         setCurrentUserId(me.id);
-        await loadRestaurants();
+        // Restore a shared/refreshed filtered view from the URL.
+        const restored = fromSearchParams(new URLSearchParams(window.location.search));
+        setFilters(restored);
+        await loadRestaurants(restored);
+        if (isFiltered(restored)) await loadArchive();
         setLoading(false);
       } catch {
         router.push("/");
@@ -92,16 +112,35 @@ export default function DinePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Data ────────────────────────────────────────────────────────────────────
-
-  const loadRestaurants = async () => {
+  /** The unfiltered set, for the rail and the chip vocabulary. */
+  const loadArchive = useCallback(async () => {
     try {
-      setError("");
-      setRestaurants(await apiClient.searchRestaurants());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load restaurants");
+      setArchive(await apiClient.searchRestaurants());
+    } catch {
+      // Non-fatal: the rail and chips just stay as they were.
     }
-  };
+  }, []);
+
+  // Re-query when filters change. Debounced, because `q` fires per keystroke
+  // while the chips are instant — one timer covers both, and a chip tap simply
+  // waits out a short delay rather than needing its own path.
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (loading) return;
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      // Non-urgent: keeps chip presses feeling instant while the list catches up.
+      startTransition(() => {
+        void loadRestaurants(filters);
+      });
+      const qs = toSearchParams(filters);
+      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [filters, loading, loadRestaurants]);
 
   const openRestaurant = async (restaurant: Restaurant) => {
     try {
@@ -119,9 +158,14 @@ export default function DinePage() {
     }
   };
 
+  /** Refresh both the filtered list and the archive snapshot the rail reads from. */
+  const refreshLists = useCallback(async () => {
+    await Promise.all([loadRestaurants(filters), isFiltered(filters) ? loadArchive() : Promise.resolve()]);
+  }, [filters, loadRestaurants, loadArchive]);
+
   const handleCreateRestaurant = async (data: CreateRestaurantInput) => {
     const { restaurant, alreadyExisted } = await apiClient.createRestaurant(data);
-    await loadRestaurants();
+    await refreshLists();
     await openRestaurant(restaurant);
     if (alreadyExisted) {
       setNotice(`${restaurant.name} was already on SAM — here's the existing entry.`);
@@ -135,13 +179,14 @@ export default function DinePage() {
   const handleUpdateRestaurant = async (data: CreateRestaurantInput) => {
     if (!selectedRestaurant) return;
     await apiClient.updateRestaurant(selectedRestaurant.id, data);
-    await loadRestaurants();
+    await refreshLists();
     await openRestaurant(selectedRestaurant);
   };
 
   const handleCreateReview = async (data: CreateReviewInput) => {
     if (!selectedRestaurant) return;
     await apiClient.createReview(selectedRestaurant.id, data);
+    await refreshLists();
     await openRestaurant(selectedRestaurant);
   };
 
@@ -154,14 +199,30 @@ export default function DinePage() {
       return;
     }
     setReviewToDelete(null);
+    await refreshLists();
     await openRestaurant(selectedRestaurant);
   };
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
-  const visibleRestaurants = query.trim()
-    ? restaurants.filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase()))
-    : restaurants;
+  // Chip vocabularies come from the archive, not the current results, so a chip
+  // never disappears the moment you use it. Sorted by frequency: the cuisines
+  // you actually eat lead, which at this data's distribution is a real difference.
+  const cuisineOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of archive) for (const c of r.cuisines) counts.set(c, (counts.get(c) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
+  }, [archive]);
+
+  const priceOptions = useMemo(
+    () => [...new Set(archive.map((r) => r.price_level).filter((p): p is 1 | 2 | 3 | 4 => p != null))].sort(),
+    [archive],
+  );
+
+  const filtering = isFiltered(filters);
+
+  // Re-runs the FLIP measurement whenever the rendered set changes identity.
+  const gridRef = useFlipGrid<HTMLDivElement>(restaurants.map((r) => r.id).join(","));
 
   // ── Navigation helpers ───────────────────────────────────────────────────────
 
@@ -180,7 +241,19 @@ export default function DinePage() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
-  if (loading) return <Loader />;
+  if (loading) {
+    return (
+      <AppShell>
+        <header className="mb-7">
+          <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-[2.5rem] sm:leading-[1.1]">
+            Where shall we eat?
+          </h1>
+          <p className="mt-1.5 text-muted">Fetching the record…</p>
+        </header>
+        <DineSkeleton />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell userName={userName}>
@@ -223,41 +296,90 @@ export default function DinePage() {
       {/* ── LIST ── */}
       {view === "list" && (
         <div>
-          <header className="mb-6">
-            <h1 className="font-display text-3xl font-bold text-fg sm:text-4xl">
+          <header className="mb-7">
+            <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-[2.5rem] sm:leading-[1.1]">
               Where shall we eat?
             </h1>
-            <p className="mt-1 text-muted">Every place the pack has reviewed.</p>
+            <p className="mt-1.5 text-muted">
+              {archive.length > 0
+                ? `${archive.length} place${archive.length === 1 ? "" : "s"} the pack has eaten at.`
+                : "Every place the pack has reviewed."}
+            </p>
           </header>
 
-          {restaurants.length > 0 && (
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search restaurants…"
-              className="mb-5 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
-            />
+          {/* The reel of recent visits — hides itself when there's too little to
+              reel through, so an empty-ish account doesn't get a broken-looking rail. */}
+          <RecentVisitsRail restaurants={archive} onSelect={openRestaurant} />
+
+          {archive.length > 0 && (
+            <>
+              <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h2 className="font-serif text-xl font-semibold italic text-fg sm:text-2xl">
+                  {filtering ? "Matching" : "Everywhere"}
+                </h2>
+                <span className="shrink-0 text-sm tabular-nums text-muted">
+                  {restaurants.length} of {archive.length}
+                </span>
+              </div>
+
+              <RestaurantFilters
+                value={filters}
+                cuisines={cuisineOptions}
+                priceLevels={priceOptions}
+                onChange={setFilters}
+                resultCount={restaurants.length}
+                busy={pending}
+              />
+            </>
           )}
 
-          {restaurants.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-line bg-surface py-16 text-center">
-              <UtensilsCrossed className="mx-auto mb-3 h-10 w-10 text-muted" />
-              <p className="text-muted">No restaurants yet.</p>
-              <button
-                onClick={() => setView("add-restaurant")}
-                className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 py-2.5 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95"
-              >
-                <Plus className="h-4 w-4" />
-                Add the first one
-              </button>
-            </div>
-          ) : visibleRestaurants.length === 0 ? (
-            <p className="py-10 text-center text-muted">No restaurants match &ldquo;{query}&rdquo;.</p>
+          {archive.length === 0 ? (
+            <EmptyState
+              icon={<UtensilsCrossed className="mx-auto mb-3 h-10 w-10 text-muted" aria-hidden />}
+              title="Nothing on the menu yet."
+              body="Add the first restaurant and SAM will start keeping the record."
+              action={
+                <button
+                  onClick={() => setView("add-restaurant")}
+                  className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 py-3 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Add the first one
+                </button>
+              }
+            />
+          ) : restaurants.length === 0 ? (
+            <EmptyState
+              icon={<SearchX className="mx-auto mb-3 h-10 w-10 text-muted" aria-hidden />}
+              title="Nothing matches that."
+              body="Try loosening a filter — or add the place if it isn't here yet."
+              action={
+                <button
+                  onClick={() => setFilters(EMPTY_FILTERS)}
+                  className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-3 font-display text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                >
+                  Clear filters
+                </button>
+              }
+            />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {visibleRestaurants.map((r) => (
-                <RestaurantCard key={r.id} restaurant={r} onClick={() => openRestaurant(r)} />
+            <div
+              ref={gridRef}
+              // Dimmed but not replaced while re-querying: the previous results
+              // stay readable and in place, so a chip tap never blanks the page.
+              className={`grid gap-4 transition-opacity duration-200 sm:grid-cols-2 ${pending ? "opacity-60" : "opacity-100"}`}
+            >
+              {restaurants.map((r, i) => (
+                <div
+                  key={r.id}
+                  data-flip-id={r.id}
+                  // Stagger only the first screenful: past ~8 the cascade stops
+                  // reading as lively and starts reading as slow.
+                  className={i < 8 ? "will-fetch animate-fetch-in" : undefined}
+                  style={i < 8 ? { animationDelay: `${i * 40}ms` } : undefined}
+                >
+                  <RestaurantCard restaurant={r} onClick={() => openRestaurant(r)} />
+                </div>
               ))}
             </div>
           )}
@@ -293,11 +415,8 @@ export default function DinePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4 px-6 py-5 sm:grid-cols-3">
-              <div className="col-span-2 flex flex-col items-center justify-center rounded-3xl bg-tomato/10 py-4 sm:col-span-1">
-                <span className="flex items-center gap-1 font-display text-3xl font-bold text-tomato">
-                  <Star className="h-6 w-6 fill-current" />
-                  {selectedRestaurant.average_overall != null ? selectedRestaurant.average_overall.toFixed(1) : "—"}
-                </span>
+              <div className="col-span-2 flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-tomato/10 py-4 sm:col-span-1">
+                <ScoreBadge score={selectedRestaurant.average_overall} size="lg" />
                 <span className="text-xs text-muted">
                   {selectedRestaurant.review_count} {selectedRestaurant.review_count === 1 ? "review" : "reviews"}
                 </span>
@@ -342,8 +461,8 @@ export default function DinePage() {
                             · {review.reviewer_name ?? "Unknown"}
                           </span>
                         </p>
-                        <p className="mt-0.5 text-xs text-muted">
-                          Visited {formatVisitedDate(review.visited_at)}
+                        <p className="mt-0.5 text-xs text-muted" title={formatVisitedDate(review.visited_at)}>
+                          Visited {formatRelativeDate(review.visited_at)}
                         </p>
                       </div>
                       {review.user_id === currentUserId && (
@@ -430,5 +549,28 @@ export default function DinePage() {
         />
       )}
     </AppShell>
+  );
+}
+
+
+/** Consistent empty/no-match panel — same shape for "nothing yet" and "nothing matches". */
+function EmptyState({
+  icon,
+  title,
+  body,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  action: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-4xl border border-dashed border-line bg-surface px-6 py-16 text-center">
+      {icon}
+      <p className="font-display text-lg font-semibold text-fg">{title}</p>
+      <p className="mx-auto mt-1 max-w-sm text-sm text-muted">{body}</p>
+      {action}
+    </div>
   );
 }
