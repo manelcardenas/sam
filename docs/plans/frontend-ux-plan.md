@@ -50,7 +50,7 @@ viable later, and the lopsided cuisine distribution makes cuisine filters pay of
 |---|---|
 | What the dine page is for | Reliving where you've been, not deciding where to go tonight (ADR-0005) |
 | Default order | Most recently visited (`visited_at` desc) |
-| Sorting controls | **Deferred** — recency only for now |
+| Sorting controls | Recency only at the time of writing; **a rating sort shipped 2026-09-04** (ADR-0005 addendum). Distance still deferred. |
 | Finding things | Server-side **filters** (cuisine, price, score floor, mine-only), not a search engine |
 | Carousel | A recent-visits **rail above** the grid, not a replacement for it |
 | Card content | Surface existing data (last visit, who went, comment snippet). **No photos** — out of scope |
@@ -256,10 +256,12 @@ the reviews route.
 
 ## Out of scope — explicitly deferred, not dropped
 
-- **Sort controls (closest / best rated).** Recency is the only order this round. Distance is genuinely
-  viable later (23/24 restaurants have coordinates) but needs browser geolocation, a haversine
-  calculation, and a defined behaviour for the 1 restaurant without coordinates. The `sort` query
-  param above is where it plugs in.
+- **Sort controls.** ~~Best rated~~ **shipped 2026-09-04** — `?sort=rating`, ties broken by review
+  count, exposed as the "Order" select below the filters (`components/dine/SortControl.tsx`); see the
+  ADR-0005 addendum for what the tie-break does and doesn't fix. **Closest is still deferred**: it
+  needs browser geolocation, a haversine calculation, and a defined behaviour for restaurants without
+  coordinates. It plugs into the same `sort` param and the same `OPTIONS` list, which is part of why
+  that control is a `<select>` rather than a two-way toggle.
 - ~~**Map display.**~~ **Shipped in parallel** (PR #44, merged 2026-09-02) while this plan was being
   built — MapLibre GL + OpenFreeMap, not the Leaflet/Geoapify-tiles sketch; see
   [`./geoapify-places-plan.md`](./geoapify-places-plan.md) scope B. Merging the two produced the
