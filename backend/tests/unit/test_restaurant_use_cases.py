@@ -284,6 +284,63 @@ class TestScrapbookOrderingAndFilters:
 
         assert [r.name for r in result] == ["Aaa Old", "Zzz Recent"]
 
+    def test_sort_by_rating_puts_the_highest_score_first(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        good, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Good", created_by="user-1"))
+        poor, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa Poor", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(good.id, "user-a", "2026-01-01", score=9))
+        CreateReview(review_repo).execute(_review(poor.id, "user-a", "2026-08-01", score=4))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(sort=RestaurantSort.RATING))
+
+        # Neither alphabetical nor recency order — the 9 beats the 4 despite
+        # "Aaa" sorting first and having the newer visit.
+        assert [r.name for r in result] == ["Zzz Good", "Aaa Poor"]
+
+    def test_rating_ties_break_on_review_count(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """Equal scores: the better-evidenced one wins, not the alphabetically luckier one."""
+        one_review, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa One Voice", created_by="user-1"))
+        three_reviews, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Three Agree", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(one_review.id, "user-a", "2026-08-01", score=8))
+        for user in ("user-a", "user-b", "user-c"):
+            CreateReview(review_repo).execute(_review(three_reviews.id, user, "2026-01-01", score=8))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(sort=RestaurantSort.RATING))
+
+        assert [r.name for r in result] == ["Zzz Three Agree", "Aaa One Voice"]
+
+    def test_rating_ties_on_score_and_count_fall_back_to_name(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """Without a final tie-break the order would vary between requests."""
+        b, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Bbb", created_by="user-1"))
+        a, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(b.id, "user-a", "2026-08-01", score=7))
+        CreateReview(review_repo).execute(_review(a.id, "user-a", "2026-01-01", score=7))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(sort=RestaurantSort.RATING))
+
+        assert [r.name for r in result] == ["Aaa", "Bbb"]
+
+    def test_rating_sort_keeps_unrated_restaurants_last_not_hidden(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """No score is not a zero score — but it can't outrank a real one either."""
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa Unrated", created_by="user-1"))
+        low, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Barely Liked", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(low.id, "user-a", "2026-01-01", score=2))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(sort=RestaurantSort.RATING))
+
+        assert [r.name for r in result] == ["Zzz Barely Liked", "Aaa Unrated"]
+
+    def test_rating_sort_composes_with_filters(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """Sorting orders whatever the chips selected — it must not widen the set."""
+        best, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Best Italian", cuisines=["Italian"], created_by="user-1"))
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Better Chinese", cuisines=["Chinese"], created_by="user-1"))
+        ok, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Ok Italian", cuisines=["Italian"], created_by="user-1"))
+        CreateReview(review_repo).execute(_review(best.id, "user-a", "2026-01-01", score=9))
+        CreateReview(review_repo).execute(_review(ok.id, "user-a", "2026-01-01", score=6))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(cuisines=["Italian"], sort=RestaurantSort.RATING))
+
+        assert [r.name for r in result] == ["Best Italian", "Ok Italian"]
+
     def test_filters_by_cuisine_any_of(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
         CreateRestaurant(restaurant_repo).execute(Restaurant(name="Wok", cuisines=["Chinese"], created_by="user-1"))
         CreateRestaurant(restaurant_repo).execute(Restaurant(name="Trattoria", cuisines=["Italian", "Mediterranean"], created_by="user-1"))

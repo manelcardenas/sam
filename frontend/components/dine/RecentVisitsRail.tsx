@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { RestaurantDetail } from "@/lib/api-client";
 import { formatRelativeDate, formatReviewers } from "@/lib/format";
@@ -38,7 +38,16 @@ export function RecentVisitsRail({
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
 
-  const recent = restaurants.filter((r) => r.last_visited_at).slice(0, MAX_CARDS);
+  // Sorted here rather than trusting the caller: this rail promises recency by
+  // name, and the list it is handed can be ordered by rating instead.
+  const recent = useMemo(
+    () =>
+      restaurants
+        .filter((r) => r.last_visited_at)
+        .sort((a, b) => (a.last_visited_at! < b.last_visited_at! ? 1 : -1))
+        .slice(0, MAX_CARDS),
+    [restaurants],
+  );
 
   const syncEdges = useCallback(() => {
     const el = scrollerRef.current;
@@ -106,12 +115,19 @@ export function RecentVisitsRail({
         ref={scrollerRef}
         onScroll={syncEdges}
         onKeyDown={onKeyDown}
+        // scroll-pl-4 must match px-4, and is not redundant with it: snap-start
+        // aligns a card to the *scrollport* edge (the padding box, x=0), not the
+        // content edge. Without scroll-padding, snap-mandatory scrolls the rail
+        // 16px at load to satisfy that, cancelling the px-4 and leaving the first
+        // card flush to the screen edge while every other element on the page sits
+        // inset by 16px. scroll-padding is what actually moves the snap points.
+        //
         // A scrollable region needs a tabindex to be reachable by keyboard users
         // who don't tab into a child first.
         tabIndex={0}
         role="list"
         aria-label="Recent visits"
-        className="rail-scroll -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 sm:mx-0 sm:px-0"
+        className="rail-scroll -mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 sm:mx-0 sm:scroll-pl-0 sm:px-0"
       >
         {recent.map((r, i) => (
           <li

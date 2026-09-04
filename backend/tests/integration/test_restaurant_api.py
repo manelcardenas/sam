@@ -91,6 +91,16 @@ def test_repeated_price_levels_are_validated_per_element() -> None:
     assert client.get("/restaurants", params={"price_levels": [9]}).status_code == 422
 
 
+def test_sort_param_is_accepted_and_validated() -> None:
+    client = _client()
+
+    for value in ("recent", "name", "rating"):
+        assert client.get("/restaurants", params={"sort": value}).status_code == 200
+
+    # An unknown ordering is a client error, not a silent fallback to the default.
+    assert client.get("/restaurants", params={"sort": "cheapest"}).status_code == 422
+
+
 def test_profile_endpoints_are_reachable() -> None:
     client = _client()
 

@@ -72,7 +72,8 @@ export interface RestaurantDetail extends Restaurant {
   last_comment_at: string | null; // the quoted visit's date, which can predate last_visited_at
 }
 
-export type RestaurantSort = "recent" | "name";
+/** Mirrors backend `RestaurantSort`. "name" is used by the create-form dedup lookup, not the UI. */
+export type RestaurantSort = "recent" | "name" | "rating";
 
 /** How the dine list narrows itself. Everything is optional; the default is the whole archive, most recent first. */
 export interface RestaurantQuery {

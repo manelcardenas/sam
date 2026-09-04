@@ -20,7 +20,9 @@ import ReviewForm from "@/components/ReviewForm";
 import ConfirmModal from "@/components/ConfirmModal";
 import { RecentVisitsRail } from "@/components/dine/RecentVisitsRail";
 import {
+  DEFAULT_SORT,
   EMPTY_FILTERS,
+  clearFilters,
   RestaurantFilters,
   fromSearchParams,
   isFiltered,
@@ -29,6 +31,7 @@ import {
   type FilterState,
 } from "@/components/dine/RestaurantFilters";
 import { DineSkeleton } from "@/components/dine/DineSkeleton";
+import { SortControl } from "@/components/dine/SortControl";
 import { PriceLevel, ScoreBadge } from "@/components/dine/atoms";
 import { formatRelativeDate, formatVisitedDate } from "@/lib/format";
 import { useFlipGrid } from "@/lib/useFlipGrid";
@@ -107,8 +110,11 @@ export default function DinePage() {
       setError("");
       const results = await apiClient.searchRestaurants(toQuery(state));
       setRestaurants(results);
-      // The unfiltered fetch doubles as the archive snapshot.
-      if (!isFiltered(state)) setArchive(results);
+      // The unfiltered fetch doubles as the archive snapshot — but only in the
+      // canonical order. A rating-sorted result is the same *set* and a
+      // different *sequence*, and the archive's consumers (the rail, the chip
+      // vocabulary) care about the sequence.
+      if (!isFiltered(state) && state.sort === DEFAULT_SORT) setArchive(results);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load restaurants");
     }
@@ -360,14 +366,9 @@ export default function DinePage() {
           {archive.length > 0 && (
             <>
               <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="font-serif text-xl font-semibold italic text-fg sm:text-2xl">
-                    {filtering ? "Matching" : "Everywhere"}
-                  </h2>
-                  <span className="text-sm tabular-nums text-muted">
-                    {restaurants.length} of {archive.length}
-                  </span>
-                </div>
+                <h2 className="min-w-0 font-serif text-xl font-semibold italic text-fg sm:text-2xl">
+                  {filtering ? "Matching" : "Everywhere"}
+                </h2>
 
                 {/* Cards/map is a way of looking at the same filtered set, so it
                     sits with the heading rather than in the filter row — the
@@ -400,6 +401,19 @@ export default function DinePage() {
                 resultCount={restaurants.length}
                 busy={pending}
               />
+
+              {/* Ordering + count, on the results side of the divider: the
+                  controls above decide what is in the list, this row describes
+                  the list itself. Keeps sort from being mistaken for a filter. */}
+              <div className="mb-4 flex items-center justify-between gap-3 border-t border-line pt-4">
+                <SortControl
+                  value={filters.sort}
+                  onChange={(sort) => setFilters((f) => ({ ...f, sort }))}
+                />
+                <p className="shrink-0 text-sm tabular-nums text-muted">
+                  {restaurants.length} of {archive.length}
+                </p>
+              </div>
             </>
           )}
 
@@ -425,7 +439,7 @@ export default function DinePage() {
               body="Try loosening a filter — or add the place if it isn't here yet."
               action={
                 <button
-                  onClick={() => setFilters(EMPTY_FILTERS)}
+                  onClick={() => setFilters(clearFilters)}
                   className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-3 font-display text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                 >
                   Clear filters
@@ -445,7 +459,7 @@ export default function DinePage() {
                 action={
                   filtering ? (
                     <button
-                      onClick={() => setFilters(EMPTY_FILTERS)}
+                      onClick={() => setFilters(clearFilters)}
                       className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-3 font-display text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                     >
                       Clear filters

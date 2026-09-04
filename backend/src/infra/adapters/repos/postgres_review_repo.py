@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from src.domain.entities import Review, ReviewAggregate, UserReview, UserStats
 from src.domain.ports import ReviewRepository
+from src.infra.adapters.repos._score_sql import review_overall
 from src.infra.adapters.repos.ids import parse_uuid
 from src.infra.db import CuisineModel, RestaurantModel, ReviewModel, UserModel
 from src.infra.db.models import restaurant_cuisines
@@ -78,7 +79,8 @@ class PostgresReviewRepository(ReviewRepository):
             return {}
         # Per-review overall is rounded to 1dp before averaging, matching Review.overall,
         # so list cards and the detail view can never disagree on the same data.
-        overall = func.round((ReviewModel.location_score + ReviewModel.food_score + ReviewModel.service_score + ReviewModel.value_score) / 4, 1)
+        # Shared with the restaurant repo's rating sort — see _score_sql.
+        overall = review_overall()
         with self._session_factory() as session:
             # Two batched queries over the whole id list — never per restaurant.
             # Keeping them separate rather than one clever join: the first is a
@@ -157,6 +159,9 @@ class PostgresReviewRepository(ReviewRepository):
             return [UserReview(**self._to_entity(model).model_dump(exclude={"overall"}), restaurant_name=name) for model, name in rows]
 
     def stats_for_user(self, user_id: str) -> UserStats:
+        # Unrounded on purpose: this is "the average score you give", a statistic
+        # about a person, not a restaurant's displayed rating. Nothing compares it
+        # against a card, so it doesn't need review_overall()'s per-review rounding.
         overall = (ReviewModel.location_score + ReviewModel.food_score + ReviewModel.service_score + ReviewModel.value_score) / 4
         with self._session_factory() as session:
             totals = (

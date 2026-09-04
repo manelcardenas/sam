@@ -40,6 +40,7 @@ class RestaurantDetail(Restaurant):
 class RestaurantSort(StrEnum):
     RECENT = "recent"
     NAME = "name"
+    RATING = "rating"
 
 
 class RestaurantFilters(BaseModel):

@@ -59,6 +59,20 @@ class InMemoryRestaurantRepository(RestaurantRepository):
                 restaurants = [
                     r for r in restaurants if (agg := aggregates.get(r.id)) is not None and agg.average_overall is not None and agg.average_overall >= filters.min_score
                 ]
+            if filters.sort is RestaurantSort.RATING:
+                # Mirrors the SQL: score desc, then review count desc, then name.
+                # The leading boolean pushes unrated restaurants to the end the way
+                # NULLS LAST does, instead of letting them sort as 0.
+                return sorted(
+                    restaurants,
+                    key=lambda r: (
+                        (agg := aggregates.get(r.id)) is None or agg.average_overall is None,
+                        -(agg.average_overall if agg and agg.average_overall is not None else 0),
+                        -(agg.review_count if agg else 0),
+                        r.name,
+                    ),
+                )
+
             if filters.sort is RestaurantSort.RECENT:
                 # None sorts last, matching the SQL's NULLS LAST; name breaks ties.
                 return sorted(
