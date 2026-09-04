@@ -1,24 +1,53 @@
 "use client";
 
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import type { RestaurantQuery } from "@/lib/api-client";
+import type { RestaurantQuery, RestaurantSort } from "@/lib/api-client";
 
-/** The filter state the dine list owns. Mirrors RestaurantQuery minus `sort`, which isn't user-facing yet. */
+const SORTS: RestaurantSort[] = ["recent", "rating"];
+
+/**
+ * The dine list's query state: what to include, and in what order.
+ *
+ * `sort` rides along in the same object so one debounced effect drives one
+ * request — but it is deliberately *not* part of `isFiltered`. Sorting doesn't
+ * narrow anything, so it must not flip the heading to "Matching", must not
+ * light up the Clear affordance, and must survive a Clear (see `clearFilters`).
+ */
 export interface FilterState {
   q: string;
   cuisines: string[];
   priceLevels: number[];
   mine: boolean;
+  sort: RestaurantSort;
 }
 
-export const EMPTY_FILTERS: FilterState = { q: "", cuisines: [], priceLevels: [], mine: false };
+export const DEFAULT_SORT: RestaurantSort = "recent";
+
+export const EMPTY_FILTERS: FilterState = {
+  q: "",
+  cuisines: [],
+  priceLevels: [],
+  mine: false,
+  sort: DEFAULT_SORT,
+};
 
 export function isFiltered(f: FilterState): boolean {
   return Boolean(f.q.trim() || f.cuisines.length || f.priceLevels.length || f.mine);
 }
 
+/** Clearing narrows nothing back to everything — but keeps the chosen ordering. */
+export function clearFilters(f: FilterState): FilterState {
+  return { ...EMPTY_FILTERS, sort: f.sort };
+}
+
 export function toQuery(f: FilterState): RestaurantQuery {
-  return { q: f.q.trim() || undefined, cuisines: f.cuisines, priceLevels: f.priceLevels, mine: f.mine };
+  return {
+    q: f.q.trim() || undefined,
+    cuisines: f.cuisines,
+    priceLevels: f.priceLevels,
+    mine: f.mine,
+    sort: f.sort,
+  };
 }
 
 /** Serialise to the URL so a filtered view is shareable and survives a refresh. */
@@ -28,6 +57,7 @@ export function toSearchParams(f: FilterState): string {
   f.cuisines.forEach((c) => p.append("cuisine", c));
   f.priceLevels.forEach((n) => p.append("price", String(n)));
   if (f.mine) p.set("mine", "1");
+  if (f.sort !== DEFAULT_SORT) p.set("sort", f.sort);
   return p.toString();
 }
 
@@ -41,6 +71,11 @@ export function fromSearchParams(params: URLSearchParams): FilterState {
       .map(Number)
       .filter((n) => Number.isInteger(n) && n >= 1 && n <= 4),
     mine: params.get("mine") === "1",
+    // Guard the URL the same way as ?price: an unknown ordering falls back to
+    // the default rather than reaching the API and 422-ing the whole page.
+    sort: SORTS.includes(params.get("sort") as RestaurantSort)
+      ? (params.get("sort") as RestaurantSort)
+      : DEFAULT_SORT,
   };
 }
 
@@ -137,7 +172,7 @@ export function RestaurantFilters({
         {active && (
           <button
             type="button"
-            onClick={() => onChange(EMPTY_FILTERS)}
+            onClick={() => onChange(clearFilters(value))}
             className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-semibold text-muted underline-offset-4 transition-colors hover:text-tomato hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
             <X className="h-3.5 w-3.5" aria-hidden />
