@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from src.domain.entities import Restaurant, RestaurantFilters, RestaurantSort
 from src.domain.ports import DuplicateExternalPlaceError, RestaurantRepository
+from src.infra.adapters.repos._score_sql import restaurant_average_overall
 from src.infra.adapters.repos.ids import parse_uuid
 from src.infra.db import CuisineModel, RestaurantModel, ReviewModel
 
@@ -114,7 +115,11 @@ class PostgresRestaurantRepository(RestaurantRepository):
                 select(
                     ReviewModel.restaurant_id.label("restaurant_id"),
                     func.max(ReviewModel.visited_at).label("last_visited_at"),
-                    func.avg((ReviewModel.location_score + ReviewModel.food_score + ReviewModel.service_score + ReviewModel.value_score) / 4).label("average_overall"),
+                    # Same expression the cards print (see _score_sql): already
+                    # rounded to 1dp, so two places showing "8.0" compare equal
+                    # under the rating sort and fall through to the tie-break.
+                    restaurant_average_overall().label("average_overall"),
+                    func.count(ReviewModel.id).label("review_count"),
                 )
                 .group_by(ReviewModel.restaurant_id)
                 .subquery()
@@ -128,6 +133,15 @@ class PostgresRestaurantRepository(RestaurantRepository):
 
             if filters.sort is RestaurantSort.NAME:
                 q = q.order_by(RestaurantModel.name)
+            elif filters.sort is RestaurantSort.RATING:
+                # NULLS LAST keeps unreviewed restaurants findable at the bottom
+                # rather than dropping them or ranking them as zero — no score is
+                # not a bad score.
+                q = q.order_by(
+                    visits.c.average_overall.desc().nullslast(),
+                    visits.c.review_count.desc().nullslast(),
+                    RestaurantModel.name,
+                )
             else:
                 q = q.order_by(visits.c.last_visited_at.desc().nullslast(), RestaurantModel.name)
 
