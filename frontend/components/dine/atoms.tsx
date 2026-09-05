@@ -117,7 +117,12 @@ export function QuoteBlock({
         strokeWidth={2.5}
       />
       <blockquote
-        className={`pl-5 font-serif text-[0.95rem] italic leading-snug text-fg/85 ${
+        // [overflow-wrap:anywhere], not Tailwind's break-words: break-word permits
+        // a mid-word break when laying out but leaves min-content unchanged, so the
+        // track would still be sized by the longest token. `anywhere` is the value
+        // that actually shrinks min-content. Comments are user-written and do
+        // contain pasted links.
+        className={`pl-5 font-serif text-[0.95rem] italic leading-snug text-fg/85 [overflow-wrap:anywhere] ${
           lines === 2 ? "line-clamp-2" : "line-clamp-3"
         }`}
       >

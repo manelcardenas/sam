@@ -490,9 +490,16 @@ export default function DinePage() {
                 <div
                   key={r.id}
                   data-flip-id={r.id}
+                  // min-w-0 is load-bearing, not cosmetic: a grid item defaults to
+                  // min-width:auto, so the track cannot shrink below the card's
+                  // min-content width. One review containing an unbreakable token
+                  // (a pasted URL) therefore widens the *document*, and the fixed
+                  // tab bar — sized from the initial containing block — renders
+                  // wider than the screen while the content does not.
+                  //
                   // Stagger only the first screenful: past ~8 the cascade stops
                   // reading as lively and starts reading as slow.
-                  className={i < 8 ? "will-fetch animate-fetch-in" : undefined}
+                  className={`min-w-0 ${i < 8 ? "will-fetch animate-fetch-in" : ""}`}
                   style={i < 8 ? { animationDelay: `${i * 40}ms` } : undefined}
                 >
                   <RestaurantCard restaurant={r} onClick={() => openRestaurant(r)} />

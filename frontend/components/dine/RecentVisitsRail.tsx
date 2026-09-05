@@ -202,7 +202,7 @@ function RailCard({
                 onClick={onClick}
                 className="block w-full cursor-pointer text-left focus:outline-none after:absolute after:inset-0 after:rounded-3xl focus-visible:after:ring-2 focus-visible:after:ring-tomato/50"
               >
-                <span className="line-clamp-2">{r.name}</span>
+                <span className="line-clamp-2 [overflow-wrap:anywhere]">{r.name}</span>
               </button>
             </h3>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[0.7rem] uppercase tracking-wide text-muted">
