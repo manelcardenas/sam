@@ -50,7 +50,7 @@ export function RestaurantCard({
             >
               {/* Two lines rather than one: CJK names run long and a single
                   truncated line loses the Latin half entirely. */}
-              <span className="line-clamp-2">{r.name}</span>
+              <span className="line-clamp-2 [overflow-wrap:anywhere]">{r.name}</span>
             </button>
           </h3>
 

@@ -42,7 +42,14 @@ export function DineSkeleton() {
 
       {/* Filters */}
       <Bar className="mb-3 h-12 w-full rounded-2xl" />
-      <div className="mb-5 flex gap-2">
+      {/* Full-bleed and clipped, exactly like the rail above and like the real
+          chip row in RestaurantFilters. These bars are shrink-0 and total 456px,
+          so without this they push the *document* ~80px wider than a phone
+          viewport. That overflow is what Chrome Android sizes the page scale and
+          the fixed tab bar's containing block from — so the footer ends up laid
+          out at 473px while the content sits at 393px, i.e. visibly out of sync,
+          and the scale never recovers once data replaces the skeleton. */}
+      <div className="-mx-4 mb-5 flex gap-2 overflow-hidden px-4 sm:mx-0 sm:px-0">
         {["w-36", "w-24", "w-28", "w-20"].map((w) => (
           <Bar key={w} className={`h-11 shrink-0 ${w}`} />
         ))}
