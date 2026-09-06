@@ -3,15 +3,21 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm install
-        - npm ci --prefix frontend
+        # One install from the single root lockfile. `-w frontend
+        # --include-workspace-root` deliberately scopes it: a bare `npm ci`
+        # would also install infra/, dragging ~216 MB of aws-cdk into every
+        # frontend build for nothing. The root itself must be included — it
+        # carries the `next` dependency WEB_COMPUTE detection looks for.
+        - npm ci -w frontend --include-workspace-root
     build:
       commands:
-        - npm run build --prefix frontend
+        - npm run build -w frontend
   artifacts:
     baseDirectory: frontend/out
     files:
       - '**/*'
   cache:
     paths:
-      - frontend/node_modules/**/*
+      # Workspaces hoist: frontend/node_modules is now mostly empty and the
+      # real tree lives at the root.
+      - node_modules/**/*
