@@ -24,10 +24,12 @@ class InMemoryRecipeRepository(RecipeRepository):
             return None
         return Recipe(**recipe_data)
 
-    def list_recipes(self) -> list[Recipe]:
+    def list_recipes(self, created_by: str | None = None) -> list[Recipe]:
         recipes = []
         for recipe_data in self.table.values():
-            recipes.append(Recipe(**recipe_data))
+            recipe = Recipe(**recipe_data)
+            if created_by is None or recipe.created_by == created_by:
+                recipes.append(recipe)
         return recipes
 
     def update_recipe(self, recipe: Recipe) -> Recipe:

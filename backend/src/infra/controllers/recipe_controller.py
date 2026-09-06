@@ -38,8 +38,8 @@ class RecipeController:
             methods=["GET"],
             response_model=list[Recipe],
             dependencies=[Depends(get_current_user)],
-            summary="List all recipes",
-            description="Returns a list of all recipes",
+            summary="List recipes",
+            description="Returns all recipes, or only the caller's when `mine=true`",
             tags=["Recipes"],
         )
 
@@ -97,10 +97,14 @@ class RecipeController:
         """Health check endpoint."""
         return HealthResponse(status="ok", service="recipes")
 
-    def list_recipes(self, _current_user: TokenPayload = Depends(get_current_user)) -> list[Recipe]:
-        """List all recipes."""
+    def list_recipes(self, mine: bool = False, current_user: TokenPayload = Depends(get_current_user)) -> list[Recipe]:
+        """List recipes — all of them, or only the caller's with `?mine=true`.
+
+        A query param on the existing route rather than a new endpoint, so no
+        API Gateway route has to be added.
+        """
         use_case = ListRecipes(self.recipe_repository)
-        return use_case.execute()
+        return use_case.execute(created_by=current_user.sub if mine else None)
 
     def create_recipe(self, request: CreateRecipeRequest, current_user: TokenPayload = Depends(get_current_user)) -> Recipe:
         """Create a new recipe. `created_by` is injected from the JWT sub claim."""

@@ -59,10 +59,12 @@ class PostgresRecipeRepository(RecipeRepository):
                 return None
             return self._to_entity(model)
 
-    def list_recipes(self) -> list[Recipe]:
+    def list_recipes(self, created_by: str | None = None) -> list[Recipe]:
         with self._session_factory() as session:
-            models = session.query(RecipeModel).all()
-            return [self._to_entity(m) for m in models]
+            query = session.query(RecipeModel)
+            if created_by is not None:
+                query = query.filter(RecipeModel.created_by == created_by)
+            return [self._to_entity(m) for m in query.all()]
 
     def update_recipe(self, recipe: Recipe) -> Recipe:
         with self._session_factory() as session:

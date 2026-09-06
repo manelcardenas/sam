@@ -13,7 +13,7 @@ class RecipeRepository(ABC):
         pass
 
     @abstractmethod
-    def list_recipes(self) -> list[Recipe]:
+    def list_recipes(self, created_by: str | None = None) -> list[Recipe]:
         pass
 
     @abstractmethod
