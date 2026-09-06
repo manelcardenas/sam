@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthGate } from "@/components/auth/useAuthGate";
 import { apiClient, type Recipe, type CreateRecipeInput } from "@/lib/api-client";
 import { FOOD_TYPES, type FoodType } from "@/lib/constants";
+import { currentParams, useBrowserNavigation, useHistoryDepth, writeUrl } from "@/lib/url-state";
+import { fromQuery, toQuery, type DashboardView } from "@/lib/dashboard-url";
 import RecipeForm from "@/components/RecipeForm";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import SourceLink from "@/components/SourceLink";
@@ -11,8 +13,6 @@ import IngredientsPanel from "@/components/IngredientsPanel";
 import { AppShell } from "@/components/shell/AppShell";
 import { DashboardSkeleton } from "@/components/ui/PageSkeleton";
 import { ArrowLeft, Plus, Edit, Trash2 } from "lucide-react";
-
-type View = "categories" | "recipes" | "detail" | "add" | "edit";
 
 export default function DashboardPage() {
 
@@ -26,7 +26,7 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
 
   // Navigation state
-  const [view, setView] = useState<View>("categories");
+  const [view, setView] = useState<DashboardView>("categories");
   const [activeCategory, setActiveCategory] = useState<FoodType | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
@@ -107,6 +107,59 @@ export default function DashboardPage() {
 
   const categoryMeta = FOOD_TYPES.find((f) => f.value === activeCategory);
 
+  // ── URL sync ────────────────────────────────────────────────────────────────
+  //
+  // The URL is *derived* from the view state rather than being pushed at each
+  // of the ~8 transition sites: one place to reason about, and no call site has
+  // to remember. Restoring runs the same mapping backwards.
+
+  const history = useHistoryDepth();
+  // Set while a popstate is being applied, so the writer below doesn't push a
+  // new entry in response to the user going back — which would trap them.
+  const applyingHistory = useRef(false);
+  const urlRestored = useRef(false);
+
+  const applyUrl = useCallback(
+    (params: URLSearchParams) => {
+      const next = fromQuery(params);
+      applyingHistory.current = true;
+      setView(next.view);
+      setActiveCategory(next.category);
+      // Recipes must be loaded before an id can become an object; if a deep
+      // link names one we don't have, fall back to the category list rather
+      // than rendering a detail view of nothing.
+      const recipe = next.recipeId ? recipes.find((r) => r.id === next.recipeId) : null;
+      setSelectedRecipe(recipe ?? null);
+      if (next.recipeId && !recipe) setView(next.category ? "recipes" : "categories");
+    },
+    [recipes],
+  );
+
+  // Restore once, after the first load — `recipes` has to exist for ?recipe= to resolve.
+  useEffect(() => {
+    if (urlRestored.current || loading) return;
+    urlRestored.current = true;
+    applyUrl(currentParams());
+  }, [loading, applyUrl]);
+
+  useBrowserNavigation((params) => {
+    history.recordPop();
+    applyUrl(params);
+  });
+
+  useEffect(() => {
+    if (!urlRestored.current) return;
+    if (applyingHistory.current) {
+      applyingHistory.current = false;
+      return;
+    }
+    const query = toQuery({ view, category: activeCategory, recipeId: selectedRecipe?.id ?? null });
+    const before = window.location.search;
+    writeUrl(query, "push");
+    if (window.location.search !== before) history.recordPush();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, activeCategory, selectedRecipe?.id]);
+
   // ── Navigation helpers ───────────────────────────────────────────────────────
 
   const openCategory = (cat: FoodType) => {
@@ -120,10 +173,16 @@ export default function DashboardPage() {
   };
 
   const goBack = () => {
+    // Defer to real history when there is any, so the in-app button and the
+    // device gesture agree. Without this the button pushes *forward*, and the
+    // gesture then walks back through views the user just dismissed.
+    if (history.canGoBack()) {
+      window.history.back();
+      return;
+    }
+    // Deep-linked straight into this view: nothing to pop, so step up a level.
     if (view === "edit") { setView("detail"); return; }
     if (view === "detail") { setView("recipes"); return; }
-    if (view === "recipes") { setView("categories"); return; }
-    if (view === "add") { setView("categories"); return; }
     setView("categories");
   };
 
