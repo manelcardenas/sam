@@ -74,7 +74,12 @@ export class LambdaApiStack extends Stack {
       functionName: constants.RECIPE_API_FUNCTION_NAME,
       description: "Recipe Manager API — FastAPI + Neon PostgreSQL",
       timeout: Duration.seconds(30),
-      memorySize: 512,
+      // Lambda allocates CPU in proportion to memory, and this function is
+      // CPU-bound rather than memory-bound: it peaks at ~233 MB, but 512 MB
+      // buys only ~0.3 vCPU, which throttles both import-heavy init and
+      // per-request Pydantic validation. Free at this volume — 481
+      // invocations/month is ~0.04% of the 400,000 GB-s perpetual free tier.
+      memorySize: 1024,
       // No vpc config — Lambda is outside the VPC (Neon is reached over the public internet)
       environment: {
         POSTGRES_DSN_PARAM: dsnParam.parameterName,
