@@ -59,3 +59,35 @@ _Avoid_: Category, Type
 **Visited At**:
 The date a reviewer says they went to a Restaurant, distinct from when the Review was posted. Defaults to the day the Review is created but can be backdated at creation time.
 _Avoid_: Date, Created At
+
+### Latency
+
+These four are constantly conflated, and every conclusion in
+[`docs/plans/routing-and-latency-plan.md`](docs/plans/routing-and-latency-plan.md) depends on
+keeping them apart.
+
+**Init**:
+The one-time work a Lambda container does before it can serve anything: importing the
+libraries, reading secrets from SSM, building the app. Reported by CloudWatch as
+`Init Duration`, which the `Duration` metric **excludes**. ~3.3 s measured.
+_Avoid_: Cold start (that's the whole first request, init included), Startup, Boot
+
+**Warm Path**:
+The time to serve a request in a container that already exists — CloudWatch `Duration` on a
+non-cold invocation. The number that matches "slow even after the cold start", and the target
+of the plan. ~540 ms measured.
+_Avoid_: Response time, Latency (both too vague to argue with)
+
+**Wake**:
+Neon bringing a scaled-to-zero compute back after 5 minutes of inactivity. Server-side, fixed
+and undisableable on the free plan, and charged in metered compute hours if avoided by
+polling. Neon documents it as a few hundred milliseconds — **not** the seconds-long stall it
+was originally blamed for.
+_Avoid_: Cold start, Spin-up
+
+**Handshake**:
+Establishing one Postgres connection: TCP, TLS and auth, ~5–7 round trips. Cross-region
+(`eu-west-3` Lambda → `eu-central-1` Neon) that is 60–90 ms. Distinct from a Wake, and from
+the per-query RTT that remains once connections are pooled — see
+[`docs/adr/0006-pooled-connections-on-lambda.md`](docs/adr/0006-pooled-connections-on-lambda.md).
+_Avoid_: Connection time, Connect

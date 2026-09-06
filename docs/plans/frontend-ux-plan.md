@@ -247,6 +247,7 @@ with a label, no chrome. Then **Your recipes (n)** and **Your reviews (n)** as t
 show restaurant name, your overall score, visit date and a comment snippet, and click through to that
 restaurant.
 
+**Done 2026-09-06** (`GET /recipes?mine=true`, scoped server-side from the JWT).
 Also fix while in here: `profile/page.tsx:36` fetches **every** recipe and filters client-side
 (`recipes.filter(r => r.created_by === me.id)`). Reviews must not repeat that mistake, and recipes
 should stop doing it — either a `?mine=true` on the recipes list or a `GET /users/me/recipes` to match
@@ -267,10 +268,12 @@ the reviews route.
   [`./geoapify-places-plan.md`](./geoapify-places-plan.md) scope B. Merging the two produced the
   cards/map toggle now sitting beside the "Everywhere" heading: the filters here narrow the set and
   the toggle chooses how to look at it, so the map plots whatever the chips currently select.
-- **Splitting `dine/page.tsx` into real routes.** It is 434 lines with a 5-way view state machine, and
-  this plan adds a rail, filters and richer cards to it. Extracting `/dine/[id]` would give shareable
-  links and a maintainable file, but it is refactor work with no visible payoff — do it when the file
-  next resists a change.
+- ~~**Splitting `dine/page.tsx` into real routes.**~~ **Superseded 2026-09-06.** The premise was
+  wrong: `output: 'export'` makes `/dine/[id]` impossible without knowing every id at build time.
+  Shipped instead as query params (`?place=<id>`) on both `/dine` and `/dashboard`, which gives the
+  shareable links and — the real payoff, unlisted here — a device back gesture that no longer exits
+  the app. See [`./routing-and-latency-plan.md`](./routing-and-latency-plan.md) §3 and §7 step 4.
+  The file is still long; splitting it for *maintainability* remains open on its own merits.
 - **Photos**, per restaurant or per review. The one thing the data model genuinely lacks for a
   scrapbook, and a whole feature: object storage, presigned uploads, resizing, CDN, cost, and
   moderation of other people's images.

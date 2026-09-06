@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUser } from "aws-amplify/auth";
-import { configureAmplify } from "@/lib/amplify";
+import { useAuthGate } from "@/components/auth/useAuthGate";
+import { useMe } from "@/components/auth/UserProvider";
 import { apiClient, ApiError, type Recipe, type UserReview, type UserStats } from "@/lib/api-client";
 import { FOOD_TYPES } from "@/lib/constants";
 import { AppShell } from "@/components/shell/AppShell";
-import { Loader } from "@/components/ui/Loader";
+import { ProfileSkeleton } from "@/components/ui/PageSkeleton";
 import { StatsStrip } from "@/components/profile/StatsStrip";
 import { QuoteBlock, ScoreBadge } from "@/components/dine/atoms";
 import { formatRelativeDate, formatVisitedDate } from "@/lib/format";
@@ -29,33 +29,47 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const { me } = useAuthGate();
+  const { setMe } = useMe();
+
+  // Destructured to primitives so the effect depends on the two values it
+  // actually reads, rather than on the `me` object — which is replaced by
+  // every background revalidation even when nothing has changed.
+  const myEmail = me?.email;
+  const myDisplayName = me?.display_name;
+
   useEffect(() => {
-    configureAmplify();
+    if (myEmail === undefined) return;
+    setEmail(myEmail);
+    setDisplayName(myDisplayName ?? "");
+    setSavedName(myDisplayName ?? "");
+  }, [myEmail, myDisplayName]);
+
+  // Keyed on the id so a background revalidation doesn't refetch all three lists.
+  useEffect(() => {
+    if (!me?.id) return;
+    let cancelled = false;
     (async () => {
       try {
-        await getCurrentUser();
-        const [me, recipes, reviews, userStats] = await Promise.all([
-          apiClient.getMe(),
-          apiClient.listRecipes(),
+        const [recipes, reviews, userStats] = await Promise.all([
+          apiClient.listMyRecipes(),
           apiClient.listMyReviews(),
           apiClient.getMyStats(),
         ]);
-        setEmail(me.email);
-        setDisplayName(me.display_name ?? "");
-        setSavedName(me.display_name ?? "");
-        // TODO: recipes are still filtered client-side because /recipes has no
-        // `mine` filter yet — unlike reviews, which are fetched already scoped.
-        // Worth adding for symmetry once the recipe list grows.
-        setMyRecipes(recipes.filter((r) => r.created_by === me.id));
+        if (cancelled) return;
+        setMyRecipes(recipes);
         setMyReviews(reviews);
         setStats(userStats);
         setLoading(false);
       } catch {
-        router.replace("/");
+        if (!cancelled) router.replace("/");
       }
     })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [me?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +79,8 @@ export default function ProfilePage() {
     try {
       const updated = await apiClient.updateDisplayName(displayName.trim());
       setSavedName(updated.display_name ?? "");
+      // Keep the session cache in step, or every other page keeps showing the old name.
+      setMe(updated);
       setSaved(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -80,7 +96,19 @@ export default function ProfilePage() {
   const trimmed = displayName.trim();
   const dirty = trimmed.length > 0 && trimmed !== savedName;
 
-  if (loading) return <Loader />;
+  if (loading) {
+    return (
+      <AppShell>
+        <header className="mb-6">
+          <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-4xl">
+            Your profile
+          </h1>
+          <p className="mt-1 text-muted">Digging up your history…</p>
+        </header>
+        <ProfileSkeleton />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell userName={savedName || displayName}>

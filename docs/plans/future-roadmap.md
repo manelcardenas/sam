@@ -27,24 +27,49 @@ Current friction: `npm install` + separate `npm run dev` (and remembering which 
 
 Today, restaurant/recipe search is a simple case-insensitive `ILIKE` query against Postgres (see the restaurant dedup search in [`improvement-plan.md`](./improvement-plan.md)). Fine for now, but doesn't scale to fuzzy matching, typo tolerance, or ranking relevance as the data grows. Options to weigh later: Postgres full-text search (`tsvector`, no new infra) as a cheap first step, vs. a dedicated search engine (Elasticsearch/OpenSearch, Meilisearch, Typesense) if requirements grow past what Postgres FTS can reasonably do. Needs a real trigger (actual search-quality complaints) before picking a direction — no sense over-engineering this before it hurts. **Reaffirmed 2026-09-01** in [`../adr/0005-restaurant-list-is-a-scrapbook.md`](../adr/0005-restaurant-list-is-a-scrapbook.md): at 24 restaurants the dine page ships *filters* instead, and this item stays parked until search quality is actually the complaint.
 
-## 5. Redis — as a learning exercise, anchored to a real use case
+## 5. Redis — a learning exercise, and now *only* that
 
-Motivation here is explicitly "want to practice building with Redis," not an actual performance bottleneck today — worth being honest about that going in, so it doesn't get over-justified later. The anchor use case that would make it a real piece of the system rather than decorative: **cache computed restaurant rating aggregates.** `GetRestaurant` (`backend/src/app/use_cases/get_restaurant.py`) currently pulls every review for a restaurant and recomputes the 4 category averages + overall on every single request — caching that (invalidated on review create/delete) is a small, well-scoped, genuinely useful case. Two smaller candidates if more surface area is wanted: JWKS caching in `JWTHandler` (`backend/src/infra/security/jwt_handler.py`), currently cached per-Lambda-container instance and lost on cold start; and rate limiting on review/restaurant creation (sliding-window counters). **Correction (2026-09-02):** the JWKS claim above is wrong — the cache is per *request*, not per container, because `JWTHandler()` is constructed inside `get_current_user`. That makes it a one-line in-process fix, not a Redis use case; see [`./routing-and-latency-plan.md`](./routing-and-latency-plan.md) §2.1. The aggregate-caching anchor also partly overlaps that plan's §4.3, so re-read both before scoping this.
+Motivation was always "want to practice building with Redis" rather than a real bottleneck.
+Both use cases that once gave it a performance justification are gone, answered for free
+in-process by [`./routing-and-latency-plan.md`](./routing-and-latency-plan.md):
 
-The more interesting open question is **where it would run**, and it connects directly to item #2 above: AWS ElastiCache requires a VPC, which reintroduces the NAT gateway cost the Aurora→Neon migration specifically avoided (see `neon-migration-plan.md` section 0a). A serverless Redis (e.g. Upstash — reachable over HTTPS, no VPC needed) fits the Lambda-outside-VPC model the same way Neon does today, and is the more natural fit unless the Lambda→EC2 move happens first.
+- **JWKS caching** — was per *request*, not per container. Fixed with an `@lru_cache` factory
+  (that plan's §4.1). Never was a Redis case.
+- **Restaurant rating aggregates** — largely addressed by connection pooling (§4.3), which took
+  `GET /restaurants` from three Handshakes to zero.
 
-## 6. Real URLs for page state — DIAGNOSED (2026-09-02)
+So take this on as a learning exercise or not at all; do not dress it up as performance work.
+If it happens, the one open question is **where it runs**: ElastiCache needs a VPC, which
+reintroduces the NAT gateway cost the Aurora→Neon migration existed to avoid (see
+`neon-migration-plan.md` §0a). A serverless Redis reachable over HTTPS (e.g. Upstash) fits the
+Lambda-outside-VPC shape the way Neon already does.
 
-`/dashboard` and `/dine` each hold a multi-way view state machine on a single URL, so nothing
-is linkable, refresh loses the view, and the device back gesture exits the app — which now
-matters more because the iOS home-screen install works and standalone mode has no back button.
-Diagnosed, with the `output: 'export'` constraint that rules out path segments, in
-[`./routing-and-latency-plan.md`](./routing-and-latency-plan.md) §3. Not the cause of item 7.
+## 6. Real URLs for page state — ✅ DONE (2026-09-06)
 
-## 7. Latency after the cold start — DIAGNOSED (2026-09-02)
+`/dashboard` and `/dine` now keep their view state in query params, so pages are linkable,
+survive a refresh, and — the actual point — the device back gesture moves back a view instead of
+leaving the app, which matters because standalone PWA mode has no browser chrome. Implemented as
+option A (query params, not path segments; `output: 'export'` rules those out) and written up in
+[`./routing-and-latency-plan.md`](./routing-and-latency-plan.md) §3 and §7 step 4.
 
-Warm requests average ~540 ms with a p90 of 2–4 s. Measured, attributed and costed in
-[`./routing-and-latency-plan.md`](./routing-and-latency-plan.md) — the causes are a per-request
-JWKS fetch, a per-request DB write, three separate connections per request under `NullPool`,
-a serial `getMe()` waterfall on the frontend, and Neon's 5-minute free-plan autosuspend.
-Every proposed fix is free; none of them require leaving Lambda.
+Worth noting for future work: §3 records that this was **not** a performance change, and why
+route splitting would have bought nothing — the maps are already `next/dynamic`'d.
+
+## 7. Latency after the cold start — ✅ DONE (2026-09-06)
+
+**Warm p50 540 ms → 200 ms; connections per request 3 → 0; p90 2–4 s → 367 ms.** Diagnosed,
+grilled, sequenced, shipped and measured in
+[`./routing-and-latency-plan.md`](./routing-and-latency-plan.md), with
+[`../adr/0006-pooled-connections-on-lambda.md`](../adr/0006-pooled-connections-on-lambda.md)
+recording the one architectural reversal (NullPool → pooled connections).
+
+Two corrections that outlived the work and are worth carrying forward:
+
+- **The p90 was Geoapify, not Neon.** The plan initially blamed the database's autosuspend wake;
+  per-route instrumentation showed 3129 ms of a 3148 ms `/places/nearby` request happening
+  outside the database entirely.
+- **Raising Lambda memory did nothing for Init**, which is still ~3.25 s. CPU was not the
+  constraint. Nobody has a good theory yet beyond package unpacking and import I/O.
+
+Still open, deliberately: Init itself (tolerated — cold starts aren't the complaint), and the
+lack of a frontend test runner, which the URL work made a more visible gap.

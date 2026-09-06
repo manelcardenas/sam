@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUser } from "aws-amplify/auth";
-import { configureAmplify } from "@/lib/amplify";
+import { useAuthGate } from "@/components/auth/useAuthGate";
+import { useMe } from "@/components/auth/UserProvider";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { SamMascot } from "@/components/brand/SamMascot";
 import { Loader } from "@/components/ui/Loader";
@@ -18,31 +18,30 @@ export default function CompleteProfilePage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // requireDisplayName is off here: this *is* the page that collects one, so
+  // the usual gate would bounce the user straight back to itself.
+  const { me, status } = useAuthGate({ requireDisplayName: false });
+  const { setMe } = useMe();
+
   useEffect(() => {
-    configureAmplify();
-    (async () => {
-      try {
-        await getCurrentUser();
-        const me = await apiClient.getMe();
-        // Already chosen a name — nothing to do here.
-        if (me.display_name) {
-          router.replace("/dashboard");
-          return;
-        }
-        setChecking(false);
-      } catch {
-        router.replace("/");
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (status === "loading") return;
+    // Already chosen a name — nothing to do here.
+    if (me?.display_name) {
+      router.replace("/dashboard");
+      return;
+    }
+    if (status === "ready") setChecking(false);
+  }, [status, me?.display_name, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSaving(true);
     try {
-      await apiClient.updateDisplayName(displayName.trim());
+      // Push the new profile into the session cache before navigating —
+      // otherwise /dashboard reads a cached display_name of null and bounces
+      // the user straight back here.
+      setMe(await apiClient.updateDisplayName(displayName.trim()));
       router.replace("/dashboard");
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {

@@ -69,6 +69,11 @@ export default function RestaurantForm({
   const [cuisineOptions, setCuisineOptions] = useState<Cuisine[]>([]);
   const [matches, setMatches] = useState<Restaurant[]>([]);
   const [placeMatches, setPlaceMatches] = useState<Place[]>([]);
+  // Geoapify's autocomplete measures ~1.6 s from a laptop and ~3 s from the
+  // Lambda, which is long enough that the UI has to say so — otherwise the
+  // "no results, drop a pin instead" hint appears while the search is still
+  // running. See docs/plans/routing-and-latency-plan.md step 5.
+  const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   // Pin drop: pendingPin follows the marker inside the open picker; pinnedCoords
   // is the confirmed spot that gets submitted. Mutually exclusive with selectedPlace.
@@ -83,6 +88,11 @@ export default function RestaurantForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Monotonic id of the most recently *issued* place search. At ~3 s per call a
+  // slow earlier response can easily land after a fast later one and overwrite
+  // correct results with stale ones, so responses are dropped unless they
+  // belong to the latest request.
+  const placeSearchSeq = useRef(0);
   const areaDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Last known position — set by "near me", then reused to bias typed search.
   const coordsRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -133,15 +143,24 @@ export default function RestaurantForm({
     if (trimmed.length < 2 || trimmed === selectedPlace?.name.trim()) {
       setMatches([]);
       setPlaceMatches([]);
+      setSearchingPlaces(false);
+      // Bump the sequence so any in-flight response is discarded rather than
+      // repopulating a panel the user has just cleared.
+      placeSearchSeq.current += 1;
       return;
     }
     debounceRef.current = setTimeout(() => {
+      const seq = ++placeSearchSeq.current;
+      const isStale = () => seq !== placeSearchSeq.current;
+      setSearchingPlaces(true);
       // Both searches are a courtesy, not critical — each fails silently.
       apiClient
         // Dedup lookup: name match only, ordered by name so the panel is stable
         // while typing rather than reshuffling by recency.
         .searchRestaurants({ q: trimmed, sort: "name" })
-        .then(setMatches)
+        .then((found) => {
+          if (!isStale()) setMatches(found);
+        })
         .catch(() => {});
       // A picked Area anchors the search with real coordinates ("La Mafia" near
       // Zaragoza's center); free-typed area text falls back to narrowing the
@@ -150,8 +169,13 @@ export default function RestaurantForm({
       const bias = selectedArea ? { lat: selectedArea.latitude, lon: selectedArea.longitude } : (coordsRef.current ?? undefined);
       apiClient
         .searchPlaces(placeQuery, bias)
-        .then(setPlaceMatches)
-        .catch(() => {});
+        .then((found) => {
+          if (!isStale()) setPlaceMatches(found);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!isStale()) setSearchingPlaces(false);
+        });
     }, 350);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -411,7 +435,17 @@ export default function RestaurantForm({
                 )}
               </p>
             )}
-            {!showPinMap && !pinnedCoords && !selectedPlace && name.trim().length >= 2 && placeMatches.length === 0 && (
+            {!showPinMap && !pinnedCoords && !selectedPlace && name.trim().length >= 2 && searchingPlaces && (
+              <p className="mt-1.5 text-xs text-muted" role="status">
+                Sniffing out matches…
+              </p>
+            )}
+            {!showPinMap &&
+              !pinnedCoords &&
+              !selectedPlace &&
+              name.trim().length >= 2 &&
+              !searchingPlaces &&
+              placeMatches.length === 0 && (
               <p className="mt-1.5 text-xs text-muted">
                 Can&rsquo;t find it on the map?{" "}
                 <button

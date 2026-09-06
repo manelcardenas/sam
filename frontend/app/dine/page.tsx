@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useAuthGate } from "@/components/auth/useAuthGate";
+import { currentParams, useBrowserNavigation, useHistoryDepth, writeUrl } from "@/lib/url-state";
+import { composeQuery, parseView, type DineView } from "@/lib/dine-url";
 import dynamic from "next/dynamic";
-import { getCurrentUser } from "aws-amplify/auth";
-import { configureAmplify } from "@/lib/amplify";
 import {
   apiClient,
   type Restaurant,
@@ -62,7 +62,6 @@ const LocationMap = dynamic(() => import("@/components/map/LocationMap"), {
   loading: () => <MapLoading className="h-full w-full" />,
 });
 
-type View = "list" | "detail" | "add-restaurant" | "edit-restaurant" | "add-review" | "edit-review";
 type ListMode = "cards" | "map";
 
 /** How long to sit on a keystroke before asking the server. */
@@ -78,7 +77,6 @@ function ScoreRow({ label, value }: { label: string; value: number | null }) {
 }
 
 export default function DinePage() {
-  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
@@ -96,7 +94,7 @@ export default function DinePage() {
   const [archive, setArchive] = useState<RestaurantDetail[]>([]);
   const [pending, startTransition] = useTransition();
 
-  const [view, setView] = useState<View>("list");
+  const [view, setView] = useState<DineView>("list");
   const [listMode, setListMode] = useState<ListMode>("cards");
   const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -122,30 +120,32 @@ export default function DinePage() {
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
+  const { me } = useAuthGate();
+
   useEffect(() => {
-    configureAmplify();
+    if (me?.display_name) setUserName(me.display_name);
+  }, [me?.display_name]);
+
+  // Keyed on the id: a background revalidation must not re-run the restaurant
+  // load and stomp whatever filters the user has since changed.
+  useEffect(() => {
+    if (!me?.id || !me.display_name) return;
+    setCurrentUserId(me.id);
+    let cancelled = false;
     (async () => {
-      try {
-        await getCurrentUser();
-        const me = await apiClient.getMe();
-        if (!me.display_name) {
-          router.replace("/profile/complete");
-          return;
-        }
-        setUserName(me.display_name);
-        setCurrentUserId(me.id);
-        // Restore a shared/refreshed filtered view from the URL.
-        const restored = fromSearchParams(new URLSearchParams(window.location.search));
-        setFilters(restored);
-        await loadRestaurants(restored);
-        if (isFiltered(restored)) await loadArchive();
-        setLoading(false);
-      } catch {
-        router.push("/");
-      }
+      // Restore a shared/refreshed filtered view from the URL.
+      const restored = fromSearchParams(new URLSearchParams(window.location.search));
+      if (cancelled) return;
+      setFilters(restored);
+      await loadRestaurants(restored);
+      if (isFiltered(restored)) await loadArchive();
+      if (!cancelled) setLoading(false);
     })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [me?.id]);
 
   /** The unfiltered set, for the rail and the chip vocabulary. */
   const loadArchive = useCallback(async () => {
@@ -171,8 +171,6 @@ export default function DinePage() {
       startTransition(() => {
         void loadRestaurants(filters);
       });
-      const qs = toSearchParams(filters);
-      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [filters, loading, loadRestaurants]);
@@ -275,19 +273,97 @@ export default function DinePage() {
   );
   const unmappedCount = restaurants.length - mapped.length;
 
+  // ── URL sync ────────────────────────────────────────────────────────────────
+
+  const history = useHistoryDepth();
+  const applyingHistory = useRef(false);
+  const urlRestored = useRef(false);
+
+  /** Load the restaurant a URL names, then put the view where the URL says. */
+  const applyUrl = useCallback(
+    async (params: URLSearchParams) => {
+      const next = parseView(params);
+      applyingHistory.current = true;
+
+      if (!next.placeId) {
+        setSelectedRestaurant(null);
+        setReviewToEdit(null);
+        setView(next.view);
+        return;
+      }
+      if (next.placeId === selectedRestaurant?.id) {
+        setView(next.view);
+        return;
+      }
+      try {
+        const [detail, restaurantReviews] = await Promise.all([
+          apiClient.getRestaurant(next.placeId),
+          apiClient.listReviews(next.placeId),
+        ]);
+        setSelectedRestaurant(detail);
+        setReviews(restaurantReviews);
+        setView(next.view);
+      } catch {
+        // A link to a restaurant that's been deleted, or a mangled id — show
+        // the list rather than an empty detail page.
+        setSelectedRestaurant(null);
+        setView("list");
+      }
+    },
+    [selectedRestaurant?.id],
+  );
+
+  useEffect(() => {
+    if (urlRestored.current || loading) return;
+    urlRestored.current = true;
+    void applyUrl(currentParams());
+  }, [loading, applyUrl]);
+
+  useBrowserNavigation((params) => {
+    history.recordPop();
+    void applyUrl(params);
+  });
+
+  // One writer for the whole query string, because filters and view share it.
+  // A view change pushes, so the device back gesture dismisses it; a filter
+  // change replaces, so tweaking five chips doesn't cost five back presses.
+  const lastViewKey = useRef("");
+
+  useEffect(() => {
+    if (!urlRestored.current) return;
+    const viewKey = `${view}|${selectedRestaurant?.id ?? ""}`;
+    if (applyingHistory.current) {
+      applyingHistory.current = false;
+      lastViewKey.current = viewKey;
+      return;
+    }
+    const viewChanged = viewKey !== lastViewKey.current;
+    lastViewKey.current = viewKey;
+
+    const before = window.location.search;
+    writeUrl(
+      composeQuery(toSearchParams(filters), view, selectedRestaurant?.id ?? null),
+      viewChanged ? "push" : "replace",
+    );
+    if (viewChanged && window.location.search !== before) history.recordPush();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, view, selectedRestaurant?.id]);
+
   // ── Navigation helpers ───────────────────────────────────────────────────────
 
   const goBack = () => {
+    // Real history where there is any, so the in-app button and the device
+    // gesture stay in agreement — see lib/url-state.ts.
+    if (history.canGoBack()) {
+      window.history.back();
+      return;
+    }
     if (view === "add-review" || view === "edit-review" || view === "edit-restaurant") {
       setReviewToEdit(null);
       setView("detail");
       return;
     }
-    if (view === "detail" || view === "add-restaurant") {
-      setSelectedRestaurant(null);
-      setView("list");
-      return;
-    }
+    setSelectedRestaurant(null);
     setView("list");
   };
 

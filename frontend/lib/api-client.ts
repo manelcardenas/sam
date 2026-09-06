@@ -370,6 +370,12 @@ export class RecipeAPIClient {
     return this.request<UserStats>("/users/me/stats");
   }
 
+  /** Only the caller's recipes, scoped server-side from the JWT — /profile used
+   *  to fetch every recipe and filter in the browser. */
+  async listMyRecipes(): Promise<Recipe[]> {
+    return this.request<Recipe[]>("/recipes?mine=true");
+  }
+
   async getMe(): Promise<UserProfile> {
     return this.request<UserProfile>("/users/me");
   }

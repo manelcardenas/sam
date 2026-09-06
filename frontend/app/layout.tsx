@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+
+import { UserProvider } from "@/components/auth/UserProvider";
 import { Arimo, Fraunces } from "next/font/google";
 import "./globals.css";
 
@@ -90,7 +92,11 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="antialiased min-h-screen bg-bg text-fg">{children}</body>
+      <body className="antialiased min-h-screen bg-bg text-fg">
+        {/* Holds the signed-in profile for the whole session, so pages stop
+            re-fetching /users/me on every mount. */}
+        <UserProvider>{children}</UserProvider>
+      </body>
     </html>
   );
 }
