@@ -5,27 +5,13 @@ import httpx
 
 from src.domain.entities import Area, Place
 from src.domain.ports import PlacesProvider, PlacesProviderError
+from src.infra.ssm import read_secure_parameter
 
 logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.geoapify.com"
 _TIMEOUT_SECONDS = 5.0
 _RESULT_LIMIT = 10
-
-
-def _read_key_from_ssm(param_name: str) -> str:
-    """Fetch the Geoapify API key SecureString from SSM Parameter Store.
-
-    Same pattern as the Neon DSN (see infra/db/engine.py): CloudFormation can't
-    inject ssm-secure values into env vars, so the Lambda gets the parameter
-    NAME and fetches+decrypts it once at cold start. boto3 is provided by the
-    Lambda runtime and imported lazily so local runs never need it.
-    """
-    import boto3
-
-    ssm = boto3.client("ssm")
-    response = ssm.get_parameter(Name=param_name, WithDecryption=True)
-    return response["Parameter"]["Value"]
 
 
 def resolve_geoapify_api_key() -> str | None:
@@ -38,7 +24,7 @@ def resolve_geoapify_api_key() -> str | None:
 
     param_name = os.environ.get("GEOAPIFY_API_KEY_PARAM")
     if param_name:
-        return _read_key_from_ssm(param_name)
+        return read_secure_parameter(param_name)
 
     return None
 

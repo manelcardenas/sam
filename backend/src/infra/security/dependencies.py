@@ -5,7 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import exceptions as jwt_exceptions
 
 from src.domain.ports import UserRepository
-from src.infra.security.jwt_handler import JWTHandler
+from src.infra.security.jwt_handler import get_jwt_handler
 from src.infra.security.schemas import TokenPayload
 
 # HTTPBearer automatically extracts "Authorization: Bearer <token>" header
@@ -39,7 +39,9 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     Raises:
         HTTPException 401: If token is missing, invalid, or expired
     """
-    jwt_handler = JWTHandler()
+    # Shared across requests in this container — a fresh JWTHandler here meant
+    # re-downloading Cognito's public keys on every single API call.
+    jwt_handler = get_jwt_handler()
 
     try:
         token_payload = jwt_handler.decode_token(credentials.credentials)
