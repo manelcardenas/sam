@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { getCurrentUser } from "aws-amplify/auth";
-import { configureAmplify } from "@/lib/amplify";
+import { useAuthGate } from "@/components/auth/useAuthGate";
 import { apiClient, type Recipe, type CreateRecipeInput } from "@/lib/api-client";
 import { FOOD_TYPES, type FoodType } from "@/lib/constants";
 import RecipeForm from "@/components/RecipeForm";
@@ -11,13 +9,12 @@ import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import SourceLink from "@/components/SourceLink";
 import IngredientsPanel from "@/components/IngredientsPanel";
 import { AppShell } from "@/components/shell/AppShell";
-import { Loader } from "@/components/ui/Loader";
+import { DashboardSkeleton } from "@/components/ui/PageSkeleton";
 import { ArrowLeft, Plus, Edit, Trash2 } from "lucide-react";
 
 type View = "categories" | "recipes" | "detail" | "add" | "edit";
 
 export default function DashboardPage() {
-  const router = useRouter();
 
   // Auth / loading
   const [loading, setLoading] = useState(true);
@@ -38,27 +35,29 @@ export default function DashboardPage() {
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
+  // `me` comes from the session-wide provider, so this page no longer opens
+  // with a serial GET /users/me. useAuthGate owns the redirects: signed-out to
+  // the landing page, and no display name yet to /profile/complete.
+  const { me } = useAuthGate();
+
   useEffect(() => {
-    configureAmplify();
-    (async () => {
-      try {
-        await getCurrentUser();
-        const me = await apiClient.getMe();
-        // First-login gate: a NULL name means they haven't chosen one yet.
-        if (!me.display_name) {
-          router.replace("/profile/complete");
-          return;
-        }
-        setUserName(me.display_name);
-        setCurrentUserId(me.id);
-        await loadRecipes();
-        setLoading(false);
-      } catch {
-        router.push("/");
-      }
-    })();
+    if (me?.display_name) setUserName(me.display_name);
+  }, [me?.display_name]);
+
+  // Keyed on the id alone: a background revalidation hands back an equivalent
+  // profile object, and depending on `me` itself would refetch every recipe.
+  useEffect(() => {
+    if (!me?.id || !me.display_name) return;
+    setCurrentUserId(me.id);
+    let cancelled = false;
+    void loadRecipes().then(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [me?.id]);
 
   // ── Data ────────────────────────────────────────────────────────────────────
 
@@ -130,7 +129,19 @@ export default function DashboardPage() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
-  if (loading) return <Loader />;
+  if (loading) {
+    return (
+      <AppShell>
+        <header className="mb-6">
+          <h1 className="font-display text-3xl font-bold text-fg sm:text-4xl">
+            What shall we fetch?
+          </h1>
+          <p className="mt-1 text-muted">Sniffing out your recipes…</p>
+        </header>
+        <DashboardSkeleton />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell userName={userName}>

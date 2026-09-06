@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useAuthGate } from "@/components/auth/useAuthGate";
 import dynamic from "next/dynamic";
-import { getCurrentUser } from "aws-amplify/auth";
-import { configureAmplify } from "@/lib/amplify";
 import {
   apiClient,
   type Restaurant,
@@ -78,7 +76,6 @@ function ScoreRow({ label, value }: { label: string; value: number | null }) {
 }
 
 export default function DinePage() {
-  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
@@ -122,30 +119,32 @@ export default function DinePage() {
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
+  const { me } = useAuthGate();
+
   useEffect(() => {
-    configureAmplify();
+    if (me?.display_name) setUserName(me.display_name);
+  }, [me?.display_name]);
+
+  // Keyed on the id: a background revalidation must not re-run the restaurant
+  // load and stomp whatever filters the user has since changed.
+  useEffect(() => {
+    if (!me?.id || !me.display_name) return;
+    setCurrentUserId(me.id);
+    let cancelled = false;
     (async () => {
-      try {
-        await getCurrentUser();
-        const me = await apiClient.getMe();
-        if (!me.display_name) {
-          router.replace("/profile/complete");
-          return;
-        }
-        setUserName(me.display_name);
-        setCurrentUserId(me.id);
-        // Restore a shared/refreshed filtered view from the URL.
-        const restored = fromSearchParams(new URLSearchParams(window.location.search));
-        setFilters(restored);
-        await loadRestaurants(restored);
-        if (isFiltered(restored)) await loadArchive();
-        setLoading(false);
-      } catch {
-        router.push("/");
-      }
+      // Restore a shared/refreshed filtered view from the URL.
+      const restored = fromSearchParams(new URLSearchParams(window.location.search));
+      if (cancelled) return;
+      setFilters(restored);
+      await loadRestaurants(restored);
+      if (isFiltered(restored)) await loadArchive();
+      if (!cancelled) setLoading(false);
     })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [me?.id]);
 
   /** The unfiltered set, for the rail and the chip vocabulary. */
   const loadArchive = useCallback(async () => {
