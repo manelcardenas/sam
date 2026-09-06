@@ -26,14 +26,3 @@ export function Loader({ label = "Fetching…" }: { label?: string }) {
     </div>
   );
 }
-
-/** Inline spinner-sized version for buttons / small areas. */
-export function FetchDots({ className }: { className?: string }) {
-  return (
-    <span className={`inline-flex items-center gap-1 ${className ?? ""}`} aria-hidden="true">
-      <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce-dot" />
-      <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce-dot" style={{ animationDelay: "0.15s" }} />
-      <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce-dot" style={{ animationDelay: "0.3s" }} />
-    </span>
-  );
-}

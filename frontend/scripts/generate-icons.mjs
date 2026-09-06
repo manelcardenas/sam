@@ -9,7 +9,9 @@
  * icon.svg stays the single source of truth for the artwork; everything here is
  * derived. Re-run with `npm run icons` after editing it.
  *
- * `sharp` ships with Next, so this needs no extra dependency.
+ * `sharp` is a declared devDependency. It also happens to arrive with Next,
+ * which this script used to rely on — a phantom dependency that would have
+ * broken the day Next dropped it. Found by knip (2026-09-06).
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
