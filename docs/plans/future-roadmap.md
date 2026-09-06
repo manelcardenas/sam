@@ -17,11 +17,34 @@ analysis doesn't have to be redone, but it is not a queued phase and its open qu
 Reopen only on evidence: real cold-start or latency complaints, or a workload that doesn't
 fit the request/response model. Absent that, Lambda + API Gateway is the chosen shape.
 
-## 3. Improve the npm workflow — maybe pnpm, maybe a single entrypoint
+## 3. Improve the npm workflow — ✅ DONE (2026-09-06)
 
-Current friction: `npm install` + separate `npm run dev` (and remembering which directory — `frontend/` vs `infra/`) is more ceremony than the backend's `uv run` equivalent. Two separate threads to pull on:
-- **pnpm instead of npm** — faster installs, stricter dependency resolution (no phantom deps), disk-space savings via content-addressable store. Would need lockfile migration in both `frontend/` and `infra/`.
-- **A single command to rule them all** — something like `uv run start` on the backend side already collapses env setup + run into one step; the frontend has no equivalent. Worth exploring a root-level task runner (`just`, `make`, or an npm/pnpm workspace script) so `<tool> dev` boots frontend + backend together instead of juggling two terminals and two sets of install steps.
+Friction was: `npm install` + `npm run dev` in two directories, with no equivalent of the
+backend's `uv run start`, and no frontend test runner at all. All four phases of
+[`./tooling-and-tests-plan.md`](./tooling-and-tests-plan.md) shipped in one session:
+
+| | |
+| --- | --- |
+| **1. Vitest** | 64 tests over the URL modules, filter parsing and `UserProvider` — the frontend had zero |
+| **2. ESLint CLI** | Off the deprecated `next lint` onto flat config; Node pinned once in `.nvmrc` |
+| **3. npm workspaces** | Three lockfiles → one; `npm run dev` boots API and web together; `npm run check` runs everything |
+| **4. knip** | Deleted 2 dead files, 3 dead exports and 1 unused dependency; found 2 phantom dependencies |
+
+**The pnpm question was answered: no, npm workspaces.** The pain was having three separate
+projects rather than anything npm does, workspaces fix that, and switching package managers would
+change how Amplify builds the live site for a marginal local gain. One honest caveat recorded in
+the plan: the `typeRoots` breakage during the migration was caused by npm's hoisting and would
+*not* have happened under pnpm.
+
+**Still outstanding, and it's the only thing: a confirmed Amplify build.** Phase 3 changed the
+deploy path (`npm ci -w frontend --include-workspace-root`), and every local proxy passes, but
+Amplify's own build is the real test.
+
+Four things surfaced that weren't in the original item, all now fixed: `next lint` was deprecated
+and removed in Next 16; `next` was pinned in two manifests with nothing keeping them in sync (now
+guarded by `npm run check:next-pin`); **CI was building on Node 20, which reached end-of-life in
+April 2026**; and `sharp` and `source-map-support` were both being imported without being
+declared.
 
 ## 4. Improve search — Elasticsearch or similar
 
@@ -71,5 +94,42 @@ Two corrections that outlived the work and are worth carrying forward:
 - **Raising Lambda memory did nothing for Init**, which is still ~3.25 s. CPU was not the
   constraint. Nobody has a good theory yet beyond package unpacking and import I/O.
 
-Still open, deliberately: Init itself (tolerated — cold starts aren't the complaint), and the
-lack of a frontend test runner, which the URL work made a more visible gap.
+Still open, deliberately: Init itself (tolerated — cold starts aren't the complaint). The other
+gap this work exposed — no frontend test runner — was closed on 2026-09-06 by item 3's Phase 1.
+What the URL work still can't prove is that the *browser* behaves; that's item 8.
+
+## 8. End-to-end browser testing — Playwright
+
+Moved out of [`./tooling-and-tests-plan.md`](./tooling-and-tests-plan.md) (2026-09-06). It was
+sketched there as a "Phase 4, later if wanted" bullet, which undersold it: this is a real
+commitment, not a tooling chore, and it deserves to be chosen deliberately rather than smuggled
+in behind a lint config.
+
+**What it is.** Playwright drives a real browser — real navigation, real history, real touch
+gestures — against the running app. Vitest tests modules in a fake DOM; Playwright tests the
+product.
+
+**Why it's the *right* tool for two things nothing currently covers:**
+
+1. **The back gesture.** The whole point of the URL work
+   ([`./routing-and-latency-plan.md`](./routing-and-latency-plan.md) §3, item 6 above) was that
+   swiping back inside the PWA moves back one view instead of leaving the app. That behaviour
+   lives in browser history, so **no unit test can ever prove it works.** Right now it is only
+   verified by someone remembering to try it on a phone. The `dine-url` and `dashboard-url`
+   Vitest suites check that the URLs *encode* correctly — not that the browser does the right
+   thing with them.
+2. **The page-level flows Vitest was deliberately kept away from.** `/dine` and `/dashboard` are
+   576 and 403 lines of async and auth. Testing them with a fake DOM buys brittle tests; testing
+   them in a browser buys real ones.
+
+Sign-in is a third candidate, and it just proved its worth: the Phase 1 lockfile regeneration
+bumped `aws-amplify` and the only available check was a human logging in by hand.
+
+**Why it's not scheduled yet.** It's the largest single addition on the list — a browser
+download in CI, fixtures for a signed-in session, a seeded database to assert against, and a
+standing decision about what to do when a test is flaky. That's a work session of its own, and
+none of it is urgent while the app has one user who *is* the developer.
+
+**What would make it urgent:** a second person relying on the app, a back-gesture regression
+reaching production, or a dependency bump touching auth again with no way to check it but by
+hand.

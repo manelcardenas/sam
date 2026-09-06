@@ -317,7 +317,7 @@ structure where a change to one part of the repo doesn't redeploy everything.
 
 **`pr-health-checks.yml`** — three parallel jobs, no AWS credentials needed:
 - `backend`: `uv sync --group dev`, `ruff check`, `ruff format --check`, `pytest tests/ -v`
-- `frontend`: `npm ci`, `next lint`, `next build` (which is also the type-check gate; a
+- `frontend`: `npm ci`, `eslint` (was `next lint` until 2026-09-06), `next build` (which is also the type-check gate; a
   placeholder `NEXT_PUBLIC_API_URL` is injected because the static export prerenders pages
   whose API-client constructor throws when it is unset)
 - `infra`: `tsc --noEmit`, `npm test` (CDK jest assertions), `cdk synth --all`

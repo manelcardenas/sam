@@ -108,7 +108,8 @@ npm run check                       # frontend + infra: lint, type-check, tests
 cd backend && uv run pytest tests/  # backend: 112 tests
 ```
 
-`npm run check` covers `frontend/` and `infra/` only — the backend is Python and runs separately.
+`npm run check` runs lint, type-check, tests and knip (dead code) across `frontend/` and
+`infra/` only — the backend is Python and runs separately.
 
 <details>
 <summary>Less common</summary>
