@@ -7,8 +7,9 @@
     "frontend",
     "infra"
   ],
+  "//engines": "Kept equal to .nvmrc, which is the single source of truth and what CI reads via node-version-file. Node 20 reached end-of-life in April 2026; 24 is Active LTS and what this repo is developed on.",
   "engines": {
-    "node": ">=20.19"
+    "node": ">=24"
   },
   "//next": "NOT unused, and NOT an accidental duplicate of frontend's. Added so AWS Amplify would detect Next at the repo root. NOTE: the CDK stack deploys platform WEB (static export), not WEB_COMPUTE, so this may now be obsolete - see docs/plans/tooling-and-tests-plan.md Phase 3. Left in place deliberately: removing it is a separate one-line experiment that needs its own deploy to verify, not a change to bundle with the workspace move. The single lockfile makes this and frontend's pin resolve to one physical package; `npm run check:next-pin` keeps the two declarations equal.",
   "dependencies": {
