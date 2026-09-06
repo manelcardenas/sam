@@ -54,7 +54,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
           cache: "npm"
           cache-dependency-path: package-lock.json
 
@@ -69,7 +69,7 @@ jobs:
       - name: Check the next pin matches across manifests
         run: npm run check:next-pin
 
-      - name: Lint (next lint)
+      - name: Lint (eslint)
         run: npm run lint -w frontend
 
       - name: Tests (vitest)
@@ -95,7 +95,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
           cache: "npm"
           cache-dependency-path: package-lock.json
 
