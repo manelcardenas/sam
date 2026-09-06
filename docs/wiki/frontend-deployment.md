@@ -66,18 +66,20 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm install # installs root next (required by Amplify bundler)
-        - npm ci --prefix frontend # installs actual frontend dependencies
+        # Scoped install from the single root lockfile. A bare `npm ci` would
+        # also install infra/ (~216 MB of aws-cdk) for nothing; the root must
+        # be included because it carries the `next` pin WEB_COMPUTE detects.
+        - npm ci -w frontend --include-workspace-root
     build:
       commands:
-        - npm run build --prefix frontend
+        - npm run build -w frontend
   artifacts:
     baseDirectory: frontend/out # static export output directory
     files:
       - "**/*"
   cache:
     paths:
-      - frontend/node_modules/**/*
+      - node_modules/**/* # workspaces hoist; the real tree is at the root
 ```
 
 **Why:** Amplify reads `amplify.yml` from the repo root after cloning and uses it as the build spec, overriding whatever is stored in CloudFormation. This is how we control the build from within the repo itself.

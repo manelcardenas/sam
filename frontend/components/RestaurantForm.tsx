@@ -129,7 +129,6 @@ export default function RestaurantForm({
         );
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [creating]);
 
   // Unified dedup/Place search: only while creating, so editing an existing
@@ -180,7 +179,6 @@ export default function RestaurantForm({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, area, selectedArea, creating, selectedPlace]);
 
   // Area autocomplete: its own debounce, so typing a city doesn't thrash the
@@ -202,7 +200,6 @@ export default function RestaurantForm({
     return () => {
       if (areaDebounceRef.current) clearTimeout(areaDebounceRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [area, creating, selectedArea]);
 
   const selectArea = (a: Area) => {

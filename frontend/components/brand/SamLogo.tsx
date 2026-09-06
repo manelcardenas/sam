@@ -43,26 +43,3 @@ export function SamLogo({
     </svg>
   );
 }
-
-/** Logo + wordmark lockup. Use in the app header and login hero. */
-export function SamWordmark({
-  className,
-  tagline,
-}: {
-  className?: string;
-  tagline?: string;
-}) {
-  return (
-    <span className={`inline-flex items-center gap-2.5 ${className ?? ""}`}>
-      <SamLogo className="h-9 w-9 shrink-0" />
-      <span className="flex flex-col leading-none">
-        <span className="font-display text-xl font-bold tracking-tight text-fg">
-          SAM
-        </span>
-        {tagline && (
-          <span className="text-[11px] font-medium text-muted">{tagline}</span>
-        )}
-      </span>
-    </span>
-  );
-}
