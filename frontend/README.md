@@ -30,8 +30,9 @@ Modern React + Next.js frontend with AWS Cognito authentication.
 
 ### 1. Install Dependencies
 
+The repo is an npm workspace, so dependencies install once from the **repo root**, not from here:
+
 ```bash
-cd frontend
 npm install
 ```
 
