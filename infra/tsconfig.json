@@ -19,8 +19,15 @@
     "inlineSources": true,
     "experimentalDecorators": true,
     "strictPropertyInitialization": false,
-    "typeRoots": [
-      "./node_modules/@types"
+    // Declared by name rather than by directory. The old
+    // `typeRoots: ["./node_modules/@types"]` assumed every @types package sat
+    // in *this* node_modules — which stopped being true when the repo became
+    // an npm workspace and hoisting moved @types/jest to the root. Naming the
+    // two globals infra actually needs also keeps the frontend's @types/react
+    // and its differently-versioned @types/node out of this project's scope.
+    "types": [
+      "node",
+      "jest"
     ]
   },
   "exclude": [
