@@ -101,20 +101,27 @@ cd backend && uv run seed     # Postgres must be running
 
 Never run that against Neon.
 
-## Testing
+## Checks
 
 ```bash
-# Unit tests (no Docker required — uses InMemory repo)
-uv run pytest tests/ -v
-
-# With coverage
-uv run pytest tests/ --cov=backend/src
+npm run check                       # frontend + infra: lint, type-check, tests
+cd backend && uv run pytest tests/  # backend: 112 tests
 ```
 
-## Code Quality
+`npm run check` covers `frontend/` and `infra/` only — the backend is Python and runs separately.
+
+<details>
+<summary>Less common</summary>
 
 ```bash
-uv run ruff check . --fix && uv run ruff format .
-uv run pre-commit run --all-files
-uv run pre-commit install   # install git hooks
+npm run lint:fix -w frontend             # auto-fix lint problems
+npm run test:watch -w frontend           # watch mode while writing tests
+nvm use                                  # Node version from .nvmrc
+
+cd backend
+uv run pytest tests/ --cov=backend/src              # coverage
+uv run ruff check . --fix && uv run ruff format .   # lint + format
+uv run pre-commit install                           # git hooks (whole repo, incl. secret scan)
 ```
+
+</details>
