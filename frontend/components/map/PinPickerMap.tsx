@@ -95,7 +95,6 @@ export default function PinPickerMap({
       mapRef.current = null;
       existingMarkers.length = 0;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Neutral markers for restaurants already on SAM — may arrive after mount.
