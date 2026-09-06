@@ -16,7 +16,12 @@ from src.infra.adapters.repos import (
 )
 from src.infra.controllers import PlacesController, RecipeController, RestaurantController, UserController
 from src.infra.db import DatabaseConnectionPool, build_dsn
-from src.infra.middleware import CORSMiddlewareConfigurator, MiddlewareSettings, RateLimitMiddleware
+from src.infra.middleware import (
+    CORSMiddlewareConfigurator,
+    MiddlewareSettings,
+    RateLimitMiddleware,
+    RequestTimingMiddleware,
+)
 from src.infra.security import configure_user_repository
 
 # Load .env for local development. On Lambda, env vars are injected directly
@@ -46,6 +51,9 @@ def create_app() -> FastAPI:
     if settings.rate_limit_per_minute > 0:
         app.add_middleware(RateLimitMiddleware, limit_per_minute=settings.rate_limit_per_minute)
     CORSMiddlewareConfigurator(settings).apply(app)
+    # Added last, so it runs outermost and its `ms` covers everything the other
+    # middleware do — including a 429 or a rejected preflight.
+    app.add_middleware(RequestTimingMiddleware)
 
     recipe_repository = PostgresRecipeRepository(session_factory=db.session_factory)
     user_repository = PostgresUserRepository(session_factory=db.session_factory)
