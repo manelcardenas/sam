@@ -68,23 +68,26 @@ export class AmplifyStack extends Stack {
       // Fallback buildSpec stored in CloudFormation - overridden by amplify.yml in the repo.
       // Uses static export (output: 'export' in next.config.ts) - all pages are "use client"
       // so no SSR is needed. Artifacts come from frontend/out (not frontend/.next).
+      //
+      // KEEP IN SYNC WITH amplify.yml. This copy only runs if amplify.yml is
+      // missing or renamed - which is exactly when a stale copy would be at its
+      // most confusing, since it would fail on commands the repo outgrew.
       buildSpec: `version: 1
 frontend:
   phases:
     preBuild:
       commands:
-        - npm install
-        - npm ci --prefix frontend
+        - npm ci -w frontend --include-workspace-root
     build:
       commands:
-        - npm run build --prefix frontend
+        - npm run build -w frontend
   artifacts:
     baseDirectory: frontend/out
     files:
       - '**/*'
   cache:
     paths:
-      - frontend/node_modules/**/*
+      - node_modules/**/*
 `,
       environmentVariables: [
         {

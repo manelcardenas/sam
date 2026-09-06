@@ -2,13 +2,16 @@
 
 ## Run it locally
 
-Three commands — Postgres, the API, the web app:
+Three commands — Postgres, dependencies, then the whole stack:
 
 ```bash
-docker compose up postgres -d              # 1. database
-cd backend  && uv run start                # 2. API  → http://localhost:9000 (migrates + seeds, then serves)
-cd frontend && npm install && npm run dev  # 3. web  → http://localhost:8080
+docker compose up postgres -d   # 1. database
+npm install                     # 2. once, from the repo root — an npm workspace covering frontend/ and infra/
+npm run dev                     # 3. API on :9000 and web on :8080, together
 ```
+
+`npm run dev` runs the backend (`uv run start`, which migrates + seeds then serves) and the
+frontend side by side. To run just one: `npm run dev:api` or `npm run dev:web`.
 
 Open **http://localhost:8080** and sign in with the test account
 (`test@example.com` / `TestPass123!`). The DB comes pre-seeded with 14 recipes

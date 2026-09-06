@@ -56,19 +56,24 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
+      # Scoped to the frontend workspace so this job doesn't install infra's
+      # ~216 MB of aws-cdk. The root is included because it carries the `next`
+      # pin that Amplify's platform detection reads.
       - name: Install dependencies
-        working-directory: frontend
-        run: npm ci
+        run: npm ci -w frontend --include-workspace-root
+
+      # `next` is declared in both package.json files on purpose; this fails
+      # the build if they ever drift apart. See scripts/check-next-pin.mjs.
+      - name: Check the next pin matches across manifests
+        run: npm run check:next-pin
 
       - name: Lint (next lint)
-        working-directory: frontend
-        run: npm run lint
+        run: npm run lint -w frontend
 
       - name: Tests (vitest)
-        working-directory: frontend
-        run: npm test
+        run: npm test -w frontend
 
       # `next build` runs the TypeScript type-checker and fails on any error,
       # so this is also the type-check gate. The static export prerenders pages
@@ -76,10 +81,9 @@ jobs:
       # is unset — so we pass a placeholder. It is inlined into this throwaway CI
       # artifact only; the real Amplify deploy build injects the real value.
       - name: Build (next build)
-        working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: https://ci.placeholder.invalid
-        run: npm run build
+        run: npm run build -w frontend
 
   infra:
     runs-on: ubuntu-latest
@@ -93,19 +97,16 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: infra/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: infra
-        run: npm ci
+        run: npm ci -w infra --include-workspace-root
 
       - name: Type-check (tsc)
-        working-directory: infra
-        run: npx tsc --noEmit
+        run: npm run type-check -w infra
 
       - name: CDK unit tests (jest)
-        working-directory: infra
-        run: npm test
+        run: npm test -w infra
 
       # No AWS credentials needed: there are no fromLookup() calls, and the
       # Amplify stack only warns (does not fail) when the githubToken context
