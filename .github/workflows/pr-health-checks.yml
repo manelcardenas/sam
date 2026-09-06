@@ -66,6 +66,10 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
+      - name: Tests (vitest)
+        working-directory: frontend
+        run: npm test
+
       # `next build` runs the TypeScript type-checker and fails on any error,
       # so this is also the type-check gate. The static export prerenders pages
       # that import the API client, whose constructor throws if NEXT_PUBLIC_API_URL
