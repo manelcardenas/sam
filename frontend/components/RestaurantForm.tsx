@@ -434,7 +434,7 @@ export default function RestaurantForm({
             )}
             {!showPinMap && !pinnedCoords && !selectedPlace && name.trim().length >= 2 && searchingPlaces && (
               <p className="mt-1.5 text-xs text-muted" role="status">
-                Sniffing out matches…
+                Searching…
               </p>
             )}
             {!showPinMap &&

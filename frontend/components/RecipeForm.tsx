@@ -159,7 +159,7 @@ export default function RecipeForm({
       <div>
         <label className={labelClass}>Type *</label>
         <div className="grid grid-cols-4 gap-2">
-          {FOOD_TYPES.map(({ value, label, emoji, accent }) => {
+          {FOOD_TYPES.map(({ value, label, icon: Icon, accent }) => {
             const selected = formData.food_type === value;
             return (
               <button
@@ -177,7 +177,13 @@ export default function RecipeForm({
                     : "border-line text-muted hover:border-tomato/40 hover:text-fg"
                 }`}
               >
-                <span className="text-2xl">{emoji}</span>
+                <Icon
+                  className="h-6 w-6"
+                  // The glyph takes the category's colour once selected, so the
+                  // choice reads from the icon as well as from the border.
+                  style={selected ? { color: accent } : undefined}
+                  aria-hidden
+                />
                 <span>{label}</span>
               </button>
             );

@@ -2,6 +2,7 @@ import { MapPin, Users } from "lucide-react";
 import type { RestaurantDetail } from "@/lib/api-client";
 import { formatRelativeDate, formatReviewers } from "@/lib/format";
 import { PriceLevel, QuoteBlock, ScoreBadge, quoteAttribution } from "@/components/dine/atoms";
+import { cuisineAccent } from "@/lib/cuisines";
 
 /**
  * A restaurant in the DINE world, rendered as a clickable card in the archive grid.
@@ -57,8 +58,23 @@ export function RestaurantCard({
           {(r.cuisines.length > 0 || r.price_level) && (
             <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[0.8rem]">
               {r.cuisines.length > 0 && (
-                <span className="min-w-0 truncate font-medium uppercase tracking-wide text-muted">
-                  {r.cuisines.join(" · ")}
+                <span className="flex min-w-0 items-center gap-1.5">
+                  {/* Capped at three: a many-tagged restaurant would otherwise
+                      push the names out of a card that is already narrow.
+                      aria-hidden because the names follow immediately — the
+                      colour is an accelerator, never the only signal. */}
+                  <span className="flex shrink-0 items-center gap-1" aria-hidden>
+                    {r.cuisines.slice(0, 3).map((name) => (
+                      <span
+                        key={name}
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: cuisineAccent(name) }}
+                      />
+                    ))}
+                  </span>
+                  <span className="min-w-0 truncate font-medium uppercase tracking-wide text-muted">
+                    {r.cuisines.join(" · ")}
+                  </span>
                 </span>
               )}
               {r.price_level && <PriceLevel level={r.price_level} className="text-[0.8rem]" />}
