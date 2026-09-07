@@ -134,7 +134,7 @@ export default function RestaurantsMap({
       >
         <div className="flex flex-col items-center gap-2 text-muted">
           <MapPin className="h-7 w-7 animate-float" />
-          <span className="text-sm">Fetching the map…</span>
+          <span className="text-sm">Loading the map…</span>
         </div>
       </div>
 
