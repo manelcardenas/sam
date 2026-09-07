@@ -46,11 +46,11 @@ guarded by `npm run check:next-pin`); **CI was building on Node 20, which reache
 April 2026**; and `sharp` and `source-map-support` were both being imported without being
 declared.
 
-## 4. Improve search — Elasticsearch or similar
+## 4. Improve search — Elasticsearch or similar — PARKED (reaffirmed 2026-09-06)
 
 Today, restaurant/recipe search is a simple case-insensitive `ILIKE` query against Postgres (see the restaurant dedup search in [`improvement-plan.md`](./improvement-plan.md)). Fine for now, but doesn't scale to fuzzy matching, typo tolerance, or ranking relevance as the data grows. Options to weigh later: Postgres full-text search (`tsvector`, no new infra) as a cheap first step, vs. a dedicated search engine (Elasticsearch/OpenSearch, Meilisearch, Typesense) if requirements grow past what Postgres FTS can reasonably do. Needs a real trigger (actual search-quality complaints) before picking a direction — no sense over-engineering this before it hurts. **Reaffirmed 2026-09-01** in [`../adr/0005-restaurant-list-is-a-scrapbook.md`](../adr/0005-restaurant-list-is-a-scrapbook.md): at 24 restaurants the dine page ships *filters* instead, and this item stays parked until search quality is actually the complaint.
 
-## 5. Redis — a learning exercise, and now *only* that
+## 5. Redis — a learning exercise, and now *only* that — PARKED (reaffirmed 2026-09-06)
 
 Motivation was always "want to practice building with Redis" rather than a real bottleneck.
 Both use cases that once gave it a performance justification are gone, answered for free
@@ -133,3 +133,72 @@ none of it is urgent while the app has one user who *is* the developer.
 **What would make it urgent:** a second person relying on the app, a back-gesture regression
 reaching production, or a dependency bump touching auth again with no way to check it but by
 hand.
+
+## 9. AI ingredient capture — natural text, voice, photo, links
+
+Scoped out of [`./meal-planner-plan.md`](./meal-planner-plan.md) §3, where the underlying problem
+was measured: across 19 recipes and **111 ingredient lines**, `amount` is filled on **2** and
+`unit` on **1**, while **56% of names start with a digit** — people write `"3 huevos"` into the
+name field.
+
+The instinct is to blame the data and fix it with a migration. That treats the symptom. **The
+fields are empty because one box is pleasant and three boxes are tedious**, so making three
+fields mandatory will re-rot the data the moment the novelty wears off.
+
+The fix is to let people keep typing the way they already do, and have a model structure it:
+
+```
+3 huevos, 200g de harina, 1 vaso de aceite, sal
+  → [{name: huevos, amount: 3}, {name: harina, amount: 200, unit: g}, …]
+```
+
+Confirm the rows, done. Natural extensions once the pipe exists: **voice** (dictate while the
+fridge is open), **photo** of a cookbook page, and **import from a URL or a TikTok** — which is
+what [mise.cooking](https://mise.cooking/) does and a large part of why its recipe capture feels
+better than ours.
+
+Two things to decide on their own terms rather than discover:
+
+- **This is the project's first recurring cost.** A few hundred tokens per recipe is fractions of
+  a cent at this volume, but it is not zero and it needs an API key. Everything so far has been
+  free by construction; this is a deliberate exception, not an oversight.
+- **Sequencing bonus:** build this and the 111-line backfill is free. Point it at the existing
+  rows once and the migration script in the planner plan never needs writing. That argues for
+  doing it *before* the planner's data fix — but the planner should not block on it, so the plan
+  keeps the manual backfill as the path that does not depend on this item existing.
+
+## 10. Prices and a supermarket catalogue
+
+Split out of [`./meal-planner-plan.md`](./meal-planner-plan.md) §7, where the research lives.
+
+Short version: **there is no official Mercadona API.** The undocumented one behind
+`tienda.mercadona.es` is real and unauthenticated for the catalogue, but its own community
+documentation notes that `robots.txt` blocks `/api` and asks callers to respect the ToS. Paid
+wrappers fail the no-recurring-cost rule. Open Food Facts is genuinely open but barcode-shaped —
+it describes jars, not `"400g minced beef"`.
+
+The architectural reason to defer is stronger than the legal one: **a shopping list is
+ingredients, a catalogue is products.** Matching them buys nothing for a household list *except*
+prices — which is a real motivation, but one worth pricing separately once the planner exists and
+you know whether you miss it.
+
+---
+
+## Queue as of 2026-09-07
+
+Agreed order, replacing "pick whichever item looks interesting":
+
+| | | |
+| --- | --- | --- |
+| **0** | Plan the meal planner | ✅ done — [`./meal-planner-plan.md`](./meal-planner-plan.md) + [ADR 0007](../adr/0007-a-dish-is-a-recipe-without-instructions.md) |
+| **1** | Profile UX rework | ✅ done 2026-09-07 — [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §1 |
+| **2** | UX pass: dashboard chips, brand-voice trim, the dine ordering control, cuisine colour | ✅ done 2026-09-07 — [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §2, §3, §5, §6 |
+| **3** | English / Spanish / Catalan switch, and all copy out of the code | ✅ done 2026-09-07 — [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §4 |
+| **4** | mise.cooking pattern research | [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §7 — a week of phone use, not a design task |
+| **5** | Build the meal planner | [`./meal-planner-plan.md`](./meal-planner-plan.md) |
+| later | AI ingredient capture (9), prices (10) | |
+| parked | Search (4), Redis (5) | Neither has a trigger; both are solutions looking for a problem at this data size |
+
+**Why the UX work comes before the feature that motivated it:** the planner needs a home in the
+navigation, an archive surface in the profile, and a dish picker. Building those into a layout
+already known to be wrong means building them twice.
