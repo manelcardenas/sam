@@ -177,10 +177,11 @@ export default function ProfilePage() {
                     view: "detail",
                     category: recipe.food_type,
                     recipeId: recipe.id,
+                    q: "",
                   })}`,
                 )
               }
-              onCreate={() => router.push(`/dashboard?${toDashboardQuery({ view: "add", category: null, recipeId: null })}`)}
+              onCreate={() => router.push(`/dashboard?${toDashboardQuery({ view: "add", category: null, recipeId: null, q: "" })}`)}
             />
           )}
 

@@ -31,7 +31,6 @@ import {
   type FilterState,
 } from "@/components/dine/RestaurantFilters";
 import { DineSkeleton } from "@/components/dine/DineSkeleton";
-import { SortControl } from "@/components/dine/SortControl";
 import { PriceLevel, ScoreBadge } from "@/components/dine/atoms";
 import { formatRelativeDate, formatVisitedDate } from "@/lib/format";
 import { useFlipGrid } from "@/lib/useFlipGrid";
@@ -376,7 +375,6 @@ export default function DinePage() {
           <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-[2.5rem] sm:leading-[1.1]">
             Where shall we eat?
           </h1>
-          <p className="mt-1.5 text-muted">Fetching the record…</p>
         </header>
         <DineSkeleton />
       </AppShell>
@@ -430,8 +428,8 @@ export default function DinePage() {
             </h1>
             <p className="mt-1.5 text-muted">
               {archive.length > 0
-                ? `${archive.length} place${archive.length === 1 ? "" : "s"} the pack has eaten at.`
-                : "Every place the pack has reviewed."}
+                ? `${archive.length} place${archive.length === 1 ? "" : "s"} you've all eaten at.`
+                : "Everywhere anyone here has eaten."}
             </p>
           </header>
 
@@ -442,8 +440,15 @@ export default function DinePage() {
           {archive.length > 0 && (
             <>
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="min-w-0 font-serif text-xl font-semibold italic text-fg sm:text-2xl">
+                <h2 className="flex min-w-0 items-baseline gap-2 font-serif text-xl font-semibold italic text-fg sm:text-2xl">
                   {filtering ? "Matching" : "Everywhere"}
+                  {/* Only worth printing while something is narrowing: "24 of
+                      24" beside "Everywhere" is noise. */}
+                  {filtering && (
+                    <span className="font-sans text-sm font-semibold not-italic tabular-nums text-muted">
+                      {restaurants.length} of {archive.length}
+                    </span>
+                  )}
                 </h2>
 
                 {/* Cards/map is a way of looking at the same filtered set, so it
@@ -477,19 +482,6 @@ export default function DinePage() {
                 resultCount={restaurants.length}
                 busy={pending}
               />
-
-              {/* Ordering + count, on the results side of the divider: the
-                  controls above decide what is in the list, this row describes
-                  the list itself. Keeps sort from being mistaken for a filter. */}
-              <div className="mb-4 flex items-center justify-between gap-3 border-t border-line pt-4">
-                <SortControl
-                  value={filters.sort}
-                  onChange={(sort) => setFilters((f) => ({ ...f, sort }))}
-                />
-                <p className="shrink-0 text-sm tabular-nums text-muted">
-                  {restaurants.length} of {archive.length}
-                </p>
-              </div>
             </>
           )}
 

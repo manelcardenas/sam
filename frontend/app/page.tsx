@@ -64,7 +64,7 @@ export default function LoginPage() {
     }
   };
 
-  if (checking) return <Loader label="Sniffing around…" />;
+  if (checking) return <Loader />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg bg-paws p-4">
