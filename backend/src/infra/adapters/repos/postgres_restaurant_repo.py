@@ -131,17 +131,30 @@ class PostgresRestaurantRepository(RestaurantRepository):
                 # restaurants (average NULL) are correctly excluded here.
                 q = q.filter(visits.c.average_overall >= filters.min_score)
 
+            # Every ordering is NULLS LAST, in both directions. Unreviewed and
+            # never-visited restaurants stay findable at the bottom rather than
+            # being dropped or ranked as zero — and crucially the *ascending*
+            # orderings keep them there too, because "no score" is not "the
+            # worst score" and "never visited" is not "visited longest ago".
             if filters.sort is RestaurantSort.NAME:
                 q = q.order_by(RestaurantModel.name)
             elif filters.sort is RestaurantSort.RATING:
-                # NULLS LAST keeps unreviewed restaurants findable at the bottom
-                # rather than dropping them or ranking them as zero — no score is
-                # not a bad score.
                 q = q.order_by(
                     visits.c.average_overall.desc().nullslast(),
                     visits.c.review_count.desc().nullslast(),
                     RestaurantModel.name,
                 )
+            elif filters.sort is RestaurantSort.RATING_LOW:
+                # review_count stays *descending*: among two equally poor scores
+                # the better-evidenced one is the more reliable verdict, which is
+                # the same tie-break RATING makes and not its mirror image.
+                q = q.order_by(
+                    visits.c.average_overall.asc().nullslast(),
+                    visits.c.review_count.desc().nullslast(),
+                    RestaurantModel.name,
+                )
+            elif filters.sort is RestaurantSort.OLDEST:
+                q = q.order_by(visits.c.last_visited_at.asc().nullslast(), RestaurantModel.name)
             else:
                 q = q.order_by(visits.c.last_visited_at.desc().nullslast(), RestaurantModel.name)
 
