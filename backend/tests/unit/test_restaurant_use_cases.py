@@ -296,6 +296,65 @@ class TestScrapbookOrderingAndFilters:
         # "Aaa" sorting first and having the newer visit.
         assert [r.name for r in result] == ["Zzz Good", "Aaa Poor"]
 
+    def test_sort_by_oldest_reverses_the_recency_order(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        recent, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa Recent", created_by="user-1"))
+        old, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Old", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(recent.id, "user-a", "2026-08-01"))
+        CreateReview(review_repo).execute(_review(old.id, "user-a", "2026-01-01"))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(sort=RestaurantSort.OLDEST))
+
+        # Alphabetically "Aaa" would win here too, so this only passes if the
+        # visit date is doing the work.
+        assert [r.name for r in result] == ["Zzz Old", "Aaa Recent"]
+
+    def test_never_visited_still_sorts_last_under_oldest(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """The whole reason direction isn't a flag.
+
+        "Never visited" is not "visited longest ago". Flipping the sort would
+        put an unvisited restaurant at the top of this list and imply it was the
+        most overdue, which is the opposite of what the data says.
+        """
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa Never Visited", created_by="user-1"))
+        visited, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Visited Once", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(visited.id, "user-a", "2026-01-01"))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(sort=RestaurantSort.OLDEST))
+
+        assert [r.name for r in result] == ["Zzz Visited Once", "Aaa Never Visited"]
+
+    def test_sort_by_rating_low_puts_the_worst_score_first(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        good, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa Good", created_by="user-1"))
+        poor, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Poor", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(good.id, "user-a", "2026-01-01", score=9))
+        CreateReview(review_repo).execute(_review(poor.id, "user-a", "2026-08-01", score=4))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(sort=RestaurantSort.RATING_LOW))
+
+        assert [r.name for r in result] == ["Zzz Poor", "Aaa Good"]
+
+    def test_unreviewed_still_sorts_last_under_rating_low(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """No score is not the worst score, so it does not lead this list."""
+        CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa Never Reviewed", created_by="user-1"))
+        poor, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Poor", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(poor.id, "user-a", "2026-01-01", score=2))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(sort=RestaurantSort.RATING_LOW))
+
+        assert [r.name for r in result] == ["Zzz Poor", "Aaa Never Reviewed"]
+
+    def test_rating_low_ties_still_break_on_review_count_descending(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """The tie-break is not mirrored: more evidence wins in both directions."""
+        one_review, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa One Voice", created_by="user-1"))
+        three_reviews, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Zzz Three Agree", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(one_review.id, "user-a", "2026-08-01", score=3))
+        for user in ("user-a", "user-b", "user-c"):
+            CreateReview(review_repo).execute(_review(three_reviews.id, user, "2026-01-01", score=3))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(sort=RestaurantSort.RATING_LOW))
+
+        assert [r.name for r in result] == ["Zzz Three Agree", "Aaa One Voice"]
+
     def test_rating_ties_break_on_review_count(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
         """Equal scores: the better-evidenced one wins, not the alphabetically luckier one."""
         one_review, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Aaa One Voice", created_by="user-1"))
