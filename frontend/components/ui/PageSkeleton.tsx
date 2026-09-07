@@ -10,24 +10,42 @@
  * Shimmer comes from .skeleton + animate-sweep and collapses under
  * prefers-reduced-motion via the global rule in globals.css.
  */
-function Bar({ className = "" }: { className?: string }) {
-  return <div className={`skeleton animate-sweep rounded-full ${className}`} />;
+function Bar({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
+  return <div className={`skeleton animate-sweep rounded-full ${className}`} style={style} />;
 }
 
-/** Matches the four-tile category grid on /dashboard. */
+/** Matches the header, filter row and list rows on /dashboard. */
 export function DashboardSkeleton() {
   return (
     <div aria-hidden>
-      {/* Sub-toolbar: the "New recipe" button's row, so the grid doesn't shift up */}
+      {/* Sub-toolbar: the "New recipe" button's row, so the header doesn't shift up */}
       <div className="mb-6 flex items-center justify-end">
         <Bar className="h-10 w-32" />
       </div>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+
+      {/* Page heading + count line */}
+      <div className="mb-6">
+        <Bar className="h-9 w-64" />
+        <Bar className="mt-2.5 h-4 w-44" />
+      </div>
+
+      {/* Search box, then the chip row */}
+      <Bar className="h-12 w-full rounded-2xl" />
+      <div className="mt-3 flex gap-2">
+        {[72, 64, 88].map((w) => (
+          <Bar key={w} className="h-11" style={{ width: w }} />
+        ))}
+      </div>
+
+      {/* List rows: plate + two lines, at the real height */}
+      <div className="mt-5 space-y-3">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="rounded-3xl border border-line bg-surface p-5">
-            <Bar className="h-9 w-9 rounded-2xl" />
-            <Bar className="mt-4 h-5 w-3/4" />
-            <Bar className="mt-2 h-3.5 w-1/2" />
+          <div key={i} className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3.5">
+            <Bar className="h-10 w-10 shrink-0 rounded-xl" />
+            <div className="min-w-0 flex-1">
+              <Bar className="h-4 w-2/5" />
+              <Bar className="mt-2 h-3 w-1/4" />
+            </div>
           </div>
         ))}
       </div>
