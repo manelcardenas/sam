@@ -17,6 +17,9 @@ import { Chip, ClearChip } from "@/components/ui/Chip";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
 import { RecipeRow } from "@/components/recipes/RecipeRow";
 import { ArrowLeft, Plus, Edit, Trash2, ChefHat, SearchX } from "lucide-react";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
+import { formatDate } from "@/lib/format";
 
 /**
  * The COOK world: every recipe in the collection, as one filterable list.
@@ -32,6 +35,8 @@ import { ArrowLeft, Plus, Edit, Trash2, ChefHat, SearchX } from "lucide-react";
  * the categories that actually have recipes, so Bebida simply has no chip.
  */
 export default function DashboardPage() {
+  const { locale, t, tp } = useI18n();
+
   // Auth / loading
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
@@ -85,7 +90,7 @@ export default function DashboardPage() {
       setError("");
       setRecipes(await apiClient.listRecipes());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load recipes");
+      setError(err instanceof Error ? err.message : t("dashboard.load-failed"));
     }
   };
 
@@ -108,7 +113,7 @@ export default function DashboardPage() {
     try {
       await apiClient.deleteRecipe(recipeToDelete.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete recipe");
+      setError(err instanceof Error ? err.message : t("dashboard.delete-failed"));
       return;
     }
     setRecipeToDelete(null);
@@ -239,7 +244,7 @@ export default function DashboardPage() {
             className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back
+            {t("common.back")}
           </button>
         ) : (
           <span />
@@ -251,7 +256,7 @@ export default function DashboardPage() {
             className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
             <Plus className="h-4 w-4" />
-            New recipe
+            {t("dashboard.new-recipe")}
           </button>
         )}
       </div>
@@ -267,21 +272,21 @@ export default function DashboardPage() {
         <div>
           <header className="mb-6">
             <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-4xl">
-              What shall we fetch?
+              {t("dashboard.title")}
             </h1>
             <p className="mt-1.5 text-muted">
               {recipes.length > 0
-                ? `${recipes.length} recipe${recipes.length === 1 ? "" : "s"} in the collection.`
-                : "Nothing in the collection yet."}
+                ? tp("dashboard.count", recipes.length)
+                : t("dashboard.empty-collection")}
             </p>
           </header>
 
           {recipes.length === 0 ? (
             <EmptyPanel
               icon={<ChefHat className="mx-auto mb-3 h-10 w-10 text-muted" aria-hidden />}
-              title="No recipes yet."
-              body="Write up the first one and it'll be here for everyone."
-              actionLabel="Add the first one"
+              title={t("dashboard.no-recipes-title")}
+              body={t("dashboard.no-recipes-body")}
+              actionLabel={t("dashboard.no-recipes-action")}
               onAction={() => setView("add")}
             />
           ) : (
@@ -289,10 +294,10 @@ export default function DashboardPage() {
               <NarrowRow
                 q={query}
                 onQueryChange={setQuery}
-                placeholder="Search by title…"
-                ariaLabel="Search recipes by title"
+                placeholder={t("dashboard.search-placeholder")}
+                ariaLabel={t("dashboard.search-label")}
                 resultCount={shown.length}
-                noun="recipe"
+                countKey="recipe-row.ingredients"
                 chips={
                   <>
                     {present.map((c) => (
@@ -302,7 +307,7 @@ export default function DashboardPage() {
                         onClick={() => setCategory(category === c.value ? null : c.value)}
                       >
                         <c.icon className="h-3.5 w-3.5" aria-hidden />
-                        {c.label}
+                        {t(`food-types.${c.value}.label` as MessageKey)}
                       </Chip>
                     ))}
                     {narrowed && <ClearChip onClick={clearFilters} />}
@@ -313,9 +318,9 @@ export default function DashboardPage() {
               {shown.length === 0 ? (
                 <EmptyPanel
                   icon={<SearchX className="mx-auto mb-3 h-8 w-8 text-muted" aria-hidden />}
-                  title="Nothing matches that."
-                  body="Try a shorter word, or drop the category."
-                  actionLabel="Clear"
+                  title={t("dashboard.no-match-title")}
+                  body={t("dashboard.no-match-body")}
+                  actionLabel={t("common.clear")}
                   onAction={clearFilters}
                 />
               ) : (
@@ -355,16 +360,18 @@ export default function DashboardPage() {
                     style={{ backgroundColor: `${meta.accent}22`, color: meta.accent }}
                   >
                     <MetaIcon className="h-3.5 w-3.5" aria-hidden />
-                    {meta.label}
+                    {t(`food-types.${meta.value}.label` as MessageKey)}
                   </span>
                 )}
                 <h1 className="font-display text-2xl font-bold text-fg sm:text-3xl">
                   {selectedRecipe.title}
                 </h1>
                 <p className="mt-1 text-xs text-muted">
-                  By {selectedRecipe.created_by_name ?? "Unknown"} · Created{" "}
-                  {new Date(selectedRecipe.created_at).toLocaleDateString()} · Updated{" "}
-                  {new Date(selectedRecipe.updated_at).toLocaleDateString()}
+                  {t("dashboard.by-and-dates", {
+                    author: selectedRecipe.created_by_name ?? t("common.unknown"),
+                    created: formatDate(selectedRecipe.created_at, locale),
+                    updated: formatDate(selectedRecipe.updated_at, locale),
+                  })}
                 </p>
                 {selectedRecipe.source_url && (
                   <div className="mt-2">
@@ -376,16 +383,16 @@ export default function DashboardPage() {
                 <div className="flex shrink-0 items-center gap-1">
                   <button
                     onClick={() => setView("edit")}
-                    title="Edit"
-                    aria-label="Edit recipe"
+                    title={t("common.edit")}
+                    aria-label={t("dashboard.edit-aria")}
                     className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                   >
                     <Edit className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setRecipeToDelete(selectedRecipe)}
-                    title="Delete"
-                    aria-label="Delete recipe"
+                    title={t("common.delete")}
+                    aria-label={t("dashboard.delete-aria")}
                     className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -397,7 +404,7 @@ export default function DashboardPage() {
             <div className="space-y-6 px-6 py-6">
               <section>
                 <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">
-                  Instructions
+                  {t("dashboard.instructions")}
                 </h2>
                 <p className="whitespace-pre-line leading-relaxed text-fg/90">
                   {selectedRecipe.instructions}
@@ -414,7 +421,7 @@ export default function DashboardPage() {
       {view === "add" && (
         <div className="mx-auto max-w-xl">
           <h1 className="mb-6 font-display text-2xl font-bold text-fg sm:text-3xl">
-            New recipe
+            {t("dashboard.new-recipe-title")}
           </h1>
           <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
             <RecipeForm
@@ -428,7 +435,7 @@ export default function DashboardPage() {
               }
               onSubmit={handleCreate}
               onCancel={goBack}
-              submitLabel="Add recipe"
+              submitLabel={t("recipe-form.submit-add")}
             />
           </div>
         </div>
@@ -438,7 +445,7 @@ export default function DashboardPage() {
       {view === "edit" && selectedRecipe && (
         <div className="mx-auto max-w-xl">
           <h1 className="mb-6 font-display text-2xl font-bold text-fg sm:text-3xl">
-            Edit recipe
+            {t("dashboard.edit-recipe-title")}
           </h1>
           <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
             <RecipeForm
@@ -451,7 +458,7 @@ export default function DashboardPage() {
               }}
               onSubmit={handleUpdate}
               onCancel={goBack}
-              submitLabel="Save changes"
+              submitLabel={t("common.save-changes")}
             />
           </div>
         </div>
