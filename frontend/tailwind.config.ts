@@ -23,6 +23,15 @@ export default {
         amber: { DEFAULT: "#F4A024", 600: "#E08E12", 700: "#C97A08" },
         ink: "#1A1A1A",
         cream: "#FBF7EF",
+        // ── Secondary accents ──
+        // These two already existed as FOOD_TYPES `accent` hexes but were never
+        // declared as tokens, so nothing outside the recipe grid could reach
+        // them. Promoted here so the palette the app actually uses is the
+        // palette the theme admits to: tomato and amber carry the brand, leaf
+        // and berry give a set of sibling items distinct identities without
+        // introducing a colour that isn't already on screen.
+        leaf: { DEFAULT: "#7FA650", 600: "#6E9244", 700: "#5C7A38" },
+        berry: { DEFAULT: "#E07A9B", 600: "#D06285", 700: "#B84E70" },
       },
       fontFamily: {
         display: ['var(--font-sans)', '"Helvetica Neue"', "Helvetica", "Arial", "sans-serif"],
@@ -61,6 +70,13 @@ export default {
           "0%,80%,100%": { transform: "translateY(0)", opacity: ".45" },
           "40%": { transform: "translateY(-9px)", opacity: "1" },
         },
+        // Hero entrance: a settle, not an arrival. `fetchIn` has a scale step
+        // that reads as a card popping in — right for a list of many, too
+        // busy for the one large element at the top of a page.
+        settle: {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
         // Skeleton shimmer — a light sweep, calmer than pulsing opacity.
         sweep: {
           "0%": { backgroundPosition: "-160% 0" },
@@ -75,6 +91,7 @@ export default {
         pop: "pop .3s ease-out",
         "bounce-dot": "bounceDot 1.2s ease-in-out infinite",
         sweep: "sweep 1.6s ease-in-out infinite",
+        settle: "settle .45s cubic-bezier(.22,.9,.27,1) both",
       },
     },
   },
