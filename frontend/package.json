@@ -6,7 +6,7 @@
     "dev": "next dev -p 8080",
     "build": "next build",
     "start": "next start -p 8080",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "icons": "node scripts/generate-icons.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

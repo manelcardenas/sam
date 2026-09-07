@@ -1,4 +1,7 @@
+"use client";
+
 import { Quote } from "lucide-react";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 /**
  * Price as €…€€€€ with the unused tiers dimmed.
@@ -8,10 +11,11 @@ import { Quote } from "lucide-react";
  * down a column of cards.
  */
 export function PriceLevel({ level, className = "" }: { level: number; className?: string }) {
+  const { t } = useI18n();
   return (
     <span
       className={`font-semibold tracking-tight tabular-nums ${className}`}
-      aria-label={`Price level ${level} of 4`}
+      aria-label={t("dine-filters.price-level", { level })}
     >
       {[1, 2, 3, 4].map((n) => (
         <span key={n} className={n <= level ? "text-fg" : "text-muted/35"} aria-hidden>
@@ -36,6 +40,7 @@ export function ScoreBadge({
   score: number | null;
   size?: "md" | "lg";
 }) {
+  const { t } = useI18n();
   const scored = score != null;
   const dimensions = size === "lg" ? "h-14 w-14 text-2xl" : "h-11 w-11 text-lg";
 
@@ -48,7 +53,11 @@ export function ScoreBadge({
           ? "bg-tomato/10 text-tomato-700 ring-1 ring-inset ring-tomato/20 dark:bg-tomato/20 dark:text-tomato dark:ring-tomato/25"
           : "bg-surface-2 text-muted/70 ring-1 ring-inset ring-line"
       }`}
-      aria-label={scored ? `Rated ${score!.toFixed(1)} out of 10` : "Not yet rated"}
+      aria-label={
+        scored
+          ? t("restaurant-card.rated", { score: score!.toFixed(1) })
+          : t("restaurant-card.not-rated")
+      }
     >
       {scored ? score!.toFixed(1) : "—"}
     </span>

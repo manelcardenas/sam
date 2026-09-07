@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 
 import { UserProvider } from "@/components/auth/UserProvider";
+import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
+import en from "@/messages/en.json";
 import { Arimo, Fraunces } from "next/font/google";
 import "./globals.css";
 
@@ -30,17 +32,22 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
+// The document title and description come from the English copy file rather
+// than being written twice. They stay English regardless of the chosen
+// language: `metadata` is evaluated at build time and this is a static export,
+// so there is no per-locale HTML to put a translated title in. It is the one
+// string the language switch cannot reach, and the honest fix would be
+// per-locale routing, which `output: 'export'` rules out.
 export const metadata: Metadata = {
-  title: "SAM — Cook & Dine",
-  description:
-    "SAM the border collie fetches your food world: cook at home or find somewhere to eat out.",
+  title: en.app.name,
+  description: en.app.description,
   // iOS ignores the web manifest's `display: "standalone"`. Chrome-less launch
   // from the home screen comes from the apple-mobile-web-app-capable meta tag,
   // which Next emits from this block. Without it, app/manifest.ts fixes the
   // Android install and iOS still opens in a Safari tab with the address bar.
   appleWebApp: {
     capable: true,
-    title: "SAM",
+    title: en.app["short-name"],
     statusBarStyle: "default", // keeps the cream page showing through the status bar
   },
   other: {
@@ -68,13 +75,30 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-// Set the theme class before first paint so there's no flash of the wrong mode.
-const themeScript = `
+// Applied before first paint, so there's no flash of the wrong mode and no
+// moment where <html lang> disagrees with the copy about to be rendered.
+//
+// `lang` is worth setting this early for a reason beyond tidiness: it is what a
+// screen reader reads to choose a pronunciation, and what the browser uses for
+// hyphenation and spellcheck. Getting it right one frame later would mean the
+// first announcement is in the wrong accent.
+const bootScript = `
 (function(){try{
   var stored = localStorage.getItem('sam-theme');
   var dark = stored ? stored === 'dark'
     : window.matchMedia('(prefers-color-scheme: dark)').matches;
   if (dark) document.documentElement.classList.add('dark');
+
+  var locale = localStorage.getItem('sam-locale');
+  if (locale !== 'en' && locale !== 'es' && locale !== 'ca') {
+    locale = null;
+    var langs = navigator.languages || [navigator.language || 'en'];
+    for (var i = 0; i < langs.length && !locale; i++) {
+      var base = String(langs[i]).toLowerCase().split('-')[0];
+      if (base === 'en' || base === 'es' || base === 'ca') locale = base;
+    }
+  }
+  document.documentElement.lang = locale || 'en';
 }catch(e){}})();
 `;
 
@@ -84,18 +108,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // `lang` is set pre-paint by bootScript above and kept in step by
+    // LocaleProvider; "en" is the static-export default that ships in the HTML.
     <html
       lang="en"
       className={`${arimo.variable} ${fraunces.variable}`}
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: bootScript }} />
       </head>
       <body className="antialiased min-h-screen bg-bg text-fg">
-        {/* Holds the signed-in profile for the whole session, so pages stop
-            re-fetching /users/me on every mount. */}
-        <UserProvider>{children}</UserProvider>
+        {/* LocaleProvider wraps UserProvider because copy is needed by more of
+            the tree than the session is — including the pages that render
+            before auth resolves. */}
+        <LocaleProvider>
+          {/* Holds the signed-in profile for the whole session, so pages stop
+              re-fetching /users/me on every mount. */}
+          <UserProvider>{children}</UserProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

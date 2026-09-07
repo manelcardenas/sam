@@ -13,6 +13,8 @@ import {
   type RestaurantDetail,
 } from "@/lib/api-client";
 import { MapLoading } from "@/components/map/MapLoading";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 
 // MapLibre is heavy and DOM-only — fetched only when someone opens the pin picker.
 const PinPickerMap = dynamic(() => import("@/components/map/PinPickerMap"), {
@@ -58,6 +60,7 @@ export default function RestaurantForm({
   onSelectExisting,
   submitLabel,
 }: RestaurantFormProps) {
+  const { t } = useI18n();
   const [name, setName] = useState(initialData?.name ?? "");
   const [area, setArea] = useState("");
   const [areaSuggestions, setAreaSuggestions] = useState<Area[]>([]);
@@ -304,7 +307,7 @@ export default function RestaurantForm({
     e.preventDefault();
     setError("");
     if (!name.trim()) {
-      setError("Name is required.");
+      setError(t("restaurant-form.name-required"));
       return;
     }
     setSubmitting(true);
@@ -338,7 +341,7 @@ export default function RestaurantForm({
 
       <div>
         <label htmlFor="name" className={labelClass}>
-          Name *
+          {t("restaurant-form.name")} {t("common.required-marker")}
         </label>
         <input
           id="name"
@@ -347,13 +350,14 @@ export default function RestaurantForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           className={fieldClass}
-          placeholder="e.g. Casa Pepe"
+          placeholder={t("restaurant-form.name-placeholder")}
         />
 
         {creating && (
           <div className="mt-3">
             <span className="mb-1.5 block text-xs font-semibold text-muted">
-              Where is it? <span className="font-normal">(helps find the right one on the map)</span>
+              {t("restaurant-form.where")}{" "}
+              <span className="font-normal">{t("restaurant-form.where-hint")}</span>
             </span>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -363,7 +367,7 @@ export default function RestaurantForm({
                 className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line px-3.5 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
               >
                 <LocateFixed className="h-4 w-4" />
-                {locating ? "Locating…" : "Near me"}
+                {locating ? t("restaurant-form.locating") : t("restaurant-form.near-me")}
               </button>
               <div className="relative min-w-0 flex-1 basis-48">
                 <input
@@ -374,8 +378,8 @@ export default function RestaurantForm({
                     if (selectedArea && e.target.value !== selectedArea.label) setSelectedArea(null);
                   }}
                   maxLength={150}
-                  aria-label="City, neighbourhood or address to search in"
-                  placeholder="…or a city / address, e.g. Zaragoza"
+                  aria-label={t("restaurant-form.area-label")}
+                  placeholder={t("restaurant-form.area-placeholder")}
                   className="w-full rounded-full border border-line bg-surface px-3.5 py-2.5 text-sm text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
                 />
                 {areaSuggestions.length > 0 && (
@@ -401,7 +405,7 @@ export default function RestaurantForm({
                 className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line px-3.5 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
               >
                 <MapPin className="h-4 w-4" />
-                Drop a pin
+                {t("restaurant-form.drop-a-pin")}
               </button>
             </div>
             {(selectedArea || nearYou || locateError) && (
@@ -410,13 +414,14 @@ export default function RestaurantForm({
                   <>
                     <MapPin className="h-3.5 w-3.5 shrink-0 text-tomato" />
                     <span className="min-w-0 truncate">
-                      Searching around <span className="font-semibold text-fg">{selectedArea.name}</span>
+                      {t("restaurant-form.searching-around")}{" "}
+                      <span className="font-semibold text-fg">{selectedArea.name}</span>
                     </span>
                     <button
                       type="button"
                       onClick={clearArea}
-                      title="Clear search area"
-                      aria-label="Clear search area"
+                      title={t("restaurant-form.clear-area")}
+                      aria-label={t("restaurant-form.clear-area")}
                       className="cursor-pointer rounded-full p-0.5 text-muted transition-colors hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -425,7 +430,7 @@ export default function RestaurantForm({
                 ) : nearYou ? (
                   <>
                     <LocateFixed className="h-3.5 w-3.5 shrink-0 text-tomato" />
-                    <span>Results are ranked by distance from you</span>
+                    <span>{t("restaurant-form.ranked-by-distance")}</span>
                   </>
                 ) : (
                   <span>{locateError}</span>
@@ -434,7 +439,7 @@ export default function RestaurantForm({
             )}
             {!showPinMap && !pinnedCoords && !selectedPlace && name.trim().length >= 2 && searchingPlaces && (
               <p className="mt-1.5 text-xs text-muted" role="status">
-                Sniffing out matches…
+                {t("common.searching")}
               </p>
             )}
             {!showPinMap &&
@@ -450,7 +455,7 @@ export default function RestaurantForm({
                   onClick={openPinMap}
                   className="cursor-pointer font-semibold text-tomato underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                 >
-                  Drop a pin
+                  {t("restaurant-form.drop-a-pin")}
                 </button>{" "}
                 instead.
               </p>
@@ -470,7 +475,7 @@ export default function RestaurantForm({
                 className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-3.5 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
               >
                 <MapPin className="h-4 w-4" />
-                {effectiveCoords ? "Adjust the pin" : "Drop a pin on the map"}
+                {effectiveCoords ? t("restaurant-form.adjust-pin") : t("restaurant-form.drop-pin-on-map")}
               </button>
             )}
           </div>
@@ -497,14 +502,14 @@ export default function RestaurantForm({
                 className="flex cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
               >
                 <Check className="h-4 w-4" />
-                Use this spot
+                {t("restaurant-form.use-this-spot")}
               </button>
               <button
                 type="button"
                 onClick={() => setShowPinMap(false)}
                 className="cursor-pointer rounded-full border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
           </div>
@@ -514,14 +519,14 @@ export default function RestaurantForm({
           <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-tomato" />
             <span className="truncate">
-              <span className="font-semibold text-fg">Pinned on the map</span>
+              <span className="font-semibold text-fg">{t("restaurant-form.pinned")}</span>
               {!creating && " — saved with your changes"}
             </span>
             <button
               type="button"
               onClick={clearPin}
-              title="Remove pin"
-              aria-label="Remove pin"
+              title={t("restaurant-form.remove-pin")}
+              aria-label={t("restaurant-form.remove-pin")}
               className="cursor-pointer rounded-full p-0.5 text-muted transition-colors hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
               <X className="h-3.5 w-3.5" />
@@ -533,13 +538,14 @@ export default function RestaurantForm({
           <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-tomato" />
             <span className="truncate">
-              Mapped to <span className="font-semibold text-fg">{selectedPlace.name}</span>
+              {t("restaurant-form.mapped-to")}{" "}
+              <span className="font-semibold text-fg">{selectedPlace.name}</span>
             </span>
             <button
               type="button"
               onClick={() => setSelectedPlace(null)}
-              title="Remove map link"
-              aria-label="Remove map link"
+              title={t("restaurant-form.remove-map-link")}
+              aria-label={t("restaurant-form.remove-map-link")}
               className="cursor-pointer rounded-full p-0.5 text-muted transition-colors hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
               <X className="h-3.5 w-3.5" />
@@ -554,10 +560,10 @@ export default function RestaurantForm({
             <>
               <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-fg">
                 <Search className="h-4 w-4 text-muted" />
-                Already on SAM?
+                {t("restaurant-form.already-here")}
               </p>
               <p className="mb-3 text-xs text-muted">
-                Someone may have added this place already — pick it instead of creating a duplicate.
+                {t("restaurant-form.already-here-body")}
               </p>
               <ul className="space-y-2">
                 {matches.map((m) => (
@@ -576,9 +582,9 @@ export default function RestaurantForm({
             <>
               <p className={`mb-2 flex items-center gap-1.5 text-sm font-semibold text-fg ${matches.length > 0 ? "mt-4" : ""}`}>
                 <MapPin className="h-4 w-4 text-muted" />
-                From the map
+                {t("restaurant-form.from-the-map")}
               </p>
-              <p className="mb-3 text-xs text-muted">Pick the place you&rsquo;re at to fill in its details.</p>
+              <p className="mb-3 text-xs text-muted">{t("restaurant-form.from-the-map-body")}</p>
               <ul className="space-y-2">
                 {placeMatches.map((p) => (
                   <li key={p.external_place_id}>
@@ -595,7 +601,7 @@ export default function RestaurantForm({
                 ))}
               </ul>
               <p className="mt-3 text-right text-[10px] text-muted/70">
-                Powered by Geoapify · © OpenStreetMap contributors
+                {t("restaurant-form.attribution")}
               </p>
             </>
           )}
@@ -604,7 +610,8 @@ export default function RestaurantForm({
 
       <div>
         <label htmlFor="address" className={labelClass}>
-          Address <span className="font-normal text-muted">(optional)</span>
+          {t("restaurant-form.address")}{" "}
+          <span className="font-normal text-muted">{t("common.optional")}</span>
         </label>
         <input
           id="address"
@@ -613,13 +620,14 @@ export default function RestaurantForm({
           maxLength={500}
           onChange={(e) => setAddress(e.target.value)}
           className={fieldClass}
-          placeholder="Carrer Gran de Gràcia, 1"
+          placeholder={t("restaurant-form.address-placeholder")}
         />
       </div>
 
       <div>
         <label className={labelClass}>
-          Price level <span className="font-normal text-muted">(optional)</span>
+          {t("restaurant-form.price-level")}{" "}
+          <span className="font-normal text-muted">{t("common.optional")}</span>
         </label>
         <div className="grid grid-cols-4 gap-2">
           {([1, 2, 3, 4] as const).map((level) => {
@@ -645,7 +653,8 @@ export default function RestaurantForm({
       {cuisineOptions.length > 0 && (
         <div>
           <label className={labelClass}>
-            Cuisine <span className="font-normal text-muted">(optional, pick any that apply)</span>
+            {t("restaurant-form.cuisine")}{" "}
+            <span className="font-normal text-muted">{t("restaurant-form.cuisine-hint")}</span>
           </label>
           <div className="flex flex-wrap gap-2">
             {cuisineOptions.map((c) => {
@@ -661,7 +670,7 @@ export default function RestaurantForm({
                       : "border-line text-muted hover:border-tomato/40 hover:text-fg"
                   }`}
                 >
-                  {c.name}
+                  {t(`cuisines.${c.name}` as MessageKey)}
                 </button>
               );
             })}
@@ -676,7 +685,7 @@ export default function RestaurantForm({
           className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
         >
           <Save className="h-4 w-4" />
-          {submitting ? "Saving…" : submitLabel}
+          {submitting ? t("common.saving") : submitLabel}
         </button>
         <button
           type="button"
@@ -684,7 +693,7 @@ export default function RestaurantForm({
           className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-5 py-3 font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
         >
           <X className="h-4 w-4" />
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </form>

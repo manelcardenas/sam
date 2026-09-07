@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cuisineAccent } from "@/lib/cuisines";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 import type { RestaurantDetail } from "@/lib/api-client";
 import { formatRelativeDate, formatReviewers } from "@/lib/format";
 import { PriceLevel, QuoteBlock, ScoreBadge, quoteAttribution } from "@/components/dine/atoms";
@@ -34,6 +37,7 @@ export function RecentVisitsRail({
   restaurants: RestaurantDetail[];
   onSelect: (restaurant: RestaurantDetail) => void;
 }) {
+  const { t } = useI18n();
   const scrollerRef = useRef<HTMLUListElement | null>(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
@@ -96,16 +100,16 @@ export function RecentVisitsRail({
             id="lately-heading"
             className="font-serif text-xl font-semibold italic text-fg sm:text-2xl"
           >
-            Lately
+            {t("recent-visits.eyebrow")}
           </h2>
-          <p className="text-sm text-muted">Where the pack has been eating.</p>
+          <p className="text-sm text-muted">{t("recent-visits.blurb")}</p>
         </div>
 
         <div className="hidden shrink-0 items-center gap-1 sm:flex" aria-hidden>
-          <RailButton onClick={() => scrollByCard(-1)} disabled={atStart} label="Scroll left">
+          <RailButton onClick={() => scrollByCard(-1)} disabled={atStart} label={t("recent-visits.scroll-left")}>
             <ChevronLeft className="h-4 w-4" />
           </RailButton>
-          <RailButton onClick={() => scrollByCard(1)} disabled={atEnd} label="Scroll right">
+          <RailButton onClick={() => scrollByCard(1)} disabled={atEnd} label={t("recent-visits.scroll-right")}>
             <ChevronRight className="h-4 w-4" />
           </RailButton>
         </div>
@@ -126,7 +130,7 @@ export function RecentVisitsRail({
         // who don't tab into a child first.
         tabIndex={0}
         role="list"
-        aria-label="Recent visits"
+        aria-label={t("recent-visits.list-label")}
         className="rail-scroll -mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 sm:mx-0 sm:scroll-pl-0 sm:px-0"
       >
         {recent.map((r, i) => (
@@ -182,7 +186,8 @@ function RailCard({
   restaurant: RestaurantDetail;
   onClick: () => void;
 }) {
-  const reviewers = formatReviewers(r.reviewer_names);
+  const { locale, t, tp } = useI18n();
+  const reviewers = formatReviewers(r.reviewer_names, (n) => tp("restaurant-card.more-reviewers", n));
   const attribution = quoteAttribution({
     reviewerNames: r.reviewer_names,
     lastCommentBy: r.last_comment_by,
@@ -206,7 +211,16 @@ function RailCard({
               </button>
             </h3>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[0.7rem] uppercase tracking-wide text-muted">
-              {r.cuisines.length > 0 && <span className="truncate">{r.cuisines[0]}</span>}
+              {r.cuisines.length > 0 && (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: cuisineAccent(r.cuisines[0]) }}
+                  />
+                  <span className="truncate">{t(`cuisines.${r.cuisines[0]}` as MessageKey)}</span>
+                </span>
+              )}
               {r.price_level && <PriceLevel level={r.price_level} className="text-[0.7rem]" />}
             </p>
           </div>
@@ -217,11 +231,11 @@ function RailCard({
             <QuoteBlock
               comment={r.last_comment}
               by={attribution.by}
-              when={attribution.showDate && r.last_comment_at ? formatRelativeDate(r.last_comment_at) : null}
+              when={attribution.showDate && r.last_comment_at ? formatRelativeDate(r.last_comment_at, locale) : null}
               lines={3}
             />
           ) : (
-            <p className="text-sm italic text-muted">No notes from this one.</p>
+            <p className="text-sm italic text-muted">{t("recent-visits.no-notes")}</p>
           )}
         </div>
 
@@ -229,7 +243,7 @@ function RailCard({
           {reviewers && <span className="min-w-0 truncate">{reviewers}</span>}
           {r.last_visited_at && (
             <span className="ml-auto shrink-0 whitespace-nowrap font-medium">
-              {formatRelativeDate(r.last_visited_at)}
+              {formatRelativeDate(r.last_visited_at, locale)}
             </span>
           )}
         </p>

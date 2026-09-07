@@ -6,6 +6,9 @@ import { signOut } from "aws-amplify/auth";
 import { LogOut, User } from "lucide-react";
 import { SamMascot } from "@/components/brand/SamMascot";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 import { WORLDS, type WorldId } from "@/lib/worlds";
 
 /**
@@ -21,6 +24,7 @@ export function AppShell({
   userName?: string;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const router = useRouter();
 
@@ -48,20 +52,21 @@ export function AppShell({
               <span className="font-display text-xl font-bold tracking-tight text-fg">
                 SAM
               </span>
-              <span className="text-[11px] font-medium text-muted">Cook &amp; Dine</span>
+              <span className="text-[11px] font-medium text-muted">{t("shell.cook-and-dine")}</span>
             </span>
           </Link>
 
-          <nav className="hidden md:block" aria-label="Worlds">
+          <nav className="hidden md:block" aria-label={t("shell.worlds")}>
             <WorldSwitch active={onProfile ? null : activeWorld} />
           </nav>
 
           <div className="flex items-center gap-1">
             <ThemeToggle />
+            <LanguageToggle />
             <Link
               href="/profile"
-              aria-label="Your profile"
-              title="Profile"
+              aria-label={t("shell.your-profile")}
+              title={t("shell.profile")}
               className={`flex h-11 items-center gap-2 rounded-full px-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
                 onProfile ? "bg-surface-2" : "hover:bg-surface-2"
               }`}
@@ -78,8 +83,8 @@ export function AppShell({
             <button
               type="button"
               onClick={handleSignOut}
-              aria-label="Sign out"
-              title="Sign out"
+              aria-label={t("shell.sign-out")}
+              title={t("shell.sign-out")}
               className="flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
               <LogOut className="h-5 w-5" />
@@ -99,6 +104,7 @@ export function AppShell({
 
 /** Desktop segmented control for switching worlds. */
 function WorldSwitch({ active }: { active: WorldId | null }) {
+  const { t } = useI18n();
   return (
     <div className="inline-flex items-center rounded-full border border-line bg-surface p-1">
       {WORLDS.map((w) => {
@@ -116,7 +122,7 @@ function WorldSwitch({ active }: { active: WorldId | null }) {
             }`}
           >
             <Icon className="h-4 w-4" />
-            {w.label}
+            {t(`worlds.${w.id}.label` as MessageKey)}
           </Link>
         );
       })}
@@ -132,6 +138,7 @@ function MobileTabBar({
   activeWorld: WorldId;
   onProfile: boolean;
 }) {
+  const { t } = useI18n();
   const tabs: {
     key: string;
     label: string;
@@ -141,17 +148,17 @@ function MobileTabBar({
   }[] = [
     ...WORLDS.map((w) => ({
       key: w.id,
-      label: w.label,
+      label: t(`worlds.${w.id}.label` as MessageKey),
       href: w.href,
       icon: w.icon,
       active: !onProfile && activeWorld === w.id,
     })),
-    { key: "profile", label: "You", href: "/profile", icon: User, active: onProfile },
+    { key: "profile", label: t("shell.you"), href: "/profile", icon: User, active: onProfile },
   ];
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t("shell.primary-navigation")}
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 backdrop-blur md:hidden"
     >
       <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">

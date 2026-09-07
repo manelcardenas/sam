@@ -38,9 +38,22 @@ class RestaurantDetail(Restaurant):
 
 
 class RestaurantSort(StrEnum):
+    """The orderings the archive offers.
+
+    Deliberately five named orderings rather than two keys plus a direction
+    flag. Direction is a decision per ordering, not a modifier: reversing
+    RATING does *not* mean flipping the sort, because unreviewed restaurants
+    must stay at the bottom either way — no score is not a bad score. A flag
+    would put them at the top of RATING_LOW and imply they were the worst.
+
+    NAME is used by the create-form dedup lookup, not offered in the UI.
+    """
+
     RECENT = "recent"
+    OLDEST = "oldest"
     NAME = "name"
     RATING = "rating"
+    RATING_LOW = "rating_low"
 
 
 class RestaurantFilters(BaseModel):

@@ -7,11 +7,13 @@ import { useMe } from "@/components/auth/UserProvider";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { SamMascot } from "@/components/brand/SamMascot";
 import { Loader } from "@/components/ui/Loader";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 const fieldClass =
   "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
 
 export default function CompleteProfilePage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [displayName, setDisplayName] = useState("");
@@ -45,9 +47,9 @@ export default function CompleteProfilePage() {
       router.replace("/dashboard");
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError("That name is already taken — pick another.");
+        setError(t("complete-profile.name-taken"));
       } else {
-        setError(err instanceof Error ? err.message : "Failed to save your name.");
+        setError(err instanceof Error ? err.message : t("complete-profile.save-failed"));
       }
       setSaving(false);
     }
@@ -61,11 +63,10 @@ export default function CompleteProfilePage() {
         <div className="mb-8 text-center">
           <SamMascot className="mx-auto h-44 w-44" />
           <h1 className="mt-4 font-display text-3xl font-bold text-fg">
-            One more sniff!
+            {t("complete-profile.title")}
           </h1>
           <p className="mx-auto mt-2 max-w-xs text-balance text-muted">
-            What should SAM call you? This is how you&apos;ll appear as the author of
-            your recipes.
+            {t("complete-profile.body")}
           </p>
         </div>
 
@@ -79,7 +80,7 @@ export default function CompleteProfilePage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="displayName" className="mb-1.5 block text-sm font-semibold text-fg">
-                Display name
+                {t("complete-profile.display-name")}
               </label>
               <input
                 id="displayName"
@@ -91,7 +92,7 @@ export default function CompleteProfilePage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 className={fieldClass}
-                placeholder="e.g. Manel"
+                placeholder={t("complete-profile.display-name-placeholder")}
               />
             </div>
 
@@ -100,7 +101,7 @@ export default function CompleteProfilePage() {
               disabled={saving || displayName.trim().length === 0}
               className="flex w-full cursor-pointer items-center justify-center rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
-              {saving ? "Saving…" : "Let's go"}
+              {saving ? t("common.saving") : t("complete-profile.submit")}
             </button>
           </form>
         </div>

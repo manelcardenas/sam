@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 /**
  * Light/dark toggle. The initial theme is applied pre-paint by the inline
  * script in layout.tsx; this just reflects + flips it and persists the choice.
  */
 export function ThemeToggle({ className }: { className?: string }) {
+  const { t } = useI18n();
   const [dark, setDark] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -31,8 +33,8 @@ export function ThemeToggle({ className }: { className?: string }) {
     <button
       type="button"
       onClick={toggle}
-      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-      title={dark ? "Light mode" : "Dark mode"}
+      aria-label={dark ? t("shell.theme-to-light") : t("shell.theme-to-dark")}
+      title={dark ? t("shell.theme-light") : t("shell.theme-dark")}
       className={`flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${className ?? ""}`}
     >
       {/* Avoid a hydration flash: render nothing decisive until mounted. */}

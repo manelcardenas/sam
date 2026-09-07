@@ -59,27 +59,32 @@ class InMemoryRestaurantRepository(RestaurantRepository):
                 restaurants = [
                     r for r in restaurants if (agg := aggregates.get(r.id)) is not None and agg.average_overall is not None and agg.average_overall >= filters.min_score
                 ]
-            if filters.sort is RestaurantSort.RATING:
-                # Mirrors the SQL: score desc, then review count desc, then name.
-                # The leading boolean pushes unrated restaurants to the end the way
-                # NULLS LAST does, instead of letting them sort as 0.
+            # In every branch the leading boolean pushes rows with no value to
+            # the end the way the SQL's NULLS LAST does, instead of letting them
+            # sort as 0 — including in the ascending orderings, where sorting as
+            # 0 would rank an unreviewed restaurant as the worst one.
+            if filters.sort in (RestaurantSort.RATING, RestaurantSort.RATING_LOW):
+                # Mirrors the SQL: score, then review count desc, then name.
+                direction = 1 if filters.sort is RestaurantSort.RATING_LOW else -1
                 return sorted(
                     restaurants,
                     key=lambda r: (
                         (agg := aggregates.get(r.id)) is None or agg.average_overall is None,
-                        -(agg.average_overall if agg and agg.average_overall is not None else 0),
+                        direction * (agg.average_overall if agg and agg.average_overall is not None else 0),
+                        # Not mirrored: the better-evidenced verdict wins either way.
                         -(agg.review_count if agg else 0),
                         r.name,
                     ),
                 )
 
-            if filters.sort is RestaurantSort.RECENT:
+            if filters.sort in (RestaurantSort.RECENT, RestaurantSort.OLDEST):
                 # None sorts last, matching the SQL's NULLS LAST; name breaks ties.
+                direction = 1 if filters.sort is RestaurantSort.OLDEST else -1
                 return sorted(
                     restaurants,
                     key=lambda r: (
                         (agg := aggregates.get(r.id)) is None or agg.last_visited_at is None,
-                        -(agg.last_visited_at.toordinal() if agg and agg.last_visited_at else 0),
+                        direction * (agg.last_visited_at.toordinal() if agg and agg.last_visited_at else 0),
                         r.name,
                     ),
                 )

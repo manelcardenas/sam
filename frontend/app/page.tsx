@@ -7,11 +7,13 @@ import { configureAmplify } from "@/lib/amplify";
 import { FcGoogle } from "react-icons/fc";
 import { SamMascot } from "@/components/brand/SamMascot";
 import { Loader } from "@/components/ui/Loader";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 const fieldClass =
   "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,7 +46,7 @@ export default function LoginPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to sign in. Please check your credentials.",
+          : t("landing.sign-in-failed"),
       );
     } finally {
       setLoading(false);
@@ -59,12 +61,12 @@ export default function LoginPage() {
       await signInWithRedirect({ provider: "Google" });
     } catch (err) {
       console.error("Google login error:", err);
-      setError(err instanceof Error ? err.message : "Failed to sign in with Google");
+      setError(err instanceof Error ? err.message : t("landing.google-sign-in-failed"));
       setLoading(false);
     }
   };
 
-  if (checking) return <Loader label="Sniffing around…" />;
+  if (checking) return <Loader />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg bg-paws p-4">
@@ -76,7 +78,7 @@ export default function LoginPage() {
             SAM
           </h1>
           <p className="mx-auto mt-2 max-w-xs text-balance text-muted">
-            Cook at home or dine out — your border collie fetches both.
+            {t("landing.tagline")}
           </p>
         </div>
 
@@ -91,7 +93,7 @@ export default function LoginPage() {
           <form onSubmit={handleEmailPasswordLogin} className="space-y-4">
             <div>
               <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-fg">
-                Email
+                {t("landing.email")}
               </label>
               <input
                 id="email"
@@ -102,13 +104,13 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={fieldClass}
-                placeholder="your@email.com"
+                placeholder={t("landing.email-placeholder")}
               />
             </div>
 
             <div>
               <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-fg">
-                Password
+                {t("landing.password")}
               </label>
               <input
                 id="password"
@@ -128,7 +130,7 @@ export default function LoginPage() {
               disabled={loading}
               className="flex w-full cursor-pointer items-center justify-center rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
-              {loading ? "Fetching you in…" : "Sign in"}
+              {loading ? t("landing.signing-in") : t("landing.sign-in")}
             </button>
           </form>
 
@@ -138,7 +140,7 @@ export default function LoginPage() {
             </div>
             <div className="relative flex justify-center">
               <span className="bg-surface px-3 text-xs font-medium text-muted">
-                or continue with
+                {t("landing.or")}
               </span>
             </div>
           </div>
@@ -150,12 +152,12 @@ export default function LoginPage() {
             className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-line bg-surface py-3 px-4 font-semibold text-fg transition-colors hover:border-tomato/40 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
             <FcGoogle className="h-5 w-5" />
-            Sign in with Google
+            {t("landing.google-sign-in")}
           </button>
 
           <p className="mt-6 text-center text-sm text-muted">
-            New around here?{" "}
-            <span className="font-semibold text-tomato">Ask your admin for an invite</span>
+            {t("landing.new-here")}{" "}
+            <span className="font-semibold text-tomato">{t("landing.no-account")}</span>
           </p>
         </div>
       </div>

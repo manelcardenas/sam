@@ -31,9 +31,9 @@ import {
   type FilterState,
 } from "@/components/dine/RestaurantFilters";
 import { DineSkeleton } from "@/components/dine/DineSkeleton";
-import { SortControl } from "@/components/dine/SortControl";
 import { PriceLevel, ScoreBadge } from "@/components/dine/atoms";
 import { formatRelativeDate, formatVisitedDate } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { useFlipGrid } from "@/lib/useFlipGrid";
 import { MapLoading } from "@/components/map/MapLoading";
 import {
@@ -77,6 +77,7 @@ function ScoreRow({ label, value }: { label: string; value: number | null }) {
 }
 
 export default function DinePage() {
+  const { locale, t, tp } = useI18n();
 
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
@@ -114,9 +115,14 @@ export default function DinePage() {
       // vocabulary) care about the sequence.
       if (!isFiltered(state) && state.sort === DEFAULT_SORT) setArchive(results);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load restaurants");
+      setError(err instanceof Error ? err.message : t("dine.load-failed"));
     }
-  }, []);
+    // `t` is a real dependency: its identity changes with the locale. The cost
+    // is one extra debounced refetch when someone switches language, which at
+    // this list size is not worth a ref to avoid — and the alternative,
+    // suppressing the rule, would hide a genuinely stale closure if this
+    // callback ever reads more than an error string from the dictionary.
+  }, [t]);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -187,7 +193,7 @@ export default function DinePage() {
       setReviews(restaurantReviews);
       setView("detail");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load restaurant");
+      setError(err instanceof Error ? err.message : t("dine.load-one-failed"));
     }
   };
 
@@ -201,7 +207,7 @@ export default function DinePage() {
     await refreshLists();
     await openRestaurant(restaurant);
     if (alreadyExisted) {
-      setNotice(`${restaurant.name} was already on SAM — here's the existing entry.`);
+      setNotice(t("dine.already-added", { name: restaurant.name }));
     }
   };
 
@@ -235,7 +241,7 @@ export default function DinePage() {
     try {
       await apiClient.deleteReview(selectedRestaurant.id, reviewToDelete.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete review");
+      setError(err instanceof Error ? err.message : t("dine.delete-review-failed"));
       return;
     }
     setReviewToDelete(null);
@@ -372,12 +378,6 @@ export default function DinePage() {
   if (loading) {
     return (
       <AppShell>
-        <header className="mb-7">
-          <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-[2.5rem] sm:leading-[1.1]">
-            Where shall we eat?
-          </h1>
-          <p className="mt-1.5 text-muted">Fetching the record…</p>
-        </header>
         <DineSkeleton />
       </AppShell>
     );
@@ -392,7 +392,7 @@ export default function DinePage() {
             className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back
+            {t("common.back")}
           </button>
         ) : (
           <span />
@@ -404,7 +404,7 @@ export default function DinePage() {
             className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
             <Plus className="h-4 w-4" />
-            New restaurant
+            {t("dine.new-restaurant")}
           </button>
         )}
       </div>
@@ -426,12 +426,10 @@ export default function DinePage() {
         <div>
           <header className="mb-7">
             <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-[2.5rem] sm:leading-[1.1]">
-              Where shall we eat?
+              {t("dine.title")}
             </h1>
             <p className="mt-1.5 text-muted">
-              {archive.length > 0
-                ? `${archive.length} place${archive.length === 1 ? "" : "s"} the pack has eaten at.`
-                : "Every place the pack has reviewed."}
+              {archive.length > 0 ? tp("dine.count", archive.length) : t("dine.empty-archive")}
             </p>
           </header>
 
@@ -442,8 +440,15 @@ export default function DinePage() {
           {archive.length > 0 && (
             <>
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="min-w-0 font-serif text-xl font-semibold italic text-fg sm:text-2xl">
-                  {filtering ? "Matching" : "Everywhere"}
+                <h2 className="flex min-w-0 items-baseline gap-2 font-serif text-xl font-semibold italic text-fg sm:text-2xl">
+                  {filtering ? t("dine.heading-matching") : t("dine.heading-all")}
+                  {/* Only worth printing while something is narrowing: "24 of
+                      24" beside "Everywhere" is noise. */}
+                  {filtering && (
+                    <span className="font-sans text-sm font-semibold not-italic tabular-nums text-muted">
+                      {t("dine.showing", { shown: restaurants.length, total: archive.length })}
+                    </span>
+                  )}
                 </h2>
 
                 {/* Cards/map is a way of looking at the same filtered set, so it
@@ -451,20 +456,20 @@ export default function DinePage() {
                     filters apply to both views. */}
                 <div
                   role="group"
-                  aria-label="View as"
+                  aria-label={t("dine.view-as")}
                   className="flex shrink-0 items-center gap-1 rounded-2xl border border-line bg-surface p-1"
                 >
                   <ModeButton
                     active={listMode === "cards"}
                     onClick={() => setListMode("cards")}
                     icon={<LayoutGrid className="h-4 w-4" aria-hidden />}
-                    label="Cards"
+                    label={t("dine.view-cards")}
                   />
                   <ModeButton
                     active={listMode === "map"}
                     onClick={() => setListMode("map")}
                     icon={<MapIcon className="h-4 w-4" aria-hidden />}
-                    label="Map"
+                    label={t("dine.view-map")}
                   />
                 </div>
               </div>
@@ -477,48 +482,35 @@ export default function DinePage() {
                 resultCount={restaurants.length}
                 busy={pending}
               />
-
-              {/* Ordering + count, on the results side of the divider: the
-                  controls above decide what is in the list, this row describes
-                  the list itself. Keeps sort from being mistaken for a filter. */}
-              <div className="mb-4 flex items-center justify-between gap-3 border-t border-line pt-4">
-                <SortControl
-                  value={filters.sort}
-                  onChange={(sort) => setFilters((f) => ({ ...f, sort }))}
-                />
-                <p className="shrink-0 text-sm tabular-nums text-muted">
-                  {restaurants.length} of {archive.length}
-                </p>
-              </div>
             </>
           )}
 
           {archive.length === 0 ? (
             <EmptyState
               icon={<UtensilsCrossed className="mx-auto mb-3 h-10 w-10 text-muted" aria-hidden />}
-              title="Nothing on the menu yet."
-              body="Add the first restaurant and SAM will start keeping the record."
+              title={t("dine.nothing-yet-title")}
+              body={t("dine.nothing-yet-body")}
               action={
                 <button
                   onClick={() => setView("add-restaurant")}
                   className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 py-3 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                 >
                   <Plus className="h-4 w-4" aria-hidden />
-                  Add the first one
+                  {t("dine.nothing-yet-action")}
                 </button>
               }
             />
           ) : restaurants.length === 0 ? (
             <EmptyState
               icon={<SearchX className="mx-auto mb-3 h-10 w-10 text-muted" aria-hidden />}
-              title="Nothing matches that."
-              body="Try loosening a filter — or add the place if it isn't here yet."
+              title={t("dine.no-match-title")}
+              body={t("dine.no-match-body")}
               action={
                 <button
                   onClick={() => setFilters(clearFilters)}
                   className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-3 font-display text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                 >
-                  Clear filters
+                  {t("dine.no-match-action")}
                 </button>
               }
             />
@@ -526,7 +518,7 @@ export default function DinePage() {
             mapped.length === 0 ? (
               <EmptyState
                 icon={<MapPin className="mx-auto mb-3 h-10 w-10 text-muted" aria-hidden />}
-                title="Nothing to plot."
+                title={t("dine.nothing-to-plot-title")}
                 body={
                   filtering
                     ? "None of the matching restaurants have a location. Loosen a filter, or switch back to cards."
@@ -538,7 +530,7 @@ export default function DinePage() {
                       onClick={() => setFilters(clearFilters)}
                       className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-3 font-display text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                     >
-                      Clear filters
+                      {t("dine.no-match-action")}
                     </button>
                   ) : null
                 }
@@ -606,8 +598,8 @@ export default function DinePage() {
               </div>
               <button
                 onClick={() => setView("edit-restaurant")}
-                title="Edit restaurant"
-                aria-label="Edit restaurant"
+                title={t("dine.edit-restaurant")}
+                aria-label={t("dine.edit-restaurant")}
                 className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
               >
                 <Edit className="h-4 w-4" />
@@ -628,14 +620,14 @@ export default function DinePage() {
               <div className="col-span-2 flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-tomato/10 py-4 sm:col-span-1">
                 <ScoreBadge score={selectedRestaurant.average_overall} size="lg" />
                 <span className="text-xs text-muted">
-                  {selectedRestaurant.review_count} {selectedRestaurant.review_count === 1 ? "review" : "reviews"}
+                  {tp("dine.reviews-count", selectedRestaurant.review_count)}
                 </span>
               </div>
               <div className="col-span-2 space-y-1.5 rounded-3xl border border-line px-4 py-3">
-                <ScoreRow label="Location & decoration" value={selectedRestaurant.average_location} />
-                <ScoreRow label="Food" value={selectedRestaurant.average_food} />
-                <ScoreRow label="Service" value={selectedRestaurant.average_service} />
-                <ScoreRow label="Value" value={selectedRestaurant.average_value} />
+                <ScoreRow label={t("review-form.scores.location.label")} value={selectedRestaurant.average_location} />
+                <ScoreRow label={t("review-form.scores.food.label")} value={selectedRestaurant.average_food} />
+                <ScoreRow label={t("review-form.scores.service.label")} value={selectedRestaurant.average_service} />
+                <ScoreRow label={t("review-form.scores.value.label")} value={selectedRestaurant.average_value} />
               </div>
             </div>
 
@@ -645,7 +637,7 @@ export default function DinePage() {
                 className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
               >
                 <Plus className="h-4 w-4" />
-                Write a review
+                {t("dine.write-a-review")}
               </button>
             </div>
           </article>
@@ -656,7 +648,7 @@ export default function DinePage() {
             </h2>
             {reviews.length === 0 ? (
               <p className="rounded-3xl border border-dashed border-line bg-surface py-10 text-center text-muted">
-                No reviews yet — be the first!
+                {t("dine.no-reviews-be-first")}
               </p>
             ) : (
               <ul className="space-y-3">
@@ -668,11 +660,11 @@ export default function DinePage() {
                           <Star className="h-4 w-4 fill-current text-amber" />
                           {review.overall.toFixed(1)}
                           <span className="font-normal text-muted">
-                            · {review.reviewer_name ?? "Unknown"}
+                            · {review.reviewer_name ?? t("common.unknown")}
                           </span>
                         </p>
-                        <p className="mt-0.5 text-xs text-muted" title={formatVisitedDate(review.visited_at)}>
-                          Visited {formatRelativeDate(review.visited_at)}
+                        <p className="mt-0.5 text-xs text-muted" title={formatVisitedDate(review.visited_at, locale)}>
+                          {t("dine.visited", { when: formatRelativeDate(review.visited_at, locale) })}
                         </p>
                       </div>
                       {review.user_id === currentUserId && (
@@ -682,16 +674,16 @@ export default function DinePage() {
                               setReviewToEdit(review);
                               setView("edit-review");
                             }}
-                            title="Edit review"
-                            aria-label="Edit review"
+                            title={t("dine.edit-review")}
+                            aria-label={t("dine.edit-review")}
                             className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => setReviewToDelete(review)}
-                            title="Delete review"
-                            aria-label="Delete review"
+                            title={t("dine.delete-review")}
+                            aria-label={t("dine.delete-review")}
                             className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -701,10 +693,10 @@ export default function DinePage() {
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-line pt-3 text-sm sm:grid-cols-4">
-                      <ScoreRow label="Location" value={review.location_score} />
-                      <ScoreRow label="Food" value={review.food_score} />
-                      <ScoreRow label="Service" value={review.service_score} />
-                      <ScoreRow label="Value" value={review.value_score} />
+                      <ScoreRow label={t("dine.score-location-short")} value={review.location_score} />
+                      <ScoreRow label={t("review-form.scores.food.label")} value={review.food_score} />
+                      <ScoreRow label={t("review-form.scores.service.label")} value={review.service_score} />
+                      <ScoreRow label={t("review-form.scores.value.label")} value={review.value_score} />
                     </div>
 
                     {review.comment && <p className="mt-3 text-sm leading-relaxed text-fg/90">{review.comment}</p>}
@@ -719,13 +711,13 @@ export default function DinePage() {
       {/* ── ADD RESTAURANT ── */}
       {view === "add-restaurant" && (
         <div className="mx-auto max-w-xl">
-          <h1 className="mb-6 font-display text-2xl font-bold text-fg sm:text-3xl">New restaurant</h1>
+          <h1 className="mb-6 font-display text-2xl font-bold text-fg sm:text-3xl">{t("dine.new-restaurant")}</h1>
           <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
             <RestaurantForm
               onSubmit={handleCreateRestaurant}
               onCancel={goBack}
               onSelectExisting={handleSelectExisting}
-              submitLabel="Add restaurant"
+              submitLabel={t("dine.add-restaurant")}
             />
           </div>
         </div>
@@ -734,7 +726,7 @@ export default function DinePage() {
       {/* ── EDIT RESTAURANT ── */}
       {view === "edit-restaurant" && selectedRestaurant && (
         <div className="mx-auto max-w-xl">
-          <h1 className="mb-6 font-display text-2xl font-bold text-fg sm:text-3xl">Edit restaurant</h1>
+          <h1 className="mb-6 font-display text-2xl font-bold text-fg sm:text-3xl">{t("dine.edit-restaurant")}</h1>
           <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
             <RestaurantForm
               initialData={{
@@ -747,7 +739,7 @@ export default function DinePage() {
               }}
               onSubmit={handleUpdateRestaurant}
               onCancel={goBack}
-              submitLabel="Save changes"
+              submitLabel={t("common.save-changes")}
             />
           </div>
         </div>
@@ -756,7 +748,7 @@ export default function DinePage() {
       {/* ── ADD REVIEW ── */}
       {view === "add-review" && selectedRestaurant && (
         <div className="mx-auto max-w-xl">
-          <h1 className="mb-1 font-display text-2xl font-bold text-fg sm:text-3xl">Review</h1>
+          <h1 className="mb-1 font-display text-2xl font-bold text-fg sm:text-3xl">{t("dine.review")}</h1>
           <p className="mb-6 text-muted">{selectedRestaurant.name}</p>
           <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
             <ReviewForm onSubmit={handleCreateReview} onCancel={goBack} />
@@ -767,7 +759,7 @@ export default function DinePage() {
       {/* ── EDIT REVIEW ── */}
       {view === "edit-review" && selectedRestaurant && reviewToEdit && (
         <div className="mx-auto max-w-xl">
-          <h1 className="mb-1 font-display text-2xl font-bold text-fg sm:text-3xl">Edit your review</h1>
+          <h1 className="mb-1 font-display text-2xl font-bold text-fg sm:text-3xl">{t("dine.edit-your-review")}</h1>
           <p className="mb-6 text-muted">{selectedRestaurant.name}</p>
           <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
             <ReviewForm
@@ -779,7 +771,7 @@ export default function DinePage() {
                 comment: reviewToEdit.comment ?? undefined,
                 visited_at: reviewToEdit.visited_at,
               }}
-              submitLabel="Save changes"
+              submitLabel={t("common.save-changes")}
               onSubmit={handleUpdateReview}
               onCancel={goBack}
             />
@@ -790,8 +782,8 @@ export default function DinePage() {
       {/* ── DELETE REVIEW MODAL ── */}
       {reviewToDelete && (
         <ConfirmModal
-          title="Delete review"
-          message="Are you sure you want to delete this review? This can't be undone."
+          title={t("dine.delete-review")}
+          message={t("dine.delete-review-confirm")}
           onConfirm={handleDeleteReview}
           onCancel={() => setReviewToDelete(null)}
         />

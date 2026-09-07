@@ -6,8 +6,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { MapPin, Star, X } from "lucide-react";
 import type { RestaurantDetail } from "@/lib/api-client";
 import { MAP_STYLE_URL, pinInnerHtml, prefersReducedMotion } from "./map-style";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
-/** The pack's restaurants on one map: score-pill markers, tap → slide-up card.
+/** Every saved restaurant on one map: score-pill markers, tap → slide-up card.
  *
  * Loaded with next/dynamic (ssr: false) — MapLibre needs the DOM and is heavy,
  * so it must stay out of the initial bundle and out of the static export pass.
@@ -19,6 +20,7 @@ export default function RestaurantsMap({
   restaurants: RestaurantDetail[];
   onOpenRestaurant: (restaurant: RestaurantDetail) => void;
 }) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef(new Map<string, { marker: maplibregl.Marker; pin: HTMLButtonElement }>());
@@ -134,7 +136,7 @@ export default function RestaurantsMap({
       >
         <div className="flex flex-col items-center gap-2 text-muted">
           <MapPin className="h-7 w-7 animate-float" />
-          <span className="text-sm">Fetching the map…</span>
+          <span className="text-sm">{t("map.loading")}</span>
         </div>
       </div>
 
@@ -145,7 +147,7 @@ export default function RestaurantsMap({
             <button
               type="button"
               onClick={() => setSelected(null)}
-              aria-label="Close"
+              aria-label={t("common.close")}
               className="absolute right-2.5 top-2.5 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
               <X className="h-4 w-4" />
@@ -173,7 +175,7 @@ export default function RestaurantsMap({
                     </span>
                   </>
                 ) : (
-                  <span className="text-muted">No reviews yet</span>
+                  <span className="text-muted">{t("map.no-reviews")}</span>
                 )}
               </span>
               <button
@@ -181,7 +183,7 @@ export default function RestaurantsMap({
                 onClick={() => onOpenRestaurant(selected)}
                 className="shrink-0 cursor-pointer rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
               >
-                View details
+                {t("map.view-details")}
               </button>
             </div>
           </div>
