@@ -72,8 +72,16 @@ export interface RestaurantDetail extends Restaurant {
   last_comment_at: string | null; // the quoted visit's date, which can predate last_visited_at
 }
 
-/** Mirrors backend `RestaurantSort`. "name" is used by the create-form dedup lookup, not the UI. */
-export type RestaurantSort = "recent" | "name" | "rating";
+/**
+ * Mirrors backend `RestaurantSort`. "name" is used by the create-form dedup
+ * lookup, not the UI.
+ *
+ * Four named orderings rather than two keys plus a direction flag: direction is
+ * a decision per ordering, not a modifier, because unrated and unvisited
+ * restaurants must sort last in *both* directions (no score is not a bad score).
+ * See docs/plans/ux-refresh-plan.md §5.
+ */
+export type RestaurantSort = "recent" | "oldest" | "name" | "rating" | "rating_low";
 
 /** How the dine list narrows itself. Everything is optional; the default is the whole archive, most recent first. */
 export interface RestaurantQuery {

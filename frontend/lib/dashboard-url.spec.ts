@@ -1,142 +1,120 @@
 import { describe, expect, it } from "vitest";
 
-import { fromQuery, toQuery, type DashboardUrlState } from "./dashboard-url";
+import { INITIAL_STATE, fromQuery, toQuery, type DashboardUrlState } from "./dashboard-url";
 
 function roundTrip(state: DashboardUrlState): DashboardUrlState {
   return fromQuery(new URLSearchParams(toQuery(state)));
 }
 
 describe("toQuery / fromQuery round trip", () => {
-  it("restores the top-level category grid as a bare URL", () => {
-    expect(toQuery({ view: "categories", category: null, recipeId: null })).toBe("");
-    expect(roundTrip({ view: "categories", category: null, recipeId: null })).toEqual({
-      view: "categories",
-      category: null,
-      recipeId: null,
-    });
+  it("renders the unfiltered list as a bare URL", () => {
+    expect(toQuery(INITIAL_STATE)).toBe("");
+    expect(roundTrip(INITIAL_STATE)).toEqual(INITIAL_STATE);
   });
 
-  it("restores an open category", () => {
-    expect(roundTrip({ view: "recipes", category: "comida", recipeId: null })).toEqual({
-      view: "recipes",
-      category: "comida",
-      recipeId: null,
-    });
+  it("restores a category filter", () => {
+    const state: DashboardUrlState = { view: "list", category: "comida", recipeId: null, q: "" };
+    expect(toQuery(state)).toBe("category=comida");
+    expect(roundTrip(state)).toEqual(state);
+  });
+
+  it("restores a search", () => {
+    const state: DashboardUrlState = { view: "list", category: null, recipeId: null, q: "lasaña" };
+    expect(roundTrip(state)).toEqual(state);
+  });
+
+  it("restores a search and a category together", () => {
+    const state: DashboardUrlState = { view: "list", category: "postre", recipeId: null, q: "tarta" };
+    expect(roundTrip(state)).toEqual(state);
   });
 
   it("restores an open recipe", () => {
-    expect(roundTrip({ view: "detail", category: "postre", recipeId: "r1" })).toEqual({
-      view: "detail",
-      category: "postre",
-      recipeId: "r1",
-    });
+    const state: DashboardUrlState = { view: "detail", category: "postre", recipeId: "r1", q: "" };
+    expect(roundTrip(state)).toEqual(state);
   });
 
-  it("restores the recipe editor", () => {
-    expect(roundTrip({ view: "edit", category: "bebida", recipeId: "r1" })).toEqual({
-      view: "edit",
-      category: "bebida",
-      recipeId: "r1",
-    });
+  it("restores an open recipe reached without a category filter", () => {
+    const state: DashboardUrlState = { view: "detail", category: null, recipeId: "r1", q: "" };
+    expect(roundTrip(state)).toEqual(state);
   });
 
-  it("restores the add form, which belongs to no category", () => {
-    expect(roundTrip({ view: "add", category: null, recipeId: null })).toEqual({
-      view: "add",
-      category: null,
-      recipeId: null,
-    });
-  });
-});
-
-describe("category is carried so back lands where you came from", () => {
-  it("keeps the category alongside an open recipe", () => {
-    // Documented in dashboard-url.ts: without this, backing out of a recipe
-    // drops you on the top-level grid instead of the list you opened it from.
-    const params = new URLSearchParams(toQuery({ view: "detail", category: "comida", recipeId: "r1" }));
-    expect(params.get("category")).toBe("comida");
-    expect(params.get("recipe")).toBe("r1");
+  it("restores the editor", () => {
+    const state: DashboardUrlState = { view: "edit", category: "comida", recipeId: "r7", q: "" };
+    expect(roundTrip(state)).toEqual(state);
   });
 
-  it("keeps it through the editor too", () => {
-    const params = new URLSearchParams(toQuery({ view: "edit", category: "comida", recipeId: "r1" }));
-    expect(params.get("category")).toBe("comida");
-    expect(params.get("mode")).toBe("edit");
+  it("restores the create form", () => {
+    const state: DashboardUrlState = { view: "add", category: null, recipeId: null, q: "" };
+    expect(toQuery(state)).toBe("mode=new");
+    expect(roundTrip(state)).toEqual(state);
+  });
+
+  it("trims the search term rather than encoding whitespace", () => {
+    expect(toQuery({ ...INITIAL_STATE, q: "  pan  " })).toBe("q=pan");
+    expect(roundTrip({ ...INITIAL_STATE, q: "  pan  " }).q).toBe("pan");
   });
 });
 
-describe("hostile and malformed URLs", () => {
-  it("ignores a category outside the vocabulary", () => {
-    // Hand-edited ?category=nonsense must degrade to the grid, not render an
-    // empty category that looks like a bug.
-    expect(fromQuery(new URLSearchParams("category=nonsense"))).toEqual({
-      view: "categories",
-      category: null,
-      recipeId: null,
-    });
-  });
-
-  it("keeps a valid recipe even when its category is junk", () => {
-    // The recipe is real; only the breadcrumb is wrong. Dropping the recipe
-    // too would lose more than the URL actually got wrong.
-    expect(fromQuery(new URLSearchParams("category=nonsense&recipe=r1"))).toEqual({
+describe("category is a filter, not a view", () => {
+  it("keeps the category alongside an open recipe, so backing out returns to the same list", () => {
+    expect(fromQuery(new URLSearchParams("category=comida&recipe=r1"))).toEqual({
       view: "detail",
-      category: null,
-      recipeId: "r1",
-    });
-  });
-
-  it("lets mode=new win over a stale recipe id", () => {
-    // ?recipe=r1&mode=new — the add form is not editing r1, so the id must
-    // not leak into it.
-    expect(fromQuery(new URLSearchParams("recipe=r1&mode=new"))).toEqual({
-      view: "add",
-      category: null,
-      recipeId: null,
-    });
-  });
-
-  it("keeps the category behind the add form", () => {
-    // Unlike the recipe id, the category is still where you came from.
-    expect(fromQuery(new URLSearchParams("category=comida&mode=new"))).toEqual({
-      view: "add",
       category: "comida",
-      recipeId: null,
-    });
-  });
-
-  it("falls back to the category list when mode=edit names no recipe", () => {
-    expect(fromQuery(new URLSearchParams("category=comida&mode=edit"))).toEqual({
-      view: "recipes",
-      category: "comida",
-      recipeId: null,
-    });
-  });
-
-  it("treats an unknown mode as plain detail", () => {
-    expect(fromQuery(new URLSearchParams("recipe=r1&mode=banana"))).toEqual({
-      view: "detail",
-      category: null,
       recipeId: "r1",
+      q: "",
     });
   });
 
-  it("ignores an empty category rather than trusting it", () => {
-    expect(fromQuery(new URLSearchParams("category="))).toEqual({
-      view: "categories",
-      category: null,
-      recipeId: null,
-    });
+  it("reads a lone category as the list, not as a separate view", () => {
+    expect(fromQuery(new URLSearchParams("category=bebida")).view).toBe("list");
+  });
+
+  it("reads a bare URL as the list, not as a grid", () => {
+    expect(fromQuery(new URLSearchParams("")).view).toBe("list");
   });
 });
 
-describe("every real category survives a round trip", () => {
-  // Guards against someone adding a FOOD_TYPE whose value needs URL escaping.
-  it.each(["comida", "bebida", "postre", "aperitivo"] as const)("%s", (category) => {
-    expect(roundTrip({ view: "recipes", category, recipeId: null })).toEqual({
-      view: "recipes",
-      category,
-      recipeId: null,
+describe("the search term does not follow you out of the list", () => {
+  it("is dropped on the way into a recipe", () => {
+    // The list is re-narrowed by the history entry you came from, not by
+    // carrying the term through the detail view's URL — where a refresh would
+    // otherwise show a filtered list behind a recipe that may not match it.
+    expect(toQuery({ view: "detail", category: null, recipeId: "r1", q: "pan" })).toBe("recipe=r1");
+    expect(fromQuery(new URLSearchParams("recipe=r1&q=pan")).q).toBe("");
+  });
+
+  it("is dropped on the way into the create form", () => {
+    expect(toQuery({ view: "add", category: "comida", recipeId: null, q: "pan" })).toBe("mode=new");
+    expect(fromQuery(new URLSearchParams("mode=new&q=pan")).q).toBe("");
+  });
+});
+
+describe("guards against hand-edited URLs", () => {
+  it("drops an unknown category rather than rendering an empty list", () => {
+    expect(fromQuery(new URLSearchParams("category=pizza")).category).toBeNull();
+    expect(fromQuery(new URLSearchParams("category=")).category).toBeNull();
+  });
+
+  it("keeps an unknown category out of an open recipe's state too", () => {
+    expect(fromQuery(new URLSearchParams("category=pizza&recipe=r1"))).toEqual({
+      view: "detail",
+      category: null,
+      recipeId: "r1",
+      q: "",
     });
+  });
+
+  it("treats an unrecognised mode as a plain view", () => {
+    expect(fromQuery(new URLSearchParams("recipe=r1&mode=sideways")).view).toBe("detail");
+    expect(fromQuery(new URLSearchParams("mode=sideways")).view).toBe("list");
+  });
+
+  it("ignores ?mode=edit with no recipe, which cannot be rendered", () => {
+    expect(fromQuery(new URLSearchParams("mode=edit"))).toEqual(INITIAL_STATE);
+  });
+
+  it("lets mode=new win over a recipe id, matching what the page renders", () => {
+    expect(fromQuery(new URLSearchParams("mode=new&recipe=r1")).view).toBe("add");
+    expect(fromQuery(new URLSearchParams("mode=new&recipe=r1")).recipeId).toBeNull();
   });
 });
