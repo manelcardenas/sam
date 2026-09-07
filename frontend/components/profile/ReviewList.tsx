@@ -2,7 +2,7 @@
 
 import { MessageSquareQuote, SearchX } from "lucide-react";
 import { Chip, ClearChip } from "@/components/ui/Chip";
-import { NarrowRow } from "@/components/profile/NarrowRow";
+import { NarrowRow } from "@/components/ui/NarrowRow";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
 import { QuoteBlock, ScoreBadge } from "@/components/dine/atoms";
 import { formatRelativeDate, formatVisitedDate } from "@/lib/format";
