@@ -2,6 +2,7 @@
 
 import { ChevronRight } from "lucide-react";
 import { FOOD_TYPES } from "@/lib/constants";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 import type { Recipe } from "@/lib/api-client";
 
 /**
@@ -27,6 +28,7 @@ export function RecipeRow({
   meta?: string;
   onClick: () => void;
 }) {
+  const { t, tp } = useI18n();
   const type = FOOD_TYPES.find((f) => f.value === recipe.food_type) ?? FOOD_TYPES[0];
   const Icon = type.icon;
   const count = recipe.ingredients.items.length;
@@ -49,7 +51,7 @@ export function RecipeRow({
           {recipe.title}
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted">
-          {type.label} · {count} ingredient{count === 1 ? "" : "s"}
+          {t(`food-types.${type.value}.label`)} · {tp("recipe-row.ingredients", count)}
           {meta ? ` · ${meta}` : ""}
         </span>
       </span>

@@ -1,6 +1,8 @@
 "use client";
 
 import { Search } from "lucide-react";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { PluralKey } from "@/lib/i18n/dictionary";
 
 /**
  * Search box plus an optional row of chips, for a list that narrows.
@@ -26,7 +28,7 @@ export function NarrowRow({
   ariaLabel,
   chips,
   resultCount,
-  noun,
+  countKey,
 }: {
   q: string;
   onQueryChange: (next: string) => void;
@@ -35,9 +37,18 @@ export function NarrowRow({
   /** Rendered as-is; callers compose `Chip`/`ClearChip` themselves. */
   chips?: React.ReactNode;
   resultCount: number;
-  /** Singular noun for the announcement, e.g. "recipe". */
-  noun: string;
+  /**
+   * Plural key for the live-region announcement.
+   *
+   * A key rather than a noun the caller pluralises: "3 recipes" is one string
+   * per language, not a noun plus an English "s" — Catalan and Spanish agree
+   * with English here, but building the sentence out of parts is how that stops
+   * being true the moment a fourth language arrives.
+   */
+  countKey: PluralKey;
 }) {
+  const { tp } = useI18n();
+
   return (
     <div className="mb-5">
       <div className="relative mb-3">
@@ -62,8 +73,7 @@ export function NarrowRow({
       )}
 
       <p className="sr-only" role="status" aria-live="polite">
-        {resultCount} {noun}
-        {resultCount === 1 ? "" : "s"}
+        {tp(countKey, resultCount)}
       </p>
     </div>
   );

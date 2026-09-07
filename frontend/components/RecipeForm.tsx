@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { Save, X, Link2, Plus, Trash2, Users } from "lucide-react";
 import { FOOD_TYPES, type FoodType } from "@/lib/constants";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 import type { CreateRecipeInput, IngredientsData } from "@/lib/api-client";
 import SourceLink from "@/components/SourceLink";
 
@@ -70,6 +72,7 @@ export default function RecipeForm({
   onCancel,
   submitLabel,
 }: RecipeFormProps) {
+  const { t } = useI18n();
   const [formData, setFormData] = useState({
     title: initialData?.title ?? "",
     instructions: initialData?.instructions ?? "",
@@ -99,12 +102,12 @@ export default function RecipeForm({
     e.preventDefault();
     setError("");
     if (source.invalid) {
-      setError("The source link doesn't look like a valid URL.");
+      setError(t("recipe-form.invalid-url"));
       return;
     }
     const servingsNum = Math.round(Number(servings));
     if (!servings.trim() || !Number.isFinite(servingsNum) || servingsNum < 1) {
-      setError("Servings must be a whole number of 1 or more.");
+      setError(t("recipe-form.invalid-servings"));
       return;
     }
     const items = rows
@@ -115,7 +118,7 @@ export default function RecipeForm({
       }))
       .filter((item) => item.name.length > 0);
     if (items.length === 0) {
-      setError("Add at least one ingredient.");
+      setError(t("recipe-form.need-an-ingredient"));
       return;
     }
     setSubmitting(true);
@@ -127,7 +130,7 @@ export default function RecipeForm({
         source_url: source.url ?? undefined,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : t("common.something-went-wrong"));
     } finally {
       setSubmitting(false);
     }
@@ -152,14 +155,16 @@ export default function RecipeForm({
           value={formData.title}
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           className={fieldClass}
-          placeholder="e.g. Lasaña de verduras"
+          placeholder={t("recipe-form.title-placeholder")}
         />
       </div>
 
       <div>
-        <label className={labelClass}>Type *</label>
+        <label className={labelClass}>
+          {t("recipe-form.type")} {t("common.required-marker")}
+        </label>
         <div className="grid grid-cols-4 gap-2">
-          {FOOD_TYPES.map(({ value, label, icon: Icon, accent }) => {
+          {FOOD_TYPES.map(({ value, icon: Icon, accent }) => {
             const selected = formData.food_type === value;
             return (
               <button
@@ -184,7 +189,7 @@ export default function RecipeForm({
                   style={selected ? { color: accent } : undefined}
                   aria-hidden
                 />
-                <span>{label}</span>
+                <span>{t(`food-types.${value}.label` as MessageKey)}</span>
               </button>
             );
           })}
@@ -202,13 +207,15 @@ export default function RecipeForm({
           value={formData.instructions}
           onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
           className={`${fieldClass} resize-none`}
-          placeholder="Recipe steps..."
+          placeholder={t("recipe-form.instructions-placeholder")}
         />
       </div>
 
       <div>
         <div className="mb-1.5 flex items-center justify-between gap-3">
-          <span className="block text-sm font-semibold text-fg">Ingredients *</span>
+          <span className="block text-sm font-semibold text-fg">
+          {t("recipe-form.ingredients")} {t("common.required-marker")}
+        </span>
           <div className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 text-muted" />
             <label htmlFor="servings" className="text-xs font-semibold text-muted">
@@ -223,12 +230,12 @@ export default function RecipeForm({
               value={servings}
               onChange={(e) => setServings(e.target.value)}
               className="w-14 rounded-lg border border-line bg-surface px-2 py-1 text-center text-sm font-semibold text-fg focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
-              placeholder="4"
+              placeholder={t("recipe-form.servings-placeholder")}
             />
           </div>
         </div>
         <p className="mb-2.5 text-xs text-muted">
-          The number of people these amounts feed — lets anyone viewing the recipe scale it up or down later.
+          {t("recipe-form.servings-hint")}
         </p>
 
         <div className="space-y-2">
@@ -238,8 +245,8 @@ export default function RecipeForm({
                 type="text"
                 value={row.name}
                 onChange={(e) => updateRow(row.id, { name: e.target.value })}
-                placeholder={idx === 0 ? "e.g. flour" : "ingredient"}
-                aria-label="Ingredient name"
+                placeholder={t(idx === 0 ? "recipe-form.ingredient-placeholder-first" : "recipe-form.ingredient-placeholder-rest")}
+                aria-label={t("recipe-form.ingredient-name")}
                 className={`${rowFieldClass} min-w-0 flex-1`}
               />
               <input
@@ -248,7 +255,7 @@ export default function RecipeForm({
                 value={row.amount}
                 onChange={(e) => updateRow(row.id, { amount: e.target.value })}
                 placeholder="amount"
-                aria-label="Amount"
+                aria-label={t("recipe-form.amount")}
                 className={`${rowFieldClass} w-20 text-center`}
               />
               <input
@@ -256,14 +263,14 @@ export default function RecipeForm({
                 value={row.unit}
                 onChange={(e) => updateRow(row.id, { unit: e.target.value })}
                 placeholder="unit"
-                aria-label="Unit"
+                aria-label={t("recipe-form.unit")}
                 className={`${rowFieldClass} w-20`}
               />
               <button
                 type="button"
                 onClick={() => removeRow(row.id)}
                 disabled={rows.length === 1}
-                aria-label="Remove ingredient"
+                aria-label={t("recipe-form.remove-ingredient")}
                 className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato disabled:cursor-not-allowed disabled:opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
               >
                 <Trash2 className="h-4 w-4" />
@@ -278,7 +285,7 @@ export default function RecipeForm({
           className="mt-2.5 flex cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-line px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40"
         >
           <Plus className="h-3.5 w-3.5" />
-          Add ingredient
+          {t("recipe-form.add-ingredient")}
         </button>
       </div>
 
@@ -289,10 +296,11 @@ export default function RecipeForm({
           className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-fg"
         >
           <Link2 className="h-4 w-4 text-muted" />
-          Source <span className="font-normal text-muted">(optional)</span>
+          {t("recipe-form.source")}{" "}
+          <span className="font-normal text-muted">{t("common.optional")}</span>
         </label>
         <p className="mb-2.5 text-xs text-muted">
-          Where the recipe comes from. We&apos;ll show just the site, not the full link.
+          {t("recipe-form.source-hint")}
         </p>
         <input
           id="source_url"
@@ -305,16 +313,16 @@ export default function RecipeForm({
               ? "w-full rounded-2xl border border-amber bg-surface px-4 py-3 text-fg focus:outline-none focus:ring-2 focus:ring-amber/40"
               : fieldClass
           }
-          placeholder="recetasdecocina.elmundo.es/..."
+          placeholder={t("recipe-form.source-placeholder")}
         />
         {source.invalid ? (
           <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber">
-            That doesn&apos;t look like a valid URL.
+            {t("recipe-form.invalid-url-inline")}
           </p>
         ) : (
           source.url && (
             <div className="mt-2.5 flex items-center gap-2 text-xs text-muted">
-              <span>Preview:</span>
+              <span>{t("recipe-form.preview")}</span>
               <SourceLink url={source.url} />
             </div>
           )
@@ -328,7 +336,7 @@ export default function RecipeForm({
           className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
         >
           <Save className="h-4 w-4" />
-          {submitting ? "Saving…" : submitLabel}
+          {submitting ? t("common.saving") : submitLabel}
         </button>
         <button
           type="button"

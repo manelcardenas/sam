@@ -3,6 +3,8 @@
 import { Star, Store, Utensils } from "lucide-react";
 import type { UserStats } from "@/lib/api-client";
 import { useCountUp } from "@/lib/useCountUp";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 
 /**
  * The three headline figures at the top of the profile.
@@ -21,22 +23,24 @@ import { useCountUp } from "@/lib/useCountUp";
  * that says 0 places is an invitation, whereas a missing strip looks broken.
  */
 export function StatsStrip({ stats }: { stats: UserStats }) {
+  const { t } = useI18n();
+
   return (
-    <section aria-label="Your numbers" className="grid grid-cols-3 gap-3 sm:gap-4">
+    <section aria-label={t("profile.your-numbers")} className="grid grid-cols-3 gap-3 sm:gap-4">
       <Figure
-        label="places"
+        label={t("profile.stat-places")}
         value={stats.places_reviewed}
         icon={Store}
         tint="tomato"
       />
       <Figure
-        label="reviews"
+        label={t("profile.stat-reviews")}
         value={stats.reviews_written}
         icon={Utensils}
         tint="amber"
       />
       <Figure
-        label="you average"
+        label={t("profile.stat-average")}
         value={stats.average_score_given}
         decimals={1}
         icon={Star}
@@ -48,9 +52,11 @@ export function StatsStrip({ stats }: { stats: UserStats }) {
           long cuisine name ("Vegan/Vegetarian") would wrap badly. */}
       {stats.top_cuisine && (
         <div className="col-span-3 flex items-center justify-center gap-2 rounded-3xl border border-dashed border-line bg-surface-2/60 px-4 py-3 text-sm">
-          <span className="text-muted">Mostly eating</span>
+          <span className="text-muted">{t("profile.mostly-eating")}</span>
           <span className="font-serif text-base font-semibold italic text-fg">
-            {stats.top_cuisine}
+            {/* The API returns the curated English name; the copy file carries
+                each language's version of it. */}
+            {t(`cuisines.${stats.top_cuisine}` as MessageKey, {}) }
           </span>
         </div>
       )}

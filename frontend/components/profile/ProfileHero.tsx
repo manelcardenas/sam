@@ -1,4 +1,8 @@
+"use client";
+
 import { CalendarDays } from "lucide-react";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import { formatMonthYear } from "@/lib/format";
 
 /**
  * The one moment of scale on the profile.
@@ -26,6 +30,7 @@ export function ProfileHero({
   /** ISO timestamp of account creation; the year and month are all that's shown. */
   since?: string;
 }) {
+  const { locale, t } = useI18n();
   // A name is required before any page renders (useAuthGate bounces to
   // /profile/complete without one), so the fallback is defensive only.
   const initial = (name.trim()[0] ?? "?").toUpperCase();
@@ -57,18 +62,11 @@ export function ProfileHero({
           {since && (
             <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
               <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Cooking here since {formatSince(since)}
+              {t("profile.since", { month: formatMonthYear(since, locale) })}
             </p>
           )}
         </div>
       </div>
     </section>
   );
-}
-
-/** "September 2025" in the viewer's locale. Month precision — the day is noise. */
-function formatSince(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }

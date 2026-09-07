@@ -8,11 +8,8 @@ import { QuoteBlock, ScoreBadge } from "@/components/dine/atoms";
 import { formatRelativeDate, formatVisitedDate } from "@/lib/format";
 import { REVIEW_SORTS, type ReviewSort } from "@/lib/profile-url";
 import type { UserReview } from "@/lib/api-client";
-
-const SORT_LABELS: Record<ReviewSort, string> = {
-  recent: "Most recent",
-  score: "Highest rated",
-};
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 
 /**
  * Your reviews, narrowable by restaurant name and re-orderable.
@@ -44,6 +41,7 @@ export function ReviewList({
   onOpen: (review: UserReview) => void;
   onFindPlaces: () => void;
 }) {
+  const { locale, t } = useI18n();
   const needle = q.trim().toLowerCase();
   const shown = reviews
     .filter((r) => !needle || r.restaurant_name.toLowerCase().includes(needle))
@@ -60,9 +58,9 @@ export function ReviewList({
     return (
       <EmptyPanel
         icon={<MessageSquareQuote className="mx-auto mb-3 h-8 w-8 text-muted" aria-hidden />}
-        title="No reviews yet."
-        body="Every place you write up lands here, with what you said about it."
-        actionLabel="Find somewhere to eat"
+        title={t("profile.reviews-empty-title")}
+        body={t("profile.reviews-empty-body")}
+        actionLabel={t("profile.reviews-empty-action")}
         onAction={onFindPlaces}
       />
     );
@@ -73,15 +71,15 @@ export function ReviewList({
       <NarrowRow
         q={q}
         onQueryChange={onQueryChange}
-        placeholder="Search the places you've reviewed…"
-        ariaLabel="Search your reviews by restaurant name"
+        placeholder={t("profile.reviews-search-placeholder")}
+        ariaLabel={t("profile.reviews-search-label")}
         resultCount={shown.length}
-        noun="review"
+        countKey="dine-filters.results"
         chips={
           <>
             {REVIEW_SORTS.map((option) => (
               <Chip key={option} active={sort === option} onClick={() => onSortChange(option)}>
-                {SORT_LABELS[option]}
+                {t(`profile.review-sort-${option}` as MessageKey)}
               </Chip>
             ))}
             {needle && <ClearChip onClick={() => onQueryChange("")} />}
@@ -92,9 +90,9 @@ export function ReviewList({
       {shown.length === 0 ? (
         <EmptyPanel
           icon={<SearchX className="mx-auto mb-3 h-8 w-8 text-muted" aria-hidden />}
-          title="Nothing matches that."
-          body="Try a shorter word — this only searches the restaurant's name."
-          actionLabel="Clear"
+          title={t("profile.reviews-no-match-title")}
+          body={t("profile.reviews-no-match-body")}
+          actionLabel={t("common.clear")}
           onAction={() => onQueryChange("")}
         />
       ) : (
@@ -123,9 +121,9 @@ export function ReviewList({
                     </h3>
                     <p
                       className="mt-1 text-[0.8rem] text-muted"
-                      title={formatVisitedDate(review.visited_at)}
+                      title={formatVisitedDate(review.visited_at, locale)}
                     >
-                      Visited {formatRelativeDate(review.visited_at)}
+                      {t("dine.visited", { when: formatRelativeDate(review.visited_at, locale) })}
                     </p>
                   </div>
                   <ScoreBadge score={review.overall} />

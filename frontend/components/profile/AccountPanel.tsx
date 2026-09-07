@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, LogOut } from "lucide-react";
 import { apiClient, ApiError, type UserProfile } from "@/lib/api-client";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 const fieldClass =
   "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
@@ -28,6 +29,7 @@ export function AccountPanel({
   onSaved: (updated: UserProfile) => void;
   onSignOut: () => void;
 }) {
+  const { t } = useI18n();
   const [displayName, setDisplayName] = useState(me.display_name ?? "");
   const [savedName, setSavedName] = useState(me.display_name ?? "");
   const [error, setError] = useState("");
@@ -66,9 +68,9 @@ export function AccountPanel({
       setSaved(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError("That name is already taken — pick another.");
+        setError(t("profile.name-taken"));
       } else {
-        setError(err instanceof Error ? err.message : "Failed to save your name.");
+        setError(err instanceof Error ? err.message : t("profile.save-failed"));
       }
     } finally {
       setSaving(false);
@@ -78,9 +80,9 @@ export function AccountPanel({
   return (
     <div className="space-y-4">
       <section className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
-        <h2 className="font-display text-lg font-semibold text-fg">Account</h2>
+        <h2 className="font-display text-lg font-semibold text-fg">{t("profile.account-title")}</h2>
         <p className="mb-5 mt-0.5 text-sm text-muted">
-          Your display name is shown as the author of your recipes.
+          {t("profile.account-body")}
         </p>
 
         {error && (
@@ -97,14 +99,14 @@ export function AccountPanel({
             className="mb-4 flex items-center gap-2 rounded-2xl border border-leaf/40 bg-leaf/10 px-4 py-3 text-sm font-medium text-leaf-700 dark:text-leaf"
           >
             <Check className="h-4 w-4" aria-hidden />
-            Saved.
+            {t("profile.saved")}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="accountEmail" className="mb-1.5 block text-sm font-semibold text-fg">
-              Email
+              {t("profile.email")}
             </label>
             <input
               id="accountEmail"
@@ -116,12 +118,12 @@ export function AccountPanel({
             {/* The field is disabled, so say why rather than leaving it to be
                 discovered by tapping it. */}
             <p className="mt-1.5 text-xs text-muted">
-              Set by the account you signed in with, and not editable here.
+              {t("profile.email-hint")}
             </p>
           </div>
           <div>
             <label htmlFor="displayName" className="mb-1.5 block text-sm font-semibold text-fg">
-              Display name
+              {t("profile.display-name")}
             </label>
             <input
               id="displayName"
@@ -135,7 +137,7 @@ export function AccountPanel({
                 setSaved(false);
               }}
               className={fieldClass}
-              placeholder="e.g. Manel"
+              placeholder={t("profile.display-name-placeholder")}
             />
           </div>
           <button
@@ -143,7 +145,7 @@ export function AccountPanel({
             disabled={saving || !dirty}
             className="cursor-pointer rounded-full bg-tomato px-5 py-3 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? t("common.saving") : t("common.save-changes")}
           </button>
         </form>
       </section>
@@ -154,7 +156,7 @@ export function AccountPanel({
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-3xl border border-line bg-surface px-4 py-3.5 font-display text-sm font-semibold text-muted transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
       >
         <LogOut className="h-4 w-4" aria-hidden />
-        Sign out
+        {t("shell.sign-out")}
       </button>
     </div>
   );

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { Trash2, X } from "lucide-react";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 interface ConfirmModalProps {
   title: string;
   message: React.ReactNode;
+  /** Defaults to the translated "Delete". */
   confirmLabel?: string;
   onConfirm: () => Promise<void>;
   onCancel: () => void;
@@ -14,10 +16,11 @@ interface ConfirmModalProps {
 export default function ConfirmModal({
   title,
   message,
-  confirmLabel = "Delete",
+  confirmLabel,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const { t } = useI18n();
   // Guard against double-fire: a second click while the async confirm is in
   // flight would repeat the action (e.g. a DELETE that then 404s).
   const [busy, setBusy] = useState(false);
@@ -49,7 +52,7 @@ export default function ConfirmModal({
           </div>
           <button
             onClick={onCancel}
-            aria-label="Close"
+            aria-label={t("common.close")}
             className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg"
           >
             <X className="h-5 w-5" />
@@ -64,14 +67,14 @@ export default function ConfirmModal({
             disabled={busy}
             className="flex-1 cursor-pointer rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
-            {busy ? "Working…" : confirmLabel}
+            {busy ? t("common.working") : (confirmLabel ?? t("common.delete"))}
           </button>
           <button
             onClick={onCancel}
             disabled={busy}
             className="flex-1 cursor-pointer rounded-full border border-line py-3 px-4 font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       </div>

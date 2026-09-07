@@ -6,6 +6,8 @@ import { NarrowRow } from "@/components/ui/NarrowRow";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
 import { RecipeRow } from "@/components/recipes/RecipeRow";
 import { FOOD_TYPES, type FoodType } from "@/lib/constants";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 import type { Recipe } from "@/lib/api-client";
 
 /**
@@ -38,6 +40,7 @@ export function RecipeList({
   onOpen: (recipe: Recipe) => void;
   onCreate: () => void;
 }) {
+  const { t } = useI18n();
   const needle = q.trim().toLowerCase();
   const shown = recipes.filter(
     (r) =>
@@ -54,9 +57,9 @@ export function RecipeList({
     return (
       <EmptyPanel
         icon={<BookOpen className="mx-auto mb-3 h-8 w-8 text-muted" aria-hidden />}
-        title="No recipes yet."
-        body="Anything you write up shows here, and stays yours to edit."
-        actionLabel="Write your first one"
+        title={t("profile.recipes-empty-title")}
+        body={t("profile.recipes-empty-body")}
+        actionLabel={t("profile.recipes-empty-action")}
         onAction={onCreate}
       />
     );
@@ -67,10 +70,10 @@ export function RecipeList({
       <NarrowRow
         q={q}
         onQueryChange={onQueryChange}
-        placeholder="Search your recipes…"
-        ariaLabel="Search your recipes by title"
+        placeholder={t("profile.recipes-search-placeholder")}
+        ariaLabel={t("profile.recipes-search-label")}
         resultCount={shown.length}
-        noun="recipe"
+        countKey="recipe-row.ingredients"
         chips={
           <>
             {present.map((c) => (
@@ -80,7 +83,7 @@ export function RecipeList({
                 onClick={() => onCategoryChange(category === c.value ? null : c.value)}
               >
                 <c.icon className="h-3.5 w-3.5" aria-hidden />
-                {c.label}
+                {t(`food-types.${c.value}.label` as MessageKey)}
               </Chip>
             ))}
             {narrowed && (
@@ -98,9 +101,9 @@ export function RecipeList({
       {shown.length === 0 ? (
         <EmptyPanel
           icon={<SearchX className="mx-auto mb-3 h-8 w-8 text-muted" aria-hidden />}
-          title="Nothing matches that."
-          body="Try a shorter word, or drop the category."
-          actionLabel="Clear"
+          title={t("profile.recipes-no-match-title")}
+          body={t("profile.recipes-no-match-body")}
+          actionLabel={t("common.clear")}
           onAction={() => {
             onQueryChange("");
             onCategoryChange(null);

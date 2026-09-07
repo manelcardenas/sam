@@ -1,3 +1,7 @@
+"use client";
+
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+
 /**
  * A filter pill.
  *
@@ -43,6 +47,7 @@ export function Chip({
 
 /** The "stop narrowing" affordance that sits at the end of a chip row. */
 export function ClearChip({ onClick }: { onClick: () => void }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
@@ -50,7 +55,7 @@ export function ClearChip({ onClick }: { onClick: () => void }) {
       className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-semibold text-muted underline-offset-4 transition-colors hover:text-tomato hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
     >
       <XIcon />
-      Clear
+      {t("common.clear")}
     </button>
   );
 }

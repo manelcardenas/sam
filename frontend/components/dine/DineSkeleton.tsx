@@ -13,6 +13,13 @@ function Bar({ className = "" }: { className?: string }) {
 export function DineSkeleton() {
   return (
     <div aria-hidden>
+      {/* The page heading, as a shape rather than the real text. Rendering the
+          real <h1> here would put translated copy into the statically exported
+          HTML, which is always English — so a Spanish or Catalan reader saw it
+          flash English before hydration corrected it. */}
+      <div className="mb-7">
+        <Bar className="h-10 w-72 max-w-full sm:h-12" />
+      </div>
       {/* Rail */}
       <div className="mb-8">
         <Bar className="mb-2 h-7 w-28" />

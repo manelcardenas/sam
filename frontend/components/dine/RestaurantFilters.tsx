@@ -4,6 +4,8 @@ import { Search, SlidersHorizontal } from "lucide-react";
 import { Chip, ClearChip } from "@/components/ui/Chip";
 import { cuisineAccent, cuisineIcon } from "@/lib/cuisines";
 import { SortControl } from "@/components/dine/SortControl";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 import type { RestaurantQuery, RestaurantSort } from "@/lib/api-client";
 
 // Every ordering the UI can produce, for guarding ?sort= off the URL.
@@ -111,6 +113,7 @@ export function RestaurantFilters({
   resultCount: number;
   busy: boolean;
 }) {
+  const { t, tp } = useI18n();
   const active = isFiltered(value);
 
   const toggleCuisine = (name: string) =>
@@ -140,8 +143,8 @@ export function RestaurantFilters({
           type="search"
           value={value.q}
           onChange={(e) => onChange({ ...value, q: e.target.value })}
-          placeholder="Search by name…"
-          aria-label="Search restaurants by name"
+          placeholder={t("dine-filters.search-placeholder")}
+          aria-label={t("dine-filters.search-label")}
           className="h-12 w-full rounded-2xl border border-line bg-surface pl-11 pr-4 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
         />
       </div>
@@ -158,7 +161,7 @@ export function RestaurantFilters({
         <div className="rail-scroll -ml-4 flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto pl-4 sm:ml-0 sm:flex-wrap sm:overflow-visible sm:pl-0">
           <Chip active={value.mine} onClick={() => onChange({ ...value, mine: !value.mine })}>
             <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
-            Reviewed by me
+            {t("dine-filters.reviewed-by-me")}
           </Chip>
 
           {cuisines.map((name) => {
@@ -184,7 +187,7 @@ export function RestaurantFilters({
                     style={{ backgroundColor: on ? "currentColor" : cuisineAccent(name) }}
                   />
                 )}
-                {name}
+                {t(`cuisines.${name}` as MessageKey)}
               </Chip>
             );
           })}
@@ -194,7 +197,7 @@ export function RestaurantFilters({
               key={level}
               active={value.priceLevels.includes(level)}
               onClick={() => togglePrice(level)}
-              label={`Price level ${level} of 4`}
+              label={t("dine-filters.price-level", { level })}
             >
               <span aria-hidden>{"€".repeat(level)}</span>
             </Chip>
@@ -213,7 +216,7 @@ export function RestaurantFilters({
           the list without moving focus. aria-busy suppresses announcements
           mid-fetch, which would otherwise read a stale count. */}
       <p className="sr-only" role="status" aria-live="polite" aria-busy={busy}>
-        {busy ? "Updating results" : `${resultCount} restaurant${resultCount === 1 ? "" : "s"}`}
+        {busy ? t("dine-filters.updating") : tp("dine-filters.results", resultCount)}
       </p>
     </div>
   );

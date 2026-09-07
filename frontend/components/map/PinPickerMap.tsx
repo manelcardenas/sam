@@ -6,11 +6,12 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Star, X } from "lucide-react";
 import type { RestaurantDetail } from "@/lib/api-client";
 import { MAP_STYLE_URL, PAW_SVG, pinInnerHtml, prefersReducedMotion } from "./map-style";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 /** Tap-to-drop, drag-to-adjust pin picker — for restaurants the provider
  * doesn't know. Reports every move via onChange; the parent owns confirm.
  *
- * Restaurants already on SAM (with coordinates) show as neutral pins:
+ * Restaurants already saved (with coordinates) show as neutral pins:
  * spotting one where you were about to drop yours is the map-shaped version
  * of the "Already on SAM?" name dedup — tapping it offers to open it instead.
  *
@@ -32,6 +33,7 @@ export default function PinPickerMap({
   existing?: RestaurantDetail[];
   onPickExisting?: (restaurant: RestaurantDetail) => void;
 }) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const existingMarkersRef = useRef<maplibregl.Marker[]>([]);
@@ -138,7 +140,7 @@ export default function PinPickerMap({
       <div ref={containerRef} className="h-full w-full" />
       {/* top-left, clear of the zoom controls (top-right) and attribution (bottom-right) */}
       <p className="pointer-events-none absolute left-2 top-2 z-10 rounded-full bg-surface/90 px-3 py-1 text-xs font-medium text-muted shadow-paw">
-        Tap to drop the pin · drag to adjust
+        {t("map.pin-hint")}
       </p>
 
       {/* "Is this the one you meant?" — the map-shaped dedup card */}
@@ -148,13 +150,13 @@ export default function PinPickerMap({
             <button
               type="button"
               onClick={() => setSelectedExisting(null)}
-              aria-label="Close"
+              aria-label={t("common.close")}
               className="absolute right-1.5 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
               <X className="h-3.5 w-3.5" />
             </button>
             <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber">
-              Already on SAM
+              {t("map.already-on-sam")}
             </p>
             <h4 className="min-w-0 truncate pr-7 font-display text-sm font-semibold text-fg">
               {selectedExisting.name}
@@ -179,7 +181,7 @@ export default function PinPickerMap({
                   onClick={() => onPickExisting(selectedExisting)}
                   className="shrink-0 cursor-pointer rounded-full bg-tomato px-3.5 py-1.5 font-display text-xs font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                 >
-                  This is it — open it
+                  {t("map.this-is-it")}
                 </button>
               )}
             </div>

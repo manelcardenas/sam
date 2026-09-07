@@ -3,22 +3,25 @@
 import { useState } from "react";
 import { Save, X } from "lucide-react";
 import type { CreateReviewInput } from "@/lib/api-client";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 interface ReviewFormProps {
   onSubmit: (data: CreateReviewInput) => Promise<void>;
   onCancel: () => void;
   /** When set, the form starts from an existing review (edit mode). */
   initialData?: CreateReviewInput;
+  /** Defaults to the translated "Post review". */
   submitLabel?: string;
 }
 
 type ScoreKey = "location_score" | "food_score" | "service_score" | "value_score";
 
-const CATEGORIES: { key: ScoreKey; label: string; hint: string }[] = [
-  { key: "location_score", label: "Location & decoration", hint: "Ambiance, setting, decor" },
-  { key: "food_score", label: "Food", hint: "Taste, quality, presentation" },
-  { key: "service_score", label: "Service", hint: "Staff, attentiveness, pace" },
-  { key: "value_score", label: "Value", hint: "Was it worth the price?" },
+/** The four scored axes. Copy lives in `review-form.scores.<slug>`. */
+const CATEGORIES: { key: ScoreKey; slug: "location" | "food" | "service" | "value" }[] = [
+  { key: "location_score", slug: "location" },
+  { key: "food_score", slug: "food" },
+  { key: "service_score", slug: "service" },
+  { key: "value_score", slug: "value" },
 ];
 
 /** Today's date as "YYYY-MM-DD" in the local timezone (not UTC, to avoid an off-by-one). */
@@ -62,7 +65,8 @@ function ScoreSlider({
   );
 }
 
-export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabel = "Post review" }: ReviewFormProps) {
+export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabel }: ReviewFormProps) {
+  const { t } = useI18n();
   const [scores, setScores] = useState<Record<ScoreKey, number>>({
     location_score: initialData?.location_score ?? 5,
     food_score: initialData?.food_score ?? 5,
@@ -80,7 +84,7 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
     e.preventDefault();
     setError("");
     if (!visitedAt) {
-      setError("Pick the date you went.");
+      setError(t("review-form.date-required"));
       return;
     }
     setSubmitting(true);
@@ -91,7 +95,7 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
         visited_at: visitedAt,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : t("common.something-went-wrong"));
     } finally {
       setSubmitting(false);
     }
@@ -106,16 +110,16 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
       )}
 
       <div className="rounded-2xl border border-dashed border-line p-4 text-center">
-        <p className="text-xs font-bold uppercase tracking-wider text-muted">Overall</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-muted">{t("review-form.overall")}</p>
         <p className="font-display text-3xl font-bold text-tomato">{overall.toFixed(1)}</p>
-        <p className="text-xs text-muted">Average of the 4 scores below</p>
+        <p className="text-xs text-muted">{t("review-form.overall-hint")}</p>
       </div>
 
       {CATEGORIES.map((c) => (
         <ScoreSlider
           key={c.key}
-          label={c.label}
-          hint={c.hint}
+          label={t(`review-form.scores.${c.slug}.label`)}
+          hint={t(`review-form.scores.${c.slug}.hint`)}
           value={scores[c.key]}
           onChange={(v) => setScores((prev) => ({ ...prev, [c.key]: v }))}
         />
@@ -123,7 +127,7 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
 
       <div>
         <label htmlFor="visited_at" className="mb-1.5 block text-sm font-semibold text-fg">
-          Date you went
+          {t("review-form.visited-at")}
         </label>
         <input
           id="visited_at"
@@ -137,7 +141,8 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
 
       <div>
         <label htmlFor="comment" className="mb-1.5 block text-sm font-semibold text-fg">
-          Comment <span className="font-normal text-muted">(optional)</span>
+          {t("review-form.comment")}{" "}
+          <span className="font-normal text-muted">{t("common.optional")}</span>
         </label>
         <textarea
           id="comment"
@@ -146,7 +151,7 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           className="w-full resize-none rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
-          placeholder="Anything worth remembering about this visit…"
+          placeholder={t("review-form.comment-placeholder")}
         />
         <p className="mt-1 text-right text-xs text-muted">{comment.length}/1000</p>
       </div>
@@ -158,7 +163,7 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
           className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
         >
           <Save className="h-4 w-4" />
-          {submitting ? "Saving…" : submitLabel}
+          {submitting ? t("common.saving") : (submitLabel ?? t("review-form.submit"))}
         </button>
         <button
           type="button"
@@ -166,7 +171,7 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
           className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-5 py-3 font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
         >
           <X className="h-4 w-4" />
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </form>

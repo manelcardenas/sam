@@ -1,8 +1,12 @@
+"use client";
+
 import { MapPin, Users } from "lucide-react";
 import type { RestaurantDetail } from "@/lib/api-client";
 import { formatRelativeDate, formatReviewers } from "@/lib/format";
 import { PriceLevel, QuoteBlock, ScoreBadge, quoteAttribution } from "@/components/dine/atoms";
 import { cuisineAccent } from "@/lib/cuisines";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 
 /**
  * A restaurant in the DINE world, rendered as a clickable card in the archive grid.
@@ -30,7 +34,8 @@ export function RestaurantCard({
   restaurant: RestaurantDetail;
   onClick: () => void;
 }) {
-  const reviewers = formatReviewers(r.reviewer_names);
+  const { locale, t, tp } = useI18n();
+  const reviewers = formatReviewers(r.reviewer_names, (n) => tp("restaurant-card.more-reviewers", n));
   // Suppress attribution the footer already carries — see quoteAttribution.
   const attribution = quoteAttribution({
     reviewerNames: r.reviewer_names,
@@ -73,7 +78,7 @@ export function RestaurantCard({
                     ))}
                   </span>
                   <span className="min-w-0 truncate font-medium uppercase tracking-wide text-muted">
-                    {r.cuisines.join(" · ")}
+                    {r.cuisines.map((name) => t(`cuisines.${name}` as MessageKey)).join(" · ")}
                   </span>
                 </span>
               )}
@@ -91,14 +96,14 @@ export function RestaurantCard({
           <QuoteBlock
             comment={r.last_comment}
             by={attribution.by}
-            when={attribution.showDate && r.last_comment_at ? formatRelativeDate(r.last_comment_at) : null}
+            when={attribution.showDate && r.last_comment_at ? formatRelativeDate(r.last_comment_at, locale) : null}
           />
         ) : r.review_count > 0 ? (
           <p className="text-sm text-muted">
-            {r.review_count === 1 ? "One visit" : `${r.review_count} visits`}, no notes written.
+            {tp("restaurant-card.visits-no-notes", r.review_count)}
           </p>
         ) : (
-          <p className="text-sm text-muted">Not reviewed yet — be the first.</p>
+          <p className="text-sm text-muted">{t("restaurant-card.not-reviewed")}</p>
         )}
       </div>
 
@@ -110,7 +115,7 @@ export function RestaurantCard({
           </span>
         )}
         {r.last_visited_at && (
-          <span className="shrink-0 whitespace-nowrap">{formatRelativeDate(r.last_visited_at)}</span>
+          <span className="shrink-0 whitespace-nowrap">{formatRelativeDate(r.last_visited_at, locale)}</span>
         )}
         {!reviewers && !r.last_visited_at && r.address && (
           <span className="flex min-w-0 items-center gap-1.5">

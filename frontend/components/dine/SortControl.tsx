@@ -2,6 +2,8 @@
 
 import { ArrowDownWideNarrow } from "lucide-react";
 import type { RestaurantSort } from "@/lib/api-client";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 
 /**
  * The orderings offered in the UI, in the order they appear.
@@ -14,12 +16,7 @@ import type { RestaurantSort } from "@/lib/api-client";
  * restaurants stay at the bottom of all four, because "no score" is not "the
  * worst score" (docs/plans/ux-refresh-plan.md §5).
  */
-const OPTIONS: { value: RestaurantSort; label: string }[] = [
-  { value: "recent", label: "Recently visited" },
-  { value: "oldest", label: "Longest ago" },
-  { value: "rating", label: "Top rated" },
-  { value: "rating_low", label: "Lowest rated" },
-];
+const OPTIONS: RestaurantSort[] = ["recent", "oldest", "rating", "rating_low"];
 
 /**
  * How the archive is ordered.
@@ -54,6 +51,8 @@ export function SortControl({
   onChange: (next: RestaurantSort) => void;
   className?: string;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className={`relative shrink-0 ${className}`}>
       <ArrowDownWideNarrow
@@ -61,7 +60,7 @@ export function SortControl({
         aria-hidden
       />
       <select
-        aria-label="Order the list"
+        aria-label={t("sort.label")}
         value={value}
         onChange={(e) => onChange(e.target.value as RestaurantSort)}
         // h-11 = 44px, matching the chips it sits beside. pl-9/pr-8 leave room
@@ -69,8 +68,8 @@ export function SortControl({
         className="h-11 cursor-pointer appearance-none truncate rounded-2xl border border-line bg-surface pl-9 pr-8 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 focus:border-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40"
       >
         {OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
+          <option key={option} value={option}>
+            {t(`sort.${option}` as MessageKey)}
           </option>
         ))}
       </select>

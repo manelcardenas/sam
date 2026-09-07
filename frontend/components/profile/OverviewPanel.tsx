@@ -2,6 +2,7 @@
 
 import { BookOpen, ChevronRight, MessageSquareQuote } from "lucide-react";
 import { StatsStrip } from "@/components/profile/StatsStrip";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 import type { Recipe, UserReview, UserStats } from "@/lib/api-client";
 
 /**
@@ -25,6 +26,7 @@ export function OverviewPanel({
   onOpenRecipes: () => void;
   onOpenReviews: () => void;
 }) {
+  const { t } = useI18n();
   // Both lists arrive newest-first from the API; taking [0] rather than
   // re-sorting keeps this a display concern.
   const latestRecipe = recipes[0]?.title;
@@ -37,19 +39,19 @@ export function OverviewPanel({
       <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
         <SectionCard
           icon={BookOpen}
-          label="Recipes"
+          label={t("profile.tab-recipes")}
           count={recipes.length}
           latest={latestRecipe}
-          empty="Nothing written up yet"
+          empty={t("profile.no-recipes-hint")}
           tint="tomato"
           onClick={onOpenRecipes}
         />
         <SectionCard
           icon={MessageSquareQuote}
-          label="Reviews"
+          label={t("profile.tab-reviews")}
           count={reviews.length}
           latest={latestReview}
-          empty="Nowhere reviewed yet"
+          empty={t("profile.no-reviews-hint")}
           tint="amber"
           onClick={onOpenReviews}
         />
@@ -81,6 +83,7 @@ function SectionCard({
   tint: keyof typeof TINTS;
   onClick: () => void;
 }) {
+  const { t } = useI18n();
   const { plate, wash } = TINTS[tint];
 
   return (
@@ -108,7 +111,7 @@ function SectionCard({
           <span className="font-serif text-lg font-semibold tabular-nums text-muted">{count}</span>
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted">
-          {latest ? `Latest: ${latest}` : empty}
+          {latest ? t("profile.latest", { name: latest }) : empty}
         </span>
       </span>
 

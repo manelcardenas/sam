@@ -2,12 +2,14 @@
 
 import { BookOpen, MessageSquareQuote, Settings, Sparkles } from "lucide-react";
 import { PROFILE_TABS, type ProfileTab } from "@/lib/profile-url";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 
-const META: Record<ProfileTab, { label: string; icon: typeof Sparkles }> = {
-  overview: { label: "Overview", icon: Sparkles },
-  recipes: { label: "Recipes", icon: BookOpen },
-  reviews: { label: "Reviews", icon: MessageSquareQuote },
-  account: { label: "Account", icon: Settings },
+const ICONS: Record<ProfileTab, typeof Sparkles> = {
+  overview: Sparkles,
+  recipes: BookOpen,
+  reviews: MessageSquareQuote,
+  account: Settings,
 };
 
 /**
@@ -37,12 +39,13 @@ export function ProfileTabs({
   counts?: Partial<Record<ProfileTab, number>>;
   onSelect: (tab: ProfileTab) => void;
 }) {
+  const { t } = useI18n();
   const index = PROFILE_TABS.indexOf(active);
 
   return (
     <div
       role="tablist"
-      aria-label="Profile sections"
+      aria-label={t("profile.sections")}
       className="relative grid grid-cols-4 rounded-full border border-line bg-surface p-1"
     >
       <span
@@ -59,7 +62,8 @@ export function ProfileTabs({
       />
 
       {PROFILE_TABS.map((tab) => {
-        const { label, icon: Icon } = META[tab];
+        const Icon = ICONS[tab];
+        const label = t(`profile.tab-${tab}` as MessageKey);
         const on = tab === active;
         const count = counts?.[tab];
         return (

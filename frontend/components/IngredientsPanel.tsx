@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { Minus, Plus, Users } from "lucide-react";
 import type { IngredientsData } from "@/lib/api-client";
 
@@ -19,6 +20,7 @@ function formatItem(item: { name: string; amount?: number; unit?: string }): str
  * Recalculation is purely client-side and never persisted — the stored
  * recipe always stays at its original `servings`/`amount` values. */
 export default function IngredientsPanel({ ingredients }: { ingredients: IngredientsData }) {
+  const { t } = useI18n();
   const baseServings = ingredients.servings;
   const [desiredServings, setDesiredServings] = useState(baseServings ?? 1);
 
@@ -41,7 +43,7 @@ export default function IngredientsPanel({ ingredients }: { ingredients: Ingredi
             <button
               type="button"
               onClick={() => setDesiredServings((s) => Math.max(1, s - 1))}
-              aria-label="Fewer servings"
+              aria-label={t("ingredients-panel.fewer-servings")}
               className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
               <Minus className="h-3 w-3" />
@@ -55,18 +57,18 @@ export default function IngredientsPanel({ ingredients }: { ingredients: Ingredi
                 const n = Math.round(Number(e.target.value));
                 setDesiredServings(Number.isFinite(n) && n >= 1 ? n : 1);
               }}
-              aria-label="Number of servings"
+              aria-label={t("ingredients-panel.servings-count")}
               className="w-9 bg-transparent text-center text-sm font-semibold text-fg focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             <button
               type="button"
               onClick={() => setDesiredServings((s) => s + 1)}
-              aria-label="More servings"
+              aria-label={t("ingredients-panel.more-servings")}
               className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
               <Plus className="h-3 w-3" />
             </button>
-            <span className="pr-1 text-xs text-muted">servings</span>
+            <span className="pr-1 text-xs text-muted">{t("ingredients-panel.servings")}</span>
           </div>
         )}
       </div>
