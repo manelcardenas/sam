@@ -2,9 +2,12 @@
 
 import { Search, SlidersHorizontal } from "lucide-react";
 import { Chip, ClearChip } from "@/components/ui/Chip";
+import { cuisineAccent, cuisineIcon } from "@/lib/cuisines";
+import { SortControl } from "@/components/dine/SortControl";
 import type { RestaurantQuery, RestaurantSort } from "@/lib/api-client";
 
-const SORTS: RestaurantSort[] = ["recent", "rating"];
+// Every ordering the UI can produce, for guarding ?sort= off the URL.
+const SORTS: RestaurantSort[] = ["recent", "oldest", "rating", "rating_low"];
 
 /**
  * The dine list's query state: what to include, and in what order.
@@ -143,34 +146,67 @@ export function RestaurantFilters({
         />
       </div>
 
-      {/* One swipeable line on phones, wrapping on wider screens: with ~10
-          cuisines in play, wrapping on a 390px viewport buries the list under
-          four rows of chips before any content appears. The negative margin
-          lets it bleed to the screen edge so the row reads as scrollable. */}
-      <div className="rail-scroll -mx-4 flex flex-nowrap items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-        <Chip active={value.mine} onClick={() => onChange({ ...value, mine: !value.mine })}>
-          <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
-          Reviewed by me
-        </Chip>
-
-        {cuisines.map((name) => (
-          <Chip key={name} active={value.cuisines.includes(name)} onClick={() => toggleCuisine(name)}>
-            {name}
+      {/* Narrowing and ordering share one line (docs/plans/ux-refresh-plan.md
+          §5). The sort control is a sibling of the scroller, not a child: put
+          inside it, it would scroll away with the chips. */}
+      <div className="flex items-start gap-2">
+        {/* One swipeable line on phones, wrapping on wider screens: with ~10
+            cuisines in play, wrapping on a 390px viewport buries the list under
+            four rows of chips before any content appears. The negative margin
+            bleeds it to the left screen edge so the row reads as scrollable;
+            the right edge is now the sort control instead. */}
+        <div className="rail-scroll -ml-4 flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto pl-4 sm:ml-0 sm:flex-wrap sm:overflow-visible sm:pl-0">
+          <Chip active={value.mine} onClick={() => onChange({ ...value, mine: !value.mine })}>
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+            Reviewed by me
           </Chip>
-        ))}
 
-        {priceLevels.map((level) => (
-          <Chip
-            key={level}
-            active={value.priceLevels.includes(level)}
-            onClick={() => togglePrice(level)}
-            label={`Price level ${level} of 4`}
-          >
-            <span aria-hidden>{"€".repeat(level)}</span>
-          </Chip>
-        ))}
+          {cuisines.map((name) => {
+            const on = value.cuisines.includes(name);
+            const Icon = cuisineIcon(name);
+            return (
+              <Chip key={name} active={on} onClick={() => toggleCuisine(name)}>
+                {/* The cuisine's own colour, so the row is scannable before you
+                    read it (docs/plans/ux-refresh-plan.md §6). On an active chip
+                    the accent would sit on tomato at poor contrast, so it flips
+                    to the chip's own text colour. Decorative either way — the
+                    label is right beside it. */}
+                {Icon ? (
+                  <Icon
+                    className="h-3.5 w-3.5 shrink-0"
+                    style={on ? undefined : { color: cuisineAccent(name) }}
+                    aria-hidden
+                  />
+                ) : (
+                  <span
+                    aria-hidden
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: on ? "currentColor" : cuisineAccent(name) }}
+                  />
+                )}
+                {name}
+              </Chip>
+            );
+          })}
 
-        {active && <ClearChip onClick={() => onChange(clearFilters(value))} />}
+          {priceLevels.map((level) => (
+            <Chip
+              key={level}
+              active={value.priceLevels.includes(level)}
+              onClick={() => togglePrice(level)}
+              label={`Price level ${level} of 4`}
+            >
+              <span aria-hidden>{"€".repeat(level)}</span>
+            </Chip>
+          ))}
+
+          {active && <ClearChip onClick={() => onChange(clearFilters(value))} />}
+        </div>
+
+        <SortControl
+          value={value.sort}
+          onChange={(sort) => onChange({ ...value, sort })}
+        />
       </div>
 
       {/* Live region so the result count reaches screen readers when chips change

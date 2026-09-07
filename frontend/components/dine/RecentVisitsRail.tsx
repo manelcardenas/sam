@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cuisineAccent } from "@/lib/cuisines";
 import type { RestaurantDetail } from "@/lib/api-client";
 import { formatRelativeDate, formatReviewers } from "@/lib/format";
 import { PriceLevel, QuoteBlock, ScoreBadge, quoteAttribution } from "@/components/dine/atoms";
@@ -98,7 +99,7 @@ export function RecentVisitsRail({
           >
             Lately
           </h2>
-          <p className="text-sm text-muted">Where the pack has been eating.</p>
+          <p className="text-sm text-muted">The last few places you went.</p>
         </div>
 
         <div className="hidden shrink-0 items-center gap-1 sm:flex" aria-hidden>
@@ -206,7 +207,16 @@ function RailCard({
               </button>
             </h3>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[0.7rem] uppercase tracking-wide text-muted">
-              {r.cuisines.length > 0 && <span className="truncate">{r.cuisines[0]}</span>}
+              {r.cuisines.length > 0 && (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: cuisineAccent(r.cuisines[0]) }}
+                  />
+                  <span className="truncate">{r.cuisines[0]}</span>
+                </span>
+              )}
               {r.price_level && <PriceLevel level={r.price_level} className="text-[0.7rem]" />}
             </p>
           </div>

@@ -3,70 +3,78 @@
 import { ArrowDownWideNarrow } from "lucide-react";
 import type { RestaurantSort } from "@/lib/api-client";
 
-/** The orderings offered in the UI. `name` exists on the API but is only used by the dedup lookup. */
+/**
+ * The orderings offered in the UI, in the order they appear.
+ *
+ * `name` exists on the API but is only used by the dedup lookup. The four here
+ * are named rather than being two keys plus an ascending/descending toggle —
+ * one control instead of two, plain language instead of an abstract direction,
+ * and each maps to an ordering the repository sorts deliberately. Crucially the
+ * two reverse orderings are *not* mirror images: unrated and never-visited
+ * restaurants stay at the bottom of all four, because "no score" is not "the
+ * worst score" (docs/plans/ux-refresh-plan.md §5).
+ */
 const OPTIONS: { value: RestaurantSort; label: string }[] = [
   { value: "recent", label: "Recently visited" },
+  { value: "oldest", label: "Longest ago" },
   { value: "rating", label: "Top rated" },
+  { value: "rating_low", label: "Lowest rated" },
 ];
 
 /**
  * How the archive is ordered.
  *
- * Deliberately a native `<select>`, not a third segmented control. The page
- * already has two — outlined filter chips (which *narrow*) and the Cards/Map
- * switch (which *changes the medium*) — and a third one styled the same way
- * would read as another filter, i.e. "show me only the top-rated ones". A
- * dropdown reads as picking one ordering out of several, which is what this is.
+ * **Sits inline at the end of the filter row, pinned outside its scroller.**
+ * It used to own a full-width row of its own below a divider, which is a lot of
+ * vertical space on a 390px screen for a control most people set once. It must
+ * not sit *inside* the `rail-scroll` container or it scrolls away with the
+ * chips — that is the one real layout trap here.
  *
- * Native rather than a custom listbox because the native control wins on every
- * axis that matters here: iOS renders its wheel picker (genuinely better
- * one-handed than any menu we would build), keyboard and screen-reader
- * behaviour come for free, and it stays correct when "Closest" is added later
- * — the roadmap's deferred distance sort plugs in as one more entry in OPTIONS.
+ * **The current ordering stays visible.** The obvious way to save space is an
+ * icon-only trigger, but then "what order is this list in?" costs a tap, where
+ * today it is simply readable. So the trigger carries the value.
  *
- * `rounded-2xl`, not `rounded-full`, on purpose: the page uses fully-round pills
- * for toggles (the filter chips) and rounded rectangles for controls that hold a
- * value (the search input). At rest this select is otherwise pixel-close to an
- * inactive chip, and the shape is what tells them apart at a glance.
+ * Still a native `<select>`, and deliberately so: iOS renders its wheel picker
+ * (genuinely better one-handed than any menu we would build), keyboard and
+ * screen-reader behaviour come for free, and it stays correct as options are
+ * added — a "Closest" sort would be one more entry in OPTIONS. Whether a bottom
+ * sheet would beat it is a real question, and it belongs to the interaction
+ * research (§7) rather than being guessed at here.
  *
- * `appearance-none` plus our own chevron keeps it visually in the system; the
- * label is real and associated, not a placeholder option.
+ * `rounded-2xl`, not `rounded-full`, on purpose: the app uses fully-round pills
+ * for things that toggle and rounded rectangles for things that hold a value.
+ * Sitting directly beside the chips, the shape is what tells them apart.
  */
 export function SortControl({
   value,
   onChange,
+  className = "",
 }: {
   value: RestaurantSort;
   onChange: (next: RestaurantSort) => void;
+  className?: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <label
-        htmlFor="dine-sort"
-        className="flex shrink-0 items-center gap-1.5 text-sm text-muted"
+    <div className={`relative shrink-0 ${className}`}>
+      <ArrowDownWideNarrow
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+        aria-hidden
+      />
+      <select
+        aria-label="Order the list"
+        value={value}
+        onChange={(e) => onChange(e.target.value as RestaurantSort)}
+        // h-11 = 44px, matching the chips it sits beside. pl-9/pr-8 leave room
+        // for the two icons layered over the control.
+        className="h-11 cursor-pointer appearance-none truncate rounded-2xl border border-line bg-surface pl-9 pr-8 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 focus:border-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40"
       >
-        <ArrowDownWideNarrow className="h-4 w-4 shrink-0" aria-hidden />
-        {/* The word is redundant with the icon on a phone, where space is the
-            scarcer resource — the icon plus the option text still reads. */}
-        <span className="hidden sm:inline">Order</span>
-      </label>
-
-      <div className="relative min-w-0">
-        <select
-          id="dine-sort"
-          value={value}
-          onChange={(e) => onChange(e.target.value as RestaurantSort)}
-          // h-11 = 44px. pr-9 leaves room for the chevron sitting over the control.
-          className="h-11 w-full cursor-pointer appearance-none truncate rounded-2xl border border-line bg-surface pl-3.5 pr-9 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 focus:border-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40"
-        >
-          {OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown />
-      </div>
+        {OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown />
     </div>
   );
 }
@@ -78,7 +86,7 @@ function ChevronDown() {
       viewBox="0 0 20 20"
       fill="none"
       aria-hidden
-      className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+      className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
     >
       <path
         d="M5 7.5 10 12.5 15 7.5"
