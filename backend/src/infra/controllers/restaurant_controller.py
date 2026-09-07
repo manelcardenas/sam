@@ -150,7 +150,10 @@ class RestaurantController:
         price_levels: list[PriceLevelParam] = Query(default_factory=list, description="Any-of price levels, 1-4"),
         min_score: float | None = Query(default=None, ge=0, le=10, description="Floor on average overall; excludes unreviewed restaurants"),
         mine: bool = Query(default=False, description="Only restaurants the caller has reviewed"),
-        sort: RestaurantSort = Query(default=RestaurantSort.RECENT, description="recent = most recently visited first"),
+        sort: RestaurantSort = Query(
+            default=RestaurantSort.RECENT,
+            description="recent | oldest by last visit; rating | rating_low by average score. Unrated and unvisited restaurants sort last in every ordering",
+        ),
         current_user: TokenPayload = Depends(get_current_user),
     ) -> list[RestaurantDetail]:
         """List restaurants with aggregate ratings, narrowed by the filter params.
