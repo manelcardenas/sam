@@ -1,0 +1,361 @@
+{
+  "app": {
+    "name": "SAM — Cook & Dine",
+    "short-name": "SAM",
+    "description": "SAM the border collie fetches your food world: cook at home or find somewhere to eat out."
+  },
+  "common": {
+    "back": "Back",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "close": "Close",
+    "delete": "Delete",
+    "edit": "Edit",
+    "optional": "(optional)",
+    "required-marker": "*",
+    "save-changes": "Save changes",
+    "saving": "Saving…",
+    "searching": "Searching…",
+    "something-went-wrong": "Something went wrong",
+    "unknown": "Unknown",
+    "working": "Working…"
+  },
+  "shell": {
+    "cook-and-dine": "Cook & Dine",
+    "language": "Language",
+    "primary-navigation": "Primary",
+    "profile": "Profile",
+    "sign-out": "Sign out",
+    "theme-to-dark": "Switch to dark mode",
+    "theme-to-light": "Switch to light mode",
+    "theme-dark": "Dark mode",
+    "theme-light": "Light mode",
+    "worlds": "Worlds",
+    "you": "You",
+    "your-profile": "Your profile"
+  },
+  "worlds": {
+    "cook": {
+      "label": "Cook"
+    },
+    "dine": {
+      "label": "Dine"
+    }
+  },
+  "food-types": {
+    "comida": {
+      "label": "Mains",
+      "description": "Main courses and stews"
+    },
+    "bebida": {
+      "label": "Drinks",
+      "description": "Smoothies, juices and cocktails"
+    },
+    "postre": {
+      "label": "Desserts",
+      "description": "Sweets and puddings"
+    },
+    "aperitivo": {
+      "label": "Starters",
+      "description": "Snacks and small plates"
+    }
+  },
+  "cuisines": {
+    "American": "American",
+    "Chinese": "Chinese",
+    "French": "French",
+    "Indian": "Indian",
+    "Italian": "Italian",
+    "Japanese": "Japanese",
+    "Mediterranean": "Mediterranean",
+    "Mexican": "Mexican",
+    "Other": "Other",
+    "Spanish": "Spanish",
+    "Thai": "Thai",
+    "Vegan/Vegetarian": "Vegan / Vegetarian"
+  },
+  "landing": {
+    "email": "Email",
+    "email-placeholder": "your@email.com",
+    "google-sign-in": "Sign in with Google",
+    "google-sign-in-failed": "Failed to sign in with Google",
+    "new-here": "New around here?",
+    "no-account": "Ask your admin for an invite",
+    "or": "or continue with",
+    "password": "Password",
+    "sign-in": "Sign in",
+    "sign-in-failed": "Failed to sign in. Please check your credentials.",
+    "signing-in": "Signing you in…",
+    "tagline": "Cook at home or dine out — your border collie fetches both."
+  },
+  "complete-profile": {
+    "title": "One more sniff!",
+    "body": "What should SAM call you? This is how you'll appear as the author of your recipes.",
+    "display-name": "Display name",
+    "display-name-placeholder": "e.g. Manel",
+    "submit": "Let's go",
+    "name-taken": "That name is already taken — pick another.",
+    "save-failed": "Failed to save your name."
+  },
+  "dashboard": {
+    "title": "What shall we fetch?",
+    "count": {
+      "one": "{{count}} recipe in the collection.",
+      "other": "{{count}} recipes in the collection."
+    },
+    "empty-collection": "Nothing in the collection yet.",
+    "new-recipe": "New recipe",
+    "search-placeholder": "Search by title…",
+    "search-label": "Search recipes by title",
+    "no-recipes-title": "No recipes yet.",
+    "no-recipes-body": "Write up the first one and it'll be here for everyone.",
+    "no-recipes-action": "Add the first one",
+    "no-match-title": "Nothing matches that.",
+    "no-match-body": "Try a shorter word, or drop the category.",
+    "load-failed": "Failed to load recipes",
+    "delete-failed": "Failed to delete recipe",
+    "instructions": "Instructions",
+    "by-and-dates": "By {{author}} · Created {{created}} · Updated {{updated}}",
+    "edit-recipe-title": "Edit recipe",
+    "new-recipe-title": "New recipe",
+    "edit-aria": "Edit recipe",
+    "delete-aria": "Delete recipe"
+  },
+  "recipe-row": {
+    "ingredients": {
+      "one": "{{count}} ingredient",
+      "other": "{{count}} ingredients"
+    }
+  },
+  "recipe-form": {
+    "add-ingredient": "Add ingredient",
+    "amount": "Amount",
+    "ingredient-name": "Ingredient name",
+    "ingredient-placeholder": "e.g. flour",
+    "ingredient-placeholder-first": "e.g. flour",
+    "ingredient-placeholder-rest": "ingredient",
+    "ingredients": "Ingredients",
+    "instructions": "Instructions",
+    "instructions-placeholder": "Recipe steps…",
+    "invalid-servings": "Servings must be a whole number of 1 or more.",
+    "invalid-url": "The source link doesn't look like a valid URL.",
+    "invalid-url-inline": "That doesn't look like a valid URL.",
+    "need-an-ingredient": "Add at least one ingredient.",
+    "preview": "Preview:",
+    "remove-ingredient": "Remove ingredient",
+    "servings": "Servings",
+    "servings-hint": "The number of people these amounts feed — lets anyone viewing the recipe scale it up or down later.",
+    "servings-placeholder": "4",
+    "source": "Source",
+    "source-hint": "Where the recipe comes from. We'll show just the site, not the full link.",
+    "source-placeholder": "recipes.example.com/…",
+    "submit-add": "Add recipe",
+    "title": "Title",
+    "title-placeholder": "e.g. Vegetable lasagne",
+    "type": "Type",
+    "unit": "Unit"
+  },
+  "ingredients-panel": {
+    "adjust-servings": "adjust servings",
+    "fewer-servings": "Fewer servings",
+    "more-servings": "More servings",
+    "servings-count": "Number of servings",
+    "servings": "servings"
+  },
+  "dine": {
+    "add-restaurant": "Add restaurant",
+    "already-added": "{{name}} was already on SAM — here's the existing entry.",
+    "count": {
+      "one": "{{count}} place you've all eaten at.",
+      "other": "{{count}} places you've all eaten at."
+    },
+    "delete-review": "Delete review",
+    "delete-review-confirm": "Are you sure you want to delete this review? This can't be undone.",
+    "delete-review-failed": "Failed to delete review",
+    "edit-restaurant": "Edit restaurant",
+    "edit-review": "Edit review",
+    "edit-your-review": "Edit your review",
+    "empty-archive": "Everywhere anyone here has eaten.",
+    "heading-all": "Everywhere",
+    "heading-matching": "Matching",
+    "load-failed": "Failed to load restaurants",
+    "load-one-failed": "Failed to load restaurant",
+    "new-restaurant": "New restaurant",
+    "no-match-action": "Clear filters",
+    "no-match-body": "Try loosening a filter — or add the place if it isn't here yet.",
+    "no-match-title": "Nothing matches that.",
+    "no-reviews-be-first": "No reviews yet — be the first!",
+    "nothing-to-plot-body": "None of the matching restaurants have a location. Loosen a filter, or switch back to cards.",
+    "nothing-to-plot-title": "Nothing to plot.",
+    "nothing-yet-action": "Add the first one",
+    "nothing-yet-body": "Add the first restaurant and SAM will start keeping the record.",
+    "nothing-yet-title": "Nothing on the menu yet.",
+    "review": "Review",
+    "reviews-count": {
+      "one": "{{count}} review",
+      "other": "{{count}} reviews"
+    },
+    "reviews-heading": "Reviews",
+    "score-location-short": "Location",
+    "showing": "{{shown}} of {{total}}",
+    "title": "Where shall we eat?",
+    "view-as": "View as",
+    "view-cards": "Cards",
+    "view-map": "Map",
+    "visited": "Visited {{when}}",
+    "write-a-review": "Write a review"
+  },
+  "dine-filters": {
+    "search-placeholder": "Search by name…",
+    "search-label": "Search restaurants by name",
+    "reviewed-by-me": "Reviewed by me",
+    "price-level": "Price level {{level}} of 4",
+    "results": {
+      "one": "{{count}} restaurant",
+      "other": "{{count}} restaurants"
+    },
+    "updating": "Updating results"
+  },
+  "sort": {
+    "label": "Order the list",
+    "recent": "Recently visited",
+    "oldest": "Longest ago",
+    "rating": "Top rated",
+    "rating_low": "Lowest rated"
+  },
+  "recent-visits": {
+    "eyebrow": "Lately",
+    "blurb": "The last few places you went.",
+    "list-label": "Recent visits",
+    "scroll-left": "Scroll left",
+    "scroll-right": "Scroll right",
+    "no-notes": "No notes from this one."
+  },
+  "restaurant-card": {
+    "visits-no-notes": {
+      "one": "One visit, no notes written.",
+      "other": "{{count}} visits, no notes written."
+    },
+    "not-reviewed": "Not reviewed yet — be the first.",
+    "rated": "Rated {{score}} out of 10",
+    "not-rated": "Not yet rated",
+    "more-reviewers": {
+      "one": "{{count}} more",
+      "other": "{{count}} more"
+    }
+  },
+  "restaurant-form": {
+    "address": "Address",
+    "address-placeholder": "Carrer Gran de Gràcia, 1",
+    "adjust-pin": "Adjust the pin",
+    "already-here": "Already on SAM?",
+    "already-here-body": "Someone may have added this place already — pick it instead of creating a duplicate.",
+    "area-label": "City, neighbourhood or address to search in",
+    "area-placeholder": "…or a city / address, e.g. Zaragoza",
+    "attribution": "Powered by Geoapify · © OpenStreetMap contributors",
+    "clear-area": "Clear search area",
+    "cuisine": "Cuisine",
+    "cuisine-hint": "(optional, pick any that apply)",
+    "drop-a-pin": "Drop a pin",
+    "drop-pin-on-map": "Drop a pin on the map",
+    "from-the-map": "From the map",
+    "from-the-map-body": "Pick the place you're at to fill in its details.",
+    "locating": "Locating…",
+    "location": "Location",
+    "mapped-to": "Mapped to",
+    "name": "Name",
+    "name-placeholder": "e.g. Casa Pepe",
+    "name-required": "Name is required.",
+    "near-me": "Near me",
+    "pinned": "Pinned on the map",
+    "price-level": "Price level",
+    "ranked-by-distance": "Results are ranked by distance from you",
+    "remove-map-link": "Remove map link",
+    "remove-pin": "Remove pin",
+    "searching-around": "Searching around",
+    "use-this-spot": "Use this spot",
+    "where": "Where is it?",
+    "where-hint": "(helps find the right one on the map)"
+  },
+  "review-form": {
+    "overall": "Overall",
+    "overall-hint": "Average of the 4 scores below",
+    "visited-at": "Date you went",
+    "comment": "Comment",
+    "comment-placeholder": "Anything worth remembering about this visit…",
+    "submit": "Post review",
+    "date-required": "Pick the date you went.",
+    "scores": {
+      "location": {
+        "label": "Location & decoration",
+        "hint": "Ambiance, setting, decor"
+      },
+      "food": {
+        "label": "Food",
+        "hint": "Taste, quality, presentation"
+      },
+      "service": {
+        "label": "Service",
+        "hint": "Staff, attentiveness, pace"
+      },
+      "value": {
+        "label": "Value",
+        "hint": "Was it worth the price?"
+      }
+    }
+  },
+  "profile": {
+    "sections": "Profile sections",
+    "tab-overview": "Overview",
+    "tab-recipes": "Recipes",
+    "tab-reviews": "Reviews",
+    "tab-account": "Account",
+    "since": "Cooking here since {{month}}",
+    "stat-places": "places",
+    "stat-reviews": "reviews",
+    "stat-average": "you average",
+    "your-numbers": "Your numbers",
+    "mostly-eating": "Mostly eating",
+    "latest": "Latest: {{name}}",
+    "no-recipes-hint": "Nothing written up yet",
+    "no-reviews-hint": "Nowhere reviewed yet",
+    "recipes-search-placeholder": "Search your recipes…",
+    "recipes-search-label": "Search your recipes by title",
+    "recipes-empty-title": "No recipes yet.",
+    "recipes-empty-body": "Anything you write up shows here, and stays yours to edit.",
+    "recipes-empty-action": "Write your first one",
+    "recipes-no-match-title": "Nothing matches that.",
+    "recipes-no-match-body": "Try a shorter word, or drop the category.",
+    "reviews-search-placeholder": "Search the places you've reviewed…",
+    "reviews-search-label": "Search your reviews by restaurant name",
+    "reviews-empty-title": "No reviews yet.",
+    "reviews-empty-body": "Every place you write up lands here, with what you said about it.",
+    "reviews-empty-action": "Find somewhere to eat",
+    "reviews-no-match-title": "Nothing matches that.",
+    "reviews-no-match-body": "Try a shorter word — this only searches the restaurant's name.",
+    "review-sort-recent": "Most recent",
+    "review-sort-score": "Highest rated",
+    "account-title": "Account",
+    "account-body": "Your display name is shown as the author of your recipes.",
+    "email": "Email",
+    "email-hint": "Set by the account you signed in with, and not editable here.",
+    "display-name": "Display name",
+    "display-name-placeholder": "e.g. Manel",
+    "saved": "Saved.",
+    "name-taken": "That name is already taken — pick another.",
+    "save-failed": "Failed to save your name."
+  },
+  "map": {
+    "already-on-sam": "Already on SAM",
+    "loading": "Loading the map…",
+    "loading-label": "Loading map",
+    "no-reviews": "No reviews yet",
+    "pin-hint": "Tap to drop the pin · drag to adjust",
+    "this-is-it": "This is it — open it",
+    "view-details": "View details"
+  },
+  "delete-recipe": {
+    "title": "Delete recipe",
+    "body": "Delete \"{{name}}\"? SAM can't fetch this one back."
+  }
+}
