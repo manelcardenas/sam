@@ -9,12 +9,13 @@ from mangum import Mangum
 from src.infra.adapters.places import GeoapifyPlacesProvider, resolve_geoapify_api_key
 from src.infra.adapters.repos import (
     PostgresCuisineRepository,
+    PostgresMealPlanRepository,
     PostgresRecipeRepository,
     PostgresRestaurantRepository,
     PostgresReviewRepository,
     PostgresUserRepository,
 )
-from src.infra.controllers import PlacesController, RecipeController, RestaurantController, UserController
+from src.infra.controllers import MealPlanController, PlacesController, RecipeController, RestaurantController, UserController
 from src.infra.db import DatabaseConnectionPool, build_dsn
 from src.infra.middleware import (
     CORSMiddlewareConfigurator,
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     restaurant_repository = PostgresRestaurantRepository(session_factory=db.session_factory)
     review_repository = PostgresReviewRepository(session_factory=db.session_factory)
     cuisine_repository = PostgresCuisineRepository(session_factory=db.session_factory)
+    meal_plan_repository = PostgresMealPlanRepository(session_factory=db.session_factory)
     configure_user_repository(user_repository)
 
     # Key resolved once per cold start (SSM on Lambda, .env locally). A missing
@@ -71,6 +73,7 @@ def create_app() -> FastAPI:
     UserController(user_repository, review_repository, router)
     RestaurantController(restaurant_repository, review_repository, cuisine_repository, router)
     PlacesController(places_provider, router)
+    MealPlanController(meal_plan_repository, user_repository, router)
     app.include_router(router)
 
     return app
