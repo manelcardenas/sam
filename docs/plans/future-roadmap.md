@@ -182,6 +182,47 @@ ingredients, a catalogue is products.** Matching them buys nothing for a househo
 prices — which is a real motivation, but one worth pricing separately once the planner exists and
 you know whether you miss it.
 
+## 11. Split the page files — `dine/page.tsx` is 843 lines
+
+Inherited from [`./improvement-plan.md`](./improvement-plan.md) Phase 4 when that plan was closed
+on 2026-09-11, because it is the one item there that **moved in the wrong direction**:
+
+| | Sep 2026 (plan written) | 2026-09-11 |
+| --- | --- | --- |
+| `app/dine/page.tsx` | 434 | **843** |
+| `app/dashboard/page.tsx` | 403 | **477** |
+
+This is not a failure of the UX work — that work *did* extract presentation, into
+`components/dine/`, `components/profile/`, `components/recipes/` and `components/map/`. What is
+left in the page files is the part nobody has found a home for: data fetching, auth gating, URL
+state and the effects tying them together. Adding features to those pages made that layer bigger
+even as the JSX left.
+
+**Why it is not urgent:** it is legible, it is tested at the module level, and nothing is broken.
+**What would make it urgent:** the meal planner (item 5 of the queue) adding a fifth top-level
+page of the same shape — at which point the orchestration pattern gets copied a fourth time
+rather than named once.
+
+The honest framing recorded in [`./frontend-ux-plan.md`](./frontend-ux-plan.md): splitting for
+*routing* is impossible under `output: 'export'` and that question is closed. Splitting for
+*maintainability* remains open on its own merits, and needs someone to decide what the extracted
+thing actually is — a `usePageData` hook per domain, or something else.
+
+## 12. Toast notifications — decide, don't default
+
+Also inherited from Phase 4, where it sat as "❌ not done — `react-hot-toast`, tiny, free" for
+four months.
+
+**It has been "not done" long enough that the absence is now evidence.** Two full UX passes
+designed feedback deliberately inline — `ConfirmModal.tsx`, form-level messages, the optimistic
+patterns in the profile panels — and nobody reached for a toast. Adding one now would mean two
+feedback idioms in one app, which is worse than either alone.
+
+So the item is not "add react-hot-toast". It is: **find the case inline feedback genuinely cannot
+serve**, and if there isn't one, delete this item. The strongest candidate is an action whose
+result arrives after the user has navigated away — which the app does not currently have, but the
+meal planner's shared-list ticking might.
+
 ---
 
 ## Queue as of 2026-09-07
@@ -194,10 +235,17 @@ Agreed order, replacing "pick whichever item looks interesting":
 | **1** | Profile UX rework | ✅ done 2026-09-07 — [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §1 |
 | **2** | UX pass: dashboard chips, brand-voice trim, the dine ordering control, cuisine colour | ✅ done 2026-09-07 — [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §2, §3, §5, §6 |
 | **3** | English / Spanish / Catalan switch, and all copy out of the code | ✅ done 2026-09-07 — [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §4 |
-| **4** | mise.cooking pattern research | [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §7 — a week of phone use, not a design task |
-| **5** | Build the meal planner | [`./meal-planner-plan.md`](./meal-planner-plan.md) |
-| later | AI ingredient capture (9), prices (10) | |
-| parked | Search (4), Redis (5) | Neither has a trigger; both are solutions looking for a problem at this data size |
+| **4** | mise.cooking pattern research | [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §7 — a week of phone use, not a design task. **Runs in the background; does not block 5** |
+| **5** | Build the meal planner | [`./meal-planner-plan.md`](./meal-planner-plan.md) — ready to start, with §6's state machine to settle first |
+| later | AI ingredient capture (9), prices (10), page-file split (11) | 11 becomes urgent if the planner copies the page-orchestration pattern a fourth time |
+| parked | Search (4), Redis (5), toasts (12) | None has a trigger; 12 may simply be deleted |
+
+**Reconciliation note (2026-09-11).** [`./improvement-plan.md`](./improvement-plan.md) was closed
+on this date and its Phase 4 status table reconciled against the code — it had been stale since
+2026-09-01, still listing the map as "not started" and skeletons as "partial" when both had
+shipped. Its two genuinely-unbuilt items became 11 and 12 above. **The lesson worth keeping: when
+work migrates to a dedicated plan, the plan it came from stops being updated.** This roadmap is
+the one document that should always be current.
 
 **Why the UX work comes before the feature that motivated it:** the planner needs a home in the
 navigation, an archive surface in the profile, and a dish picker. Building those into a layout
