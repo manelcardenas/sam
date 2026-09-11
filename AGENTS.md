@@ -19,7 +19,11 @@ sam/
 │   │   ├── adapters/     # Interface implementations (InMemory, DynamoDB)
 │   │   └── controllers/  # HTTP controllers (FastAPI routes)
 │   └── main.py           # FastAPI app factory + Lambda handler
-├── frontend/admin/       # Streamlit UI (not in active use)
+├── frontend/             # Next.js 15, `output: 'export'` (static — no SSR, no API routes)
+│   ├── app/              # Routes: /, /dashboard, /dine, /profile
+│   ├── components/       # By domain: dine/, map/, profile/, recipes/, ui/, auth/
+│   ├── lib/              # api-client, url-state, i18n/, format, worlds, cuisines
+│   └── messages/         # en.json / es.json / ca.json — ALL user-facing copy
 ├── tests/
 │   ├── unit/             # Use case tests (InMemory repo)
 │   └── integration/      # HTTP API tests
@@ -232,6 +236,46 @@ user_repository = PostgresUserRepository(session_factory=db.session_factory)
 
 Required: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`,
 `POSTGRES_PASSWORD`, `POSTGRES_SSLMODE`.
+
+## Frontend — two rules that are easy to break
+
+### All user-facing copy lives in `frontend/messages/`, never in a component
+
+English is the source of truth; `es` and `ca` are translations of it. Adding a string means
+editing **three** files.
+
+```tsx
+// ✅
+const { t, tp } = useI18n();
+<h1>{t("dine.title")}</h1>
+<p>{tp("restaurant-card.more-reviewers", n)}</p>   // plural-aware
+
+// ❌ — a literal here ships an English-only string to Spanish and Catalan readers
+<h1>Where shall we eat?</h1>
+```
+
+`messages/es.json` and `ca.json` are typed as `typeof en`, so **a missing key is a type error**,
+and tests assert all three files share one key set, the same `{{placeholders}}` and matching
+plural shapes. Interpolation leaves an unfilled `{{name}}` visible on purpose — it reads as a bug
+rather than printing `undefined`.
+
+Two traps this does not catch:
+
+- **Dates and numbers need the locale passed explicitly.** Every `lib/format.ts` function takes
+  `locale` as an argument. Omit it and formatting silently follows the *browser*, so picking
+  Catalan still yields English dates.
+- **Nothing detects an *unused* key.** knip sees exports, not JSON paths, and keys are often
+  built dynamically (`food-types.${value}.label`). Deleting copy means deleting its keys by hand.
+
+Identifiers are not copy: `FOOD_TYPES.value` stays `"comida"` because it is the API's stored
+`food_type`. Only its label is translated.
+
+### Page state lives in the URL, and views push while filters replace
+
+`output: 'export'` rules out dynamic segments (`/dine/[id]` needs every id at build time), so
+state is query params via `lib/url-state.ts`. The convention — a *view* change pushes history, a
+*filter* change replaces it — is what makes the phone back gesture move back one view instead of
+exiting the PWA. There is no unit test that can prove that; be careful when changing it.
 
 ## Pre-commit Hooks
 

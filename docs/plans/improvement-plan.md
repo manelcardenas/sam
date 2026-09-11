@@ -4,8 +4,12 @@
 
 Four distinct workstreams, ordered by dependency. Each section describes **what**, **how**, and key **concerns/tradeoffs**.
 
-> **Status (2026-09-01):** Phases 1, 2, 2b and 3 are **done**. **Phase 4 (frontend UI)
-> is the only open workstream.** Each phase heading below carries its own status.
+> **Status (2026-09-11): this plan is CLOSED — all four phases done.** Phase 4 was the last one
+> open; it was executed through [`./frontend-ux-plan.md`](./frontend-ux-plan.md) and
+> [`./ux-refresh-plan.md`](./ux-refresh-plan.md) rather than from this document, and its status
+> table sat stale for ten days as a result. Reconciled against the code on 2026-09-11.
+> **Remaining work lives in [`./future-roadmap.md`](./future-roadmap.md), not here.**
+> Each phase heading below carries its own status.
 >
 > Two things to keep in mind while reading: the DB is **Neon**, not Aurora — Phase 1's
 > text still describes the Aurora era it was written in (see
@@ -377,12 +381,19 @@ clearer than two workflows plus three reusable fragments.
 
 ---
 
-## Phase 4 — Frontend UI Improvements 🔨 OPEN (the only remaining workstream)
+## Phase 4 — Frontend UI Improvements ✅ DONE (2026-09-11) — superseded by two UX plans
 
-> **Now planned in detail:** [`./frontend-ux-plan.md`](./frontend-ux-plan.md) is the concrete
-> execution plan for this phase (scoped 2026-09-01) — the dine-page scrapbook rebuild, the
-> profile page, and the iOS home-screen fix. The section below is the original wish-list and
-> the per-item status; go to that plan for what actually gets built.
+> **Closed 2026-09-11.** This phase was written in May 2026 as a wish-list, and reality overtook
+> it: the work was executed through two dedicated plans, neither of which reported back here.
+> [`./frontend-ux-plan.md`](./frontend-ux-plan.md) (implemented 2026-09-01) did install/PWA, the
+> dine scrapbook and the first profile; [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §1–§6
+> (implemented 2026-09-07) did profile tabs, dashboard chips, the brand-voice trim, the dine
+> control row, cuisine colour and three languages. The table below has been reconciled against
+> the code as it actually stands.
+>
+> **Two items did not ship and are not abandoned** — they moved to
+> [`./future-roadmap.md`](./future-roadmap.md) items 11 and 12, because they are their own
+> decisions rather than leftovers of a 2026-05 wish-list.
 
 **Goal:** Improve the UI within the constraints of Amplify static export.
 
@@ -390,24 +401,26 @@ clearer than two workflows plus three reusable fragments.
 
 ### Where it stands today
 
-| Item | Status |
+| Item | Status (verified against the code 2026-09-11) |
 | --- | --- |
-| Split the `dashboard/page.tsx` mega-file | ⚠️ Partial — routes were split by *domain* (`app/dine/`, `app/recipes/`, `app/profile/`), not into the list/detail/new tree below. `dashboard/page.tsx` is still 403 lines and `dine/page.tsx` is 434. |
-| Sidebar / app-level navigation | ✅ Done differently — `components/ui/AppShell.tsx` (plus `ThemeToggle.tsx`, which was never planned). |
-| Loading skeletons | ⚠️ Partial — `components/ui/Loader.tsx` exists; it is a spinner, not per-view skeletons. |
-| Toast notifications | ❌ Not done — no `react-hot-toast`; feedback is inline (`ConfirmModal.tsx` / form-level messages). |
-| Responsive mobile layout | ⚠️ Unverified — no explicit pass done. |
-| Map view | ❌ Not started — no map library installed. Tracked as **scope B** in [`./geoapify-places-plan.md`](./geoapify-places-plan.md); deferred again in [`./frontend-ux-plan.md`](./frontend-ux-plan.md). |
+| Split the `dashboard/page.tsx` mega-file | ❌ **Went backwards.** `dine/page.tsx` 434 → **843** lines, `dashboard/page.tsx` 403 → **477**. Presentation *was* extracted (`components/dine/`, `components/profile/`, `components/recipes/`, `components/map/`) — what stayed and grew is async, auth and URL-state orchestration. Moved to roadmap item 11. |
+| Sidebar / app-level navigation | ✅ Done differently — `components/ui/AppShell.tsx` (plus `ThemeToggle.tsx` and `LanguageToggle.tsx`, neither planned here). |
+| Loading skeletons | ✅ Done — `components/ui/PageSkeleton.tsx`, `components/dine/DineSkeleton.tsx`, `components/map/MapLoading.tsx`. `Loader.tsx` survives only for the pre-auth gate, where there is no layout to reserve. The skeletons picked up a second job the wish-list never imagined: they hold the untranslated headings off the prerendered HTML (see [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §4). |
+| Toast notifications | ❌ Not done, and now a real decision rather than a missing package — feedback is inline (`ConfirmModal.tsx`, form-level messages) and has been consistently inline through two UX passes. Moved to roadmap item 12. |
+| Responsive mobile layout | ✅ Done — but by construction, not by audit. Both UX plans designed at 390px first (`min-w-0` on every truncating flex child, `rail-scroll` bleeds, 44px touch targets, the header-width arithmetic behind the language toggle). **Never verified in a real browser** — that is roadmap item 8 (Playwright), not this. |
+| Map view | ✅ Shipped — **MapLibre GL + OpenFreeMap**, not the Leaflet/Geoapify-tiles sketch (PR #44, 2026-09-02; improved again in PR #43). `components/map/{RestaurantsMap,LocationMap,PinPickerMap,map-style}.tsx`, code-split behind `next/dynamic`. See [`./geoapify-places-plan.md`](./geoapify-places-plan.md) scope B for why the tile provider changed. |
 | Restaurant rating display | ✅ Done — `RestaurantCard.tsx`, `ReviewForm.tsx`, with aggregates from `get_restaurant.py`. |
 
-### What's left to decide before picking this up
+### The routing question — answered, and not the way this section expected
 
-The routing tree below was drawn before Phase 2 shipped, and reality diverged: there is no
-`restaurants/[id]` detail route — restaurant detail and reviews live inside `dine/page.tsx`.
-So the open question isn't "execute the tree below" but **whether the detail views are worth
-extracting into real routes** (shareable URLs, smaller files) or whether the current
-single-page-per-domain shape is fine. Decide that first; the rest of this section is the
-original wish-list, still broadly valid.
+This section used to ask whether the detail views were worth extracting into real routes. **That
+question is closed, and the answer was "they can't be."** `output: 'export'` needs every dynamic
+path known at build time, so `/dine/[id]` is impossible for user-created data. The shareable-URL
+half of the motivation shipped instead as query params (`?place=<id>`, `?recipe=<id>`) in
+[`./routing-and-latency-plan.md`](./routing-and-latency-plan.md) §3 — which also bought the thing
+nobody listed here: a back gesture that moves back one view instead of leaving the PWA.
+
+**The smaller-files half went unanswered and got worse**, which is roadmap item 11.
 
 <details>
 <summary>Original structural refactor proposal (pre-Phase 2, not followed)</summary>
@@ -428,19 +441,21 @@ app/
 
 </details>
 
-### UX improvements — still wanted
+### UX improvements — resolved
 
-- Loading skeletons instead of the generic spinner
-- Toast notifications for CRUD actions (`react-hot-toast` — tiny, free)
-- Responsive mobile layout pass
+- ~~Loading skeletons instead of the generic spinner~~ — shipped, see the table
+- Toast notifications for CRUD actions — **still not done**, now [`./future-roadmap.md`](./future-roadmap.md) item 12
+- ~~Responsive mobile layout pass~~ — designed mobile-first across both UX plans; browser verification is roadmap item 8
 
-### Map view — moved
+### Map view — shipped elsewhere
 
-Map *display* is no longer scoped here. It is **scope B** of
-[`./geoapify-places-plan.md`](./geoapify-places-plan.md), and the tile provider question
-has moved on: Geoapify tiles (same free credit pool already in use) are the leading option
-over raw OSM. The static-export constraint still applies — any map component needs a
-`dynamic(() => import(...), { ssr: false })` wrapper, since there is no `window` at build time.
+Map *display* was never built here. It shipped as **scope B** of
+[`./geoapify-places-plan.md`](./geoapify-places-plan.md) on 2026-09-02, with one deviation worth
+carrying forward: the tile provider is **OpenFreeMap, not Geoapify**. Geoapify tiles are fetched
+by the browser, which would have put the API key in the bundle; OpenFreeMap needs no key at all,
+so the key stays server-side and Geoapify remains the *places* provider only. The static-export
+constraint held as predicted — every map component is wrapped in
+`dynamic(() => import(...), { ssr: false })`, since there is no `window` at build time.
 
 ### Restaurant rating display — shipped
 
@@ -453,13 +468,13 @@ Phase 2 draft. Overall is computed, never stored.
 
 No changes needed. The existing build spec is correct.
 
-### New frontend dependencies
+### New frontend dependencies — as they actually landed
 
 ```
-react-hot-toast     — toast notifications (still to add)
+maplibre-gl         — map display (scope B); no key, no cost
 ```
 
-Map libraries are deferred with scope B.
+`react-hot-toast` was never added. See roadmap item 12 for whether it should be.
 
 ---
 
@@ -473,12 +488,14 @@ Phase 2 (Restaurant Reviews)      ✅ DONE  2026-07-11
 Phase 2b (Geoapify Places)        ✅ DONE  2026-07-12 (scope A only)
 Phase 3 (CI/CD)                   ✅ DONE  2026-05-30 (shipped differently — see the phase)
     ↓
-Phase 4 (Frontend UI)             🔨 OPEN  ← the only remaining workstream here
+Phase 4 (Frontend UI)             ✅ DONE  2026-09-11 (executed via two dedicated UX plans)
 ```
 
-Phase 4 is planned in [`./frontend-ux-plan.md`](./frontend-ux-plan.md). Still open elsewhere:
-scope B/C of [`./geoapify-places-plan.md`](./geoapify-places-plan.md) and the unscoped backlog
-in [`./future-roadmap.md`](./future-roadmap.md).
+**This plan is now closed.** Phase 4 was executed by
+[`./frontend-ux-plan.md`](./frontend-ux-plan.md) and
+[`./ux-refresh-plan.md`](./ux-refresh-plan.md) §1–§6. Still open elsewhere: scope C of
+[`./geoapify-places-plan.md`](./geoapify-places-plan.md), §7 of the UX refresh, and the backlog
+in [`./future-roadmap.md`](./future-roadmap.md) — which is where all remaining work now lives.
 
 ---
 
