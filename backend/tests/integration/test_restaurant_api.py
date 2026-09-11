@@ -30,6 +30,9 @@ class StubUserRepository(UserRepository):
     def get_by_id(self, user_id: str) -> User | None:  # noqa: ARG002
         return None
 
+    def get_by_display_name(self, display_name: str) -> User | None:  # noqa: ARG002
+        return None
+
     def update_display_name(self, user_id: str, new_name: str) -> User:
         raise NotImplementedError
 
