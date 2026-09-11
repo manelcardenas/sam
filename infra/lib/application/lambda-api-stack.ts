@@ -237,6 +237,100 @@ export class LambdaApiStack extends Stack {
       authorizer,
     });
 
+    // ── Meal planner (docs/plans/meal-planner-plan.md §8) ──────────────────
+    //
+    // Seven routes, and the shape is driven partly by this file: HTTP API
+    // matches exactly, so every path costs an entry here. That is why the slot
+    // upsert is one PUT rather than a create/update pair, and why closing the
+    // calendar and closing the list share one endpoint that takes the status it
+    // is leaving.
+    httpApi.addRoutes({
+      path: "/plans",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    // Not a sub-path of /plans/{plan_id} — the plan is created lazily on the
+    // first assignment, so the caller doesn't have an id to send yet.
+    httpApi.addRoutes({
+      path: "/plans/entries",
+      methods: [HttpMethod.PUT],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/plans/{plan_id}/entries/{entry_id}",
+      methods: [HttpMethod.DELETE],
+      integration,
+      authorizer,
+    });
+
+    // Two segments, so it never collides with /plans/{plan_id}/items below.
+    // This is the route that lets a week's list exist before the week has a
+    // single dish in it.
+    httpApi.addRoutes({
+      path: "/plans/items",
+      methods: [HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/plans/{plan_id}/items",
+      methods: [HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/plans/{plan_id}/items/{item_id}",
+      methods: [HttpMethod.PATCH, HttpMethod.DELETE],
+      integration,
+      authorizer,
+    });
+
+    // Sharing (§4.3). `/plans/shared` is a literal path and there is no
+    // `/plans/{plan_id}` route for it to collide with — HTTP API matches
+    // exactly, so a literal and a greedy sibling would be a real hazard if one
+    // were ever added.
+    httpApi.addRoutes({
+      path: "/plans/shared",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    // The year view (§5.3). Literal, like /plans/shared.
+    httpApi.addRoutes({
+      path: "/plans/archive",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/plans/{plan_id}/shares",
+      methods: [HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/plans/{plan_id}/shares/{guest_id}",
+      methods: [HttpMethod.DELETE],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/plans/{plan_id}/status",
+      methods: [HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
     new CfnOutput(this, "ApiEndpoint", {
       value: httpApi.apiEndpoint,
       description: "Recipe Manager HTTP API endpoint",
