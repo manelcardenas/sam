@@ -12,7 +12,20 @@ class MealPlanRepository(ABC):
     wants all of them. The write methods are deliberately fine-grained rather
     than "save this whole plan" — the shopping list accretes one dish at a time
     (§2), and a whole-aggregate save would make two people ticking the same list
-    overwrite each other, which Phase D's sharing depends on not happening.
+    overwrite each other, which sharing depends on not happening.
+
+    Four contract facts the signatures cannot carry:
+
+    - `get_plan_for_week` returning None is a normal answer, not an error. Most
+      weeks have no plan yet.
+    - `upsert_entry` upserts because the slot is the identity — assigning
+      Wednesday dinner twice means changing your mind, not creating a second
+      Wednesday dinner (§6).
+    - `drop_sources_for_entry` is separate from `delete_entry` on purpose. §4.5's
+      drift rule: the list never rewrites itself, so unpicking a dish's lines is
+      a second call the client makes after the user says yes.
+    - `share_plan` and `unshare_plan` are idempotent. Doing either twice is a
+      double tap, not an error.
     """
 
     @abstractmethod
@@ -21,10 +34,7 @@ class MealPlanRepository(ABC):
 
     @abstractmethod
     def get_plan_for_week(self, owner_id: str, week_start: date) -> MealPlan | None:
-        """The owner's plan for that Saturday, or None if they haven't planned it.
-
-        None is a normal answer, not an error: most weeks have no plan yet.
-        """
+        pass
 
     @abstractmethod
     def create_plan(self, owner_id: str, week_start: date) -> MealPlan:
@@ -32,12 +42,7 @@ class MealPlanRepository(ABC):
 
     @abstractmethod
     def upsert_entry(self, plan_id: str, entry: PlanEntry) -> PlanEntry:
-        """Put a dish in a slot, replacing whatever was there.
-
-        Upsert rather than insert because the slot is the identity — assigning
-        Wednesday dinner twice means changing your mind, not creating a second
-        Wednesday dinner (one dish per slot in v1, §6).
-        """
+        pass
 
     @abstractmethod
     def delete_entry(self, entry_id: str) -> None:
@@ -45,12 +50,7 @@ class MealPlanRepository(ABC):
 
     @abstractmethod
     def add_items(self, plan_id: str, items: list[ShoppingListItem]) -> list[ShoppingListItem]:
-        """Merge lines into the list, keeping each line's per-dish breakdown.
-
-        Merging on `(normalised name, unit)` and summing is the whole of §4.6.
-        Returns the affected lines *after* merging, so the caller can show the
-        running total without re-reading the plan.
-        """
+        pass
 
     @abstractmethod
     def set_item_checked(self, item_id: str, is_checked: bool) -> ShoppingListItem | None:
@@ -62,15 +62,7 @@ class MealPlanRepository(ABC):
 
     @abstractmethod
     def drop_sources_for_entry(self, entry_id: str) -> int:
-        """Unpick one dish's contribution to the list, returning lines removed.
-
-        §4.5's drift rule: changing Wednesday's dinner after building the list is
-        *asked about*, never silently applied — so this is a separate call the
-        client makes after the user says yes, not something `delete_entry` does
-        on its own. A line left with no sources and no manual flag is removed;
-        one that other dishes also contribute to keeps its remaining sources and
-        loses only this dish's share.
-        """
+        pass
 
     @abstractmethod
     def set_status(self, plan_id: str, status: PlanStatus) -> MealPlan | None:
@@ -78,27 +70,16 @@ class MealPlanRepository(ABC):
 
     @abstractmethod
     def share_plan(self, plan_id: str, user_id: str) -> None:
-        """Give someone read-and-tick access. Idempotent — sharing twice with the
-        same person is a double tap, not an error."""
+        pass
 
     @abstractmethod
     def unshare_plan(self, plan_id: str, user_id: str) -> None:
-        """Take it away. Also idempotent, for the same reason."""
+        pass
 
     @abstractmethod
     def list_shared_with(self, user_id: str, week_start: date) -> list[MealPlan]:
-        """Plans someone else has shared with this user for that week.
-
-        A list rather than an optional: two people can each share their week
-        with you, and picking one for you would be a guess.
-        """
+        pass
 
     @abstractmethod
     def list_year(self, user_id: str, year: int) -> list[PlanSummary]:
-        """Every week in that year the user planned or was given (§5.3).
-
-        Summaries, not plans — see `PlanSummary` for why. A week belongs to the
-        year its *Saturday* falls in, which is the same rule `week_start_for`
-        already applies, so a week straddling New Year lands in exactly one year
-        and never in both.
-        """
+        pass
