@@ -22,7 +22,13 @@ import { FOOD_TYPES, type FoodType } from "@/lib/constants";
  * now the list itself, which is also why it stays the canonical link.
  *
  * `category` is still kept alongside `recipe` so that backing out of a recipe
- * lands on the list you came from rather than on the unfiltered one.
+ * lands on the list you came from rather than on the unfiltered one. `by` —
+ * the author filter — follows the same rule for the same reason.
+ *
+ * Authors are `created_by` ids rather than display names. Names are unique in
+ * the database and would read better in the address bar, but they are editable:
+ * `plan-url.ts` already settled this for `?plan=`, and a filter that silently
+ * empties itself because somebody renamed themselves is the same failure.
  */
 
 export type DashboardView = "list" | "detail" | "add" | "edit";
@@ -30,6 +36,8 @@ export type DashboardView = "list" | "detail" | "add" | "edit";
 export interface DashboardUrlState {
   view: DashboardView;
   category: FoodType | null;
+  /** `created_by` ids, OR-ed. Empty means anyone. */
+  authors: string[];
   recipeId: string | null;
   /** Free-text title search. Only meaningful on the list. */
   q: string;
@@ -38,13 +46,14 @@ export interface DashboardUrlState {
 export const INITIAL_STATE: DashboardUrlState = {
   view: "list",
   category: null,
+  authors: [],
   recipeId: null,
   q: "",
 };
 
 const VALID_CATEGORIES = new Set<string>(FOOD_TYPES.map((c) => c.value));
 
-export function toQuery({ view, category, recipeId, q }: DashboardUrlState): string {
+export function toQuery({ view, category, authors, recipeId, q }: DashboardUrlState): string {
   const params = new URLSearchParams();
   if (view === "add") {
     // Nothing else is meaningful while the form is open, and carrying a search
@@ -54,6 +63,7 @@ export function toQuery({ view, category, recipeId, q }: DashboardUrlState): str
   }
   if (q.trim() && view === "list") params.set("q", q.trim());
   if (category) params.set("category", category);
+  if (authors.length) params.set("by", authors.join(","));
   if ((view === "detail" || view === "edit") && recipeId) params.set("recipe", recipeId);
   if (view === "edit" && recipeId) params.set("mode", "edit");
   return params.toString();
@@ -65,14 +75,19 @@ export function fromQuery(params: URLSearchParams): DashboardUrlState {
   // Anything not in the vocabulary is ignored rather than trusted — a
   // hand-edited URL should degrade to the whole list, not render an empty one.
   const category = rawCategory && VALID_CATEGORIES.has(rawCategory) ? (rawCategory as FoodType) : null;
+  // No vocabulary to check these against — an id is opaque — so the guard is
+  // structural: drop blanks and duplicates. An id nobody wrote a recipe under
+  // simply matches nothing, which is the same outcome as an unknown category
+  // and needs no special case.
+  const authors = [...new Set((params.get("by") ?? "").split(",").filter(Boolean))];
   const recipeId = params.get("recipe");
 
-  if (mode === "new") return { view: "add", category, recipeId: null, q: "" };
+  if (mode === "new") return { view: "add", category, authors, recipeId: null, q: "" };
   if (recipeId) {
     // A search term is dropped on the way into a recipe: it narrowed the list,
     // and re-applying it on the way back out is handled by the history entry,
     // not by carrying it through the detail view's URL.
-    return { view: mode === "edit" ? "edit" : "detail", category, recipeId, q: "" };
+    return { view: mode === "edit" ? "edit" : "detail", category, authors, recipeId, q: "" };
   }
-  return { view: "list", category, recipeId: null, q: params.get("q") ?? "" };
+  return { view: "list", category, authors, recipeId: null, q: params.get("q") ?? "" };
 }

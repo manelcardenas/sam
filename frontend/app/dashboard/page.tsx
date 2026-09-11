@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthGate } from "@/components/auth/useAuthGate";
 import { apiClient, type Recipe, type CreateRecipeInput } from "@/lib/api-client";
-import { FOOD_TYPES, type FoodType } from "@/lib/constants";
+import { FOOD_TYPES } from "@/lib/constants";
+import { RecipeFilterChips } from "@/components/recipes/RecipeFilterChips";
+import { NO_FILTERS, filterRecipes, type RecipeFilterState } from "@/lib/recipe-filters";
 import { currentParams, useBrowserNavigation, useHistoryDepth, writeUrl } from "@/lib/url-state";
 import { fromQuery, toQuery, type DashboardView } from "@/lib/dashboard-url";
 import RecipeForm from "@/components/RecipeForm";
@@ -13,10 +15,9 @@ import IngredientsPanel from "@/components/IngredientsPanel";
 import { AppShell } from "@/components/shell/AppShell";
 import { DashboardSkeleton } from "@/components/ui/PageSkeleton";
 import { NarrowRow } from "@/components/ui/NarrowRow";
-import { Chip, ClearChip } from "@/components/ui/Chip";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
 import { RecipeRow } from "@/components/recipes/RecipeRow";
-import { ArrowLeft, Plus, Edit, Trash2, ChefHat, SearchX } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, ChefHat, SearchX, NotebookPen } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import type { MessageKey } from "@/lib/i18n/dictionary";
 import { formatDate } from "@/lib/format";
@@ -50,9 +51,9 @@ export default function DashboardPage() {
   const [view, setView] = useState<DashboardView>("list");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
-  // Narrowing state
-  const [category, setCategory] = useState<FoodType | null>(null);
-  const [query, setQuery] = useState("");
+  // Narrowing state — one object, because `RecipeFilterChips` owns the whole
+  // vocabulary and the planner's picker holds the identical shape.
+  const [filters, setFilters] = useState<RecipeFilterState>(NO_FILTERS);
 
   // Delete modal
   const [recipeToDelete, setRecipeToDelete] = useState<Recipe | null>(null);
@@ -126,17 +127,7 @@ export default function DashboardPage() {
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
-  const needle = query.trim().toLowerCase();
-  const shown = recipes.filter(
-    (r) =>
-      (!category || r.food_type === category) &&
-      (!needle || r.title.toLowerCase().includes(needle)),
-  );
-
-  // Only categories that actually have recipes — an empty chip is a dead end,
-  // the same rule the dine filters follow for cuisines.
-  const present = FOOD_TYPES.filter((c) => recipes.some((r) => r.food_type === c.value));
-  const narrowed = Boolean(needle || category);
+  const shown = filterRecipes(recipes, filters);
 
   // ── URL sync ────────────────────────────────────────────────────────────────
   //
@@ -155,8 +146,7 @@ export default function DashboardPage() {
       const next = fromQuery(params);
       applyingHistory.current = true;
       setView(next.view);
-      setCategory(next.category);
-      setQuery(next.q);
+      setFilters({ q: next.q, category: next.category, authors: next.authors });
       // Recipes must be loaded before an id can become an object; if a deep
       // link names one we don't have, fall back to the list rather than
       // rendering a detail view of nothing.
@@ -185,7 +175,7 @@ export default function DashboardPage() {
       applyingHistory.current = false;
       return;
     }
-    const query_ = toQuery({ view, category, recipeId: selectedRecipe?.id ?? null, q: query });
+    const query_ = toQuery({ view, ...filters, recipeId: selectedRecipe?.id ?? null });
     const before = window.location.search;
     // Views push — that is what makes the back gesture work. Narrowing
     // replaces, so tweaking a filter five times doesn't cost five back presses
@@ -194,7 +184,7 @@ export default function DashboardPage() {
     writeUrl(query_, mode);
     if (mode === "push" && window.location.search !== before) history.recordPush();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, category, query, selectedRecipe?.id]);
+  }, [view, filters, selectedRecipe?.id]);
 
   // ── Navigation helpers ───────────────────────────────────────────────────────
 
@@ -203,10 +193,7 @@ export default function DashboardPage() {
     setView("detail");
   };
 
-  const clearFilters = () => {
-    setQuery("");
-    setCategory(null);
-  };
+  const clearFilters = () => setFilters(NO_FILTERS);
 
   const goBack = () => {
     // Defer to real history when there is any, so the in-app button and the
@@ -275,9 +262,7 @@ export default function DashboardPage() {
               {t("dashboard.title")}
             </h1>
             <p className="mt-1.5 text-muted">
-              {recipes.length > 0
-                ? tp("dashboard.count", recipes.length)
-                : t("dashboard.empty-collection")}
+              {recipes.length === 0 ? t("dashboard.empty-collection") : tp("dashboard.count", recipes.length)}
             </p>
           </header>
 
@@ -292,26 +277,19 @@ export default function DashboardPage() {
           ) : (
             <>
               <NarrowRow
-                q={query}
-                onQueryChange={setQuery}
+                q={filters.q}
+                onQueryChange={(q) => setFilters({ ...filters, q })}
                 placeholder={t("dashboard.search-placeholder")}
                 ariaLabel={t("dashboard.search-label")}
                 resultCount={shown.length}
                 countKey="recipe-row.ingredients"
                 chips={
-                  <>
-                    {present.map((c) => (
-                      <Chip
-                        key={c.value}
-                        active={category === c.value}
-                        onClick={() => setCategory(category === c.value ? null : c.value)}
-                      >
-                        <c.icon className="h-3.5 w-3.5" aria-hidden />
-                        {t(`food-types.${c.value}.label` as MessageKey)}
-                      </Chip>
-                    ))}
-                    {narrowed && <ClearChip onClick={clearFilters} />}
-                  </>
+                  <RecipeFilterChips
+                    recipes={recipes}
+                    state={filters}
+                    onChange={setFilters}
+                    currentUserId={currentUserId}
+                  />
                 }
               />
 
@@ -402,14 +380,35 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-6 px-6 py-6">
-              <section>
-                <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">
-                  {t("dashboard.instructions")}
-                </h2>
-                <p className="whitespace-pre-line leading-relaxed text-fg/90">
-                  {selectedRecipe.instructions}
-                </p>
-              </section>
+              {/* No method means no heading — an Instructions heading over
+                  nothing is the orphan ADR 0007 named. What replaces it is the
+                  way to fix that, offered only to the person who can: the
+                  owner taps straight into the editor. The trim matters, since
+                  rows predating the API's normalisation can hold `""`. */}
+              {selectedRecipe.instructions?.trim() ? (
+                <section>
+                  <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">
+                    {t("dashboard.instructions")}
+                  </h2>
+                  <p className="whitespace-pre-line leading-relaxed text-fg/90">
+                    {selectedRecipe.instructions}
+                  </p>
+                </section>
+              ) : (
+                selectedRecipe.created_by === currentUserId && (
+                  <button
+                    type="button"
+                    onClick={() => setView("edit")}
+                    className="flex w-full cursor-pointer items-start gap-3 rounded-2xl border border-dashed border-line px-4 py-3.5 text-left transition-colors hover:border-amber/60 hover:bg-amber/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  >
+                    <NotebookPen className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber" aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-fg">{t("dashboard.no-method-title")}</span>
+                      <span className="mt-0.5 block text-sm text-muted">{t("dashboard.no-method-body")}</span>
+                    </span>
+                  </button>
+                )
+              )}
 
               <IngredientsPanel key={selectedRecipe.id} ingredients={selectedRecipe.ingredients} />
             </div>
@@ -429,8 +428,8 @@ export default function DashboardPage() {
               // so it seeds the form — you were looking at desserts, you are
               // probably adding one.
               initialData={
-                category
-                  ? { title: "", instructions: "", ingredients: { servings: null, items: [] }, food_type: category }
+                filters.category
+                  ? { title: "", instructions: "", ingredients: { servings: null, items: [] }, food_type: filters.category }
                   : undefined
               }
               onSubmit={handleCreate}
