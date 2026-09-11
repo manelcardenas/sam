@@ -1,64 +1,47 @@
 {
   "app": {
+    "description": "SAM, el border collie, et porta el teu món gastronòmic: cuina a casa o troba on sortir a menjar.",
     "name": "SAM — Cuina i Restaurants",
-    "short-name": "SAM",
-    "description": "SAM, el border collie, et porta el teu món gastronòmic: cuina a casa o troba on sortir a menjar."
+    "short-name": "SAM"
   },
   "common": {
     "back": "Enrere",
     "cancel": "Cancel·la",
     "clear": "Neteja",
+    "clear-all": "Treure-ho tot",
     "close": "Tanca",
+    "created-by": "Afegida per",
     "delete": "Elimina",
     "edit": "Edita",
+    "no-people-match": "No hi ha ningú que hi coincideixi.",
     "optional": "(opcional)",
+    "optional-marker": "(opcional)",
+    "people-count": {
+      "one": "{{count}} persona",
+      "other": "{{count}} persones"
+    },
     "required-marker": "*",
     "save-changes": "Desa els canvis",
     "saving": "S'està desant…",
+    "search-people": "Cercar persones",
     "searching": "S'està cercant…",
+    "selected-count": {
+      "one": "{{count}} seleccionada",
+      "other": "{{count}} seleccionades"
+    },
     "something-went-wrong": "Alguna cosa ha anat malament",
     "unknown": "Desconegut",
-    "working": "S'està processant…"
+    "working": "S'està processant…",
+    "you": "Tu"
   },
-  "shell": {
-    "cook-and-dine": "Cuina i Restaurants",
-    "language": "Idioma",
-    "primary-navigation": "Principal",
-    "profile": "Perfil",
-    "sign-out": "Tanca la sessió",
-    "theme-to-dark": "Canvia al mode fosc",
-    "theme-to-light": "Canvia al mode clar",
-    "theme-dark": "Mode fosc",
-    "theme-light": "Mode clar",
-    "worlds": "Móns",
-    "you": "Tu",
-    "your-profile": "El teu perfil"
-  },
-  "worlds": {
-    "cook": {
-      "label": "Cuinar"
-    },
-    "dine": {
-      "label": "Sortir"
-    }
-  },
-  "food-types": {
-    "comida": {
-      "label": "Menjar",
-      "description": "Plats principals i guisats"
-    },
-    "bebida": {
-      "label": "Beguda",
-      "description": "Batuts, sucs i còctels"
-    },
-    "postre": {
-      "label": "Postres",
-      "description": "Dolços i postres"
-    },
-    "aperitivo": {
-      "label": "Aperitiu",
-      "description": "Snacks i entrants"
-    }
+  "complete-profile": {
+    "body": "Com t'ha de dir SAM? Així apareixeràs com a autor de les teves receptes.",
+    "display-name": "Nom visible",
+    "display-name-placeholder": "p. ex. Manel",
+    "name-taken": "Aquest nom ja està agafat — tria'n un altre.",
+    "save-failed": "No s'ha pogut desar el teu nom.",
+    "submit": "Som-hi",
+    "title": "Una última ensumada!"
   },
   "cuisines": {
     "American": "Nord-americana",
@@ -74,93 +57,36 @@
     "Thai": "Tailandesa",
     "Vegan/Vegetarian": "Vegana / Vegetariana"
   },
-  "landing": {
-    "email": "Correu electrònic",
-    "email-placeholder": "tu@correu.com",
-    "google-sign-in": "Entra amb Google",
-    "google-sign-in-failed": "No s'ha pogut entrar amb Google",
-    "new-here": "Ets nou per aquí?",
-    "no-account": "Demana una invitació al teu administrador",
-    "or": "o continua amb",
-    "password": "Contrasenya",
-    "sign-in": "Entra",
-    "sign-in-failed": "No s'ha pogut entrar. Revisa les teves credencials.",
-    "signing-in": "S'està entrant…",
-    "tagline": "Cuina a casa o surt a menjar — el teu border collie et porta les dues coses."
-  },
-  "complete-profile": {
-    "title": "Una última ensumada!",
-    "body": "Com t'ha de dir SAM? Així apareixeràs com a autor de les teves receptes.",
-    "display-name": "Nom visible",
-    "display-name-placeholder": "p. ex. Manel",
-    "submit": "Som-hi",
-    "name-taken": "Aquest nom ja està agafat — tria'n un altre.",
-    "save-failed": "No s'ha pogut desar el teu nom."
-  },
   "dashboard": {
-    "title": "Què cuinem?",
+    "by-and-dates": "Per {{author}} · Creada {{created}} · Actualitzada {{updated}}",
     "count": {
       "one": "{{count}} recepta a la col·lecció.",
       "other": "{{count}} receptes a la col·lecció."
     },
-    "empty-collection": "Encara no hi ha res a la col·lecció.",
-    "new-recipe": "Nova recepta",
-    "search-placeholder": "Cerca per títol…",
-    "search-label": "Cerca receptes per títol",
-    "no-recipes-title": "Encara no hi ha receptes.",
-    "no-recipes-body": "Escriu la primera i quedarà aquí per a tothom.",
-    "no-recipes-action": "Afegeix la primera",
-    "no-match-title": "No hi ha res que coincideixi.",
-    "no-match-body": "Prova amb una paraula més curta, o treu la categoria.",
-    "load-failed": "No s'han pogut carregar les receptes",
+    "delete-aria": "Elimina la recepta",
     "delete-failed": "No s'ha pogut eliminar la recepta",
-    "instructions": "Preparació",
-    "by-and-dates": "Per {{author}} · Creada {{created}} · Actualitzada {{updated}}",
-    "edit-recipe-title": "Edita la recepta",
-    "new-recipe-title": "Nova recepta",
     "edit-aria": "Edita la recepta",
-    "delete-aria": "Elimina la recepta"
-  },
-  "recipe-row": {
-    "ingredients": {
-      "one": "{{count}} ingredient",
-      "other": "{{count}} ingredients"
-    }
-  },
-  "recipe-form": {
-    "add-ingredient": "Afegeix un ingredient",
-    "amount": "Quantitat",
-    "ingredient-name": "Nom de l'ingredient",
-    "ingredient-placeholder": "p. ex. farina",
-    "ingredient-placeholder-first": "p. ex. farina",
-    "ingredient-placeholder-rest": "ingredient",
-    "ingredients": "Ingredients",
+    "edit-recipe-title": "Edita la recepta",
+    "empty-collection": "Encara no hi ha res a la col·lecció.",
+    "filter-people": "Qui la va afegir",
     "instructions": "Preparació",
-    "instructions-placeholder": "Passos de la recepta…",
-    "invalid-servings": "Les racions han de ser un nombre enter d'1 o més.",
-    "invalid-url": "L'enllaç d'origen no sembla un URL vàlid.",
-    "invalid-url-inline": "Això no sembla un URL vàlid.",
-    "need-an-ingredient": "Afegeix com a mínim un ingredient.",
-    "preview": "Vista prèvia:",
-    "remove-ingredient": "Treu l'ingredient",
-    "servings": "Racions",
-    "servings-hint": "El nombre de persones per a les quals donen aquestes quantitats — així qualsevol que vegi la recepta pot escalar-la després.",
-    "servings-placeholder": "4",
-    "source": "Origen",
-    "source-hint": "D'on ve la recepta. Mostrarem només el lloc, no l'enllaç sencer.",
-    "source-placeholder": "receptes.exemple.com/…",
-    "submit-add": "Afegeix la recepta",
-    "title": "Títol",
-    "title-placeholder": "p. ex. Lasanya de verdures",
-    "type": "Tipus",
-    "unit": "Unitat"
+    "load-failed": "No s'han pogut carregar les receptes",
+    "new-recipe": "Nova recepta",
+    "new-recipe-title": "Nova recepta",
+    "no-match-body": "Prova amb una paraula més curta, o treu la categoria.",
+    "no-match-title": "No hi ha res que coincideixi.",
+    "no-method-body": "Toca per escriure com el fas.",
+    "no-method-title": "Sense mètode escrit",
+    "no-recipes-action": "Afegeix la primera",
+    "no-recipes-body": "Escriu la primera i quedarà aquí per a tothom.",
+    "no-recipes-title": "Encara no hi ha receptes.",
+    "search-label": "Cerca receptes per títol",
+    "search-placeholder": "Cerca per títol…",
+    "title": "Què cuinem?"
   },
-  "ingredients-panel": {
-    "adjust-servings": "ajusta les racions",
-    "fewer-servings": "Menys racions",
-    "more-servings": "Més racions",
-    "servings-count": "Nombre de racions",
-    "servings": "racions"
+  "delete-recipe": {
+    "body": "Vols eliminar «{{name}}»? SAM no la podrà tornar a buscar.",
+    "title": "Elimina la recepta"
   },
   "dine": {
     "add-restaurant": "Afegeix un restaurant",
@@ -206,42 +132,262 @@
     "write-a-review": "Escriu una ressenya"
   },
   "dine-filters": {
-    "search-placeholder": "Cerca per nom…",
-    "search-label": "Cerca restaurants per nom",
-    "reviewed-by-me": "Ressenyats per mi",
     "price-level": "Nivell de preu {{level}} de 4",
     "results": {
       "one": "{{count}} restaurant",
       "other": "{{count}} restaurants"
     },
+    "reviewed-by-me": "Ressenyats per mi",
+    "search-label": "Cerca restaurants per nom",
+    "search-placeholder": "Cerca per nom…",
     "updating": "S'estan actualitzant els resultats"
   },
-  "sort": {
-    "label": "Ordena la llista",
-    "recent": "Visitats fa poc",
-    "oldest": "Fa més temps",
-    "rating": "Millor valorats",
-    "rating_low": "Pitjor valorats"
+  "food-types": {
+    "aperitivo": {
+      "label": "Aperitiu",
+      "description": "Snacks i entrants"
+    },
+    "bebida": {
+      "label": "Beguda",
+      "description": "Batuts, sucs i còctels"
+    },
+    "comida": {
+      "label": "Menjar",
+      "description": "Plats principals i guisats"
+    },
+    "postre": {
+      "label": "Postres",
+      "description": "Dolços i postres"
+    }
+  },
+  "ingredients-panel": {
+    "adjust-servings": "ajusta les racions",
+    "fewer-servings": "Menys racions",
+    "more-servings": "Més racions",
+    "servings": "racions",
+    "servings-count": "Nombre de racions"
+  },
+  "landing": {
+    "email": "Correu electrònic",
+    "email-placeholder": "tu@correu.com",
+    "google-sign-in": "Entra amb Google",
+    "google-sign-in-failed": "No s'ha pogut entrar amb Google",
+    "new-here": "Ets nou per aquí?",
+    "no-account": "Demana una invitació al teu administrador",
+    "or": "o continua amb",
+    "password": "Contrasenya",
+    "sign-in": "Entra",
+    "sign-in-failed": "No s'ha pogut entrar. Revisa les teves credencials.",
+    "signing-in": "S'està entrant…",
+    "tagline": "Cuina a casa o surt a menjar — el teu border collie et porta les dues coses."
+  },
+  "map": {
+    "already-on-sam": "Ja és a SAM",
+    "loading": "S'està carregant el mapa…",
+    "loading-label": "S'està carregant el mapa",
+    "no-reviews": "Encara sense ressenyes",
+    "pin-hint": "Toca per posar el pin · arrossega per ajustar-lo",
+    "this-is-it": "És aquest — obre'l",
+    "view-details": "Mostra els detalls"
+  },
+  "plan": {
+    "add": "Afegir",
+    "add-extra": "Afegir una altra cosa",
+    "add-extra-placeholder": "iogurts, fruita, bosses d'escombraries…",
+    "add-recipe": "Afegir una recepta",
+    "add-to-list": "Afegir a la llista",
+    "added-by-hand": "Afegit a mà",
+    "already-added": "ja a la llista: {{amount}}",
+    "archived-note": "Aquesta setmana està arxivada. Aquí ja no es pot canviar res.",
+    "assign": "Afegir a la setmana",
+    "back-to-this-week": "Tornar a aquesta setmana",
+    "calendar-closed-note": "La setmana està tancada. La llista de la compra continua sent teva.",
+    "carry-over-body": "Les marcades passen a la llista de la setmana vinent.",
+    "carry-over-heading": {
+      "one": "{{count}} cosa que no vas trobar",
+      "other": "{{count}} coses que no vas trobar"
+    },
+    "change-recipe": "Canviar la recepta",
+    "choose-dish": "Què menjareu?",
+    "close-list": "Compra feta",
+    "close-list-body": "Això arxiva la setmana. La podràs consultar, però ja no canviar.",
+    "close-list-title": "Vols desar aquesta setmana?",
+    "conflict": "Aquesta setmana ha canviat — torna a carregar per veure com està ara.",
+    "dinner": "Sopar",
+    "empty-slot": "Sense planificar",
+    "finish-week": "Tancar la setmana",
+    "finish-week-body": "Després d'això les receptes ja no es toquen. Podràs seguir afegint coses a la llista i marcant-les — que és el que faràs al súper.",
+    "finish-week-title": "Vols tancar la setmana?",
+    "for-people": {
+      "one": "per a {{count}} persona",
+      "other": "per a {{count}} persones"
+    },
+    "from-recipes": "De {{recipes}}",
+    "guest-note": "{{name}} ha compartit aquesta setmana amb tu. Pots anar marcant la llista; les receptes són seves.",
+    "how-many": "Quantes persones?",
+    "ingredients-body": "Està tot marcat. Desmarca el que ja tinguis.",
+    "ingredients-title": "Què comprar per a això",
+    "list-count": {
+      "one": "{{count}} cosa per comprar",
+      "other": "{{count}} coses per comprar"
+    },
+    "list-empty-body": "Planifica una recepta i els seus ingredients apareixen aquí. La resta la pots afegir a mà.",
+    "list-empty-title": "Encara no hi ha res a la llista",
+    "load-failed": "No s'ha pogut carregar el pla.",
+    "lunch": "Dinar",
+    "next-shop": "Propera compra",
+    "next-week": "Setmana següent",
+    "no-ingredients": "Aquest encara no té ingredients apuntats.",
+    "no-matches": "No hi ha res que hi coincideixi.",
+    "no-recipes-at-all": "Encara no tens receptes. Afegeix-ne una a Cuina primer.",
+    "nobody-shared": "Encara no l'has compartida amb ningú.",
+    "not-on-the-list": "Encara no afegit",
+    "nothing-planned-body": "Tria un forat i decideix què mengeu. La llista de la compra es va fent sola.",
+    "nothing-planned-title": "Aquesta setmana no hi ha res planificat",
+    "on-the-list": "A la llista",
+    "previous-week": "Setmana anterior",
+    "remove-and-drop": {
+      "one": "Treure i esborrar el seu {{count}} ingredient de la llista",
+      "other": "Treure i esborrar els seus {{count}} ingredients de la llista"
+    },
+    "remove-and-keep": "Treure i deixar la llista com està",
+    "remove-line": "Treure de la llista",
+    "remove-recipe": "Treure de la setmana",
+    "remove-recipe-confirm": "Vols treure {{recipe}} del {{day}}?",
+    "save-failed": "No s'ha desat.",
+    "search-recipes": "Cercar a les teves receptes",
+    "search-recipes-placeholder": "Cercar…",
+    "share": "Compartir",
+    "share-failed": "No s'ha pogut compartir.",
+    "share-hint": "Veurà aquesta setmana i podrà anar marcant la llista. No podrà canviar les receptes.",
+    "share-placeholder": "El seu nom a SAM",
+    "share-unknown-person": "A SAM no hi ha ningú amb aquest nom.",
+    "share-yourself": "Aquest ets tu.",
+    "shared-by": "La setmana de {{name}}",
+    "shared-with": "Compartida amb",
+    "skip-for-now": "Ara no",
+    "status-calendar-closed": "De compra",
+    "status-list-closed": "Arxivada",
+    "status-planning": "Planificant",
+    "stop-sharing": "Deixar de compartir amb {{name}}",
+    "this-week": "Aquesta setmana",
+    "title": "La setmana",
+    "view-calendar": "La setmana",
+    "view-list": "Llista de la compra",
+    "your-week": "La teva setmana"
+  },
+  "profile": {
+    "account-body": "El teu nom visible apareix com a autor de les teves receptes.",
+    "account-title": "Compte",
+    "display-name": "Nom visible",
+    "display-name-placeholder": "p. ex. Manel",
+    "email": "Correu electrònic",
+    "email-hint": "El defineix el compte amb què vas entrar, i no es pot editar aquí.",
+    "latest": "Última: {{name}}",
+    "mostly-eating": "Sobretot menges",
+    "name-taken": "Aquest nom ja està agafat — tria'n un altre.",
+    "no-recipes-hint": "Encara no has escrit res",
+    "no-reviews-hint": "Encara no has ressenyat res",
+    "plans-bought": "{{checked}} de {{total}} comprats",
+    "plans-count": {
+      "one": "{{count}} setmana",
+      "other": "{{count}} setmanes"
+    },
+    "plans-empty-body": "Planifica una setmana i es queda aquí: què vau menjar i què vau comprar per fer-ho.",
+    "plans-empty-title": "Encara no has planificat cap setmana",
+    "plans-next-year": "Any següent",
+    "plans-open": "Obrir aquesta setmana",
+    "plans-previous-year": "Any anterior",
+    "plans-recipes": {
+      "one": "{{count}} recepta",
+      "other": "{{count}} receptes"
+    },
+    "plans-shared-by": "compartida per {{name}}",
+    "plans-year-empty": "No hi ha res planificat el {{year}}.",
+    "recipes-empty-action": "Escriu la primera",
+    "recipes-empty-body": "Tot el que escriguis apareix aquí, i continua sent teu per editar-ho.",
+    "recipes-empty-title": "Encara no hi ha receptes.",
+    "recipes-no-match-body": "Prova amb una paraula més curta, o treu la categoria.",
+    "recipes-no-match-title": "No hi ha res que coincideixi.",
+    "recipes-search-label": "Cerca les teves receptes per títol",
+    "recipes-search-placeholder": "Cerca a les teves receptes…",
+    "review-sort-recent": "Més recents",
+    "review-sort-score": "Millor valorades",
+    "reviews-empty-action": "Cerca on menjar",
+    "reviews-empty-body": "Cada lloc que ressenyis apareix aquí, amb el que en vas dir.",
+    "reviews-empty-title": "Encara no hi ha ressenyes.",
+    "reviews-no-match-body": "Prova amb una paraula més curta — això només cerca al nom del restaurant.",
+    "reviews-no-match-title": "No hi ha res que coincideixi.",
+    "reviews-search-label": "Cerca les teves ressenyes per nom del restaurant",
+    "reviews-search-placeholder": "Cerca els llocs que has ressenyat…",
+    "save-failed": "No s'ha pogut desar el teu nom.",
+    "saved": "Desat.",
+    "sections": "Seccions del perfil",
+    "since": "Cuinant aquí des de {{month}}",
+    "stat-average": "la teva mitjana",
+    "stat-places": "llocs",
+    "stat-reviews": "ressenyes",
+    "tab-account": "Compte",
+    "tab-overview": "Resum",
+    "tab-plans": "Setmanes",
+    "tab-recipes": "Receptes",
+    "tab-reviews": "Ressenyes",
+    "your-numbers": "Els teus números"
   },
   "recent-visits": {
-    "eyebrow": "Últimament",
     "blurb": "Els últims llocs on vas anar.",
+    "eyebrow": "Últimament",
     "list-label": "Visites recents",
+    "no-notes": "Sense notes d'aquesta visita.",
     "scroll-left": "Desplaça a l'esquerra",
-    "scroll-right": "Desplaça a la dreta",
-    "no-notes": "Sense notes d'aquesta visita."
+    "scroll-right": "Desplaça a la dreta"
+  },
+  "recipe-form": {
+    "add-ingredient": "Afegeix un ingredient",
+    "amount": "Quantitat",
+    "ingredient-name": "Nom de l'ingredient",
+    "ingredient-placeholder": "p. ex. farina",
+    "ingredient-placeholder-first": "p. ex. farina",
+    "ingredient-placeholder-rest": "ingredient",
+    "ingredients": "Ingredients",
+    "instructions": "Preparació",
+    "instructions-hint": "Opcional. Deixa-ho buit si ja saps cuinar-ho i només ho vols a la llista de la compra — pots escriure el mètode més endavant.",
+    "instructions-placeholder": "Passos de la recepta…",
+    "invalid-servings": "Les racions han de ser un nombre enter d'1 o més.",
+    "invalid-url": "L'enllaç d'origen no sembla un URL vàlid.",
+    "invalid-url-inline": "Això no sembla un URL vàlid.",
+    "need-an-ingredient": "Afegeix com a mínim un ingredient.",
+    "preview": "Vista prèvia:",
+    "remove-ingredient": "Treu l'ingredient",
+    "servings": "Racions",
+    "servings-hint": "El nombre de persones per a les quals donen aquestes quantitats — així qualsevol que vegi la recepta pot escalar-la després.",
+    "servings-placeholder": "4",
+    "source": "Origen",
+    "source-hint": "D'on ve la recepta. Mostrarem només el lloc, no l'enllaç sencer.",
+    "source-placeholder": "receptes.exemple.com/…",
+    "submit-add": "Afegeix la recepta",
+    "title": "Títol",
+    "title-placeholder": "p. ex. Lasanya de verdures",
+    "type": "Tipus",
+    "unit": "Unitat"
+  },
+  "recipe-row": {
+    "ingredients": {
+      "one": "{{count}} ingredient",
+      "other": "{{count}} ingredients"
+    }
   },
   "restaurant-card": {
-    "visits-no-notes": {
-      "one": "Una visita, sense notes.",
-      "other": "{{count}} visites, sense notes."
-    },
-    "not-reviewed": "Encara sense ressenyes — sigues el primer.",
-    "rated": "Valorat {{score}} sobre 10",
-    "not-rated": "Encara sense valorar",
     "more-reviewers": {
       "one": "{{count}} més",
       "other": "{{count}} més"
+    },
+    "not-rated": "Encara sense valorar",
+    "not-reviewed": "Encara sense ressenyes — sigues el primer.",
+    "rated": "Valorat {{score}} sobre 10",
+    "visits-no-notes": {
+      "one": "Una visita, sense notes.",
+      "other": "{{count}} visites, sense notes."
     }
   },
   "restaurant-form": {
@@ -278,13 +424,11 @@
     "where-hint": "(ajuda a trobar el correcte al mapa)"
   },
   "review-form": {
-    "overall": "Total",
-    "overall-hint": "Mitjana de les 4 puntuacions de sota",
-    "visited-at": "Dia que hi vas anar",
     "comment": "Comentari",
     "comment-placeholder": "Qualsevol cosa que valgui la pena recordar d'aquesta visita…",
-    "submit": "Publica la ressenya",
     "date-required": "Tria el dia que hi vas anar.",
+    "overall": "Total",
+    "overall-hint": "Mitjana de les 4 puntuacions de sota",
     "scores": {
       "location": {
         "label": "Ubicació i decoració",
@@ -302,60 +446,40 @@
         "label": "Relació qualitat-preu",
         "hint": "Valia el que costava?"
       }
+    },
+    "submit": "Publica la ressenya",
+    "visited-at": "Dia que hi vas anar"
+  },
+  "shell": {
+    "cook-and-dine": "Cuina i Restaurants",
+    "language": "Idioma",
+    "primary-navigation": "Principal",
+    "profile": "Perfil",
+    "sign-out": "Tanca la sessió",
+    "theme-dark": "Mode fosc",
+    "theme-light": "Mode clar",
+    "theme-to-dark": "Canvia al mode fosc",
+    "theme-to-light": "Canvia al mode clar",
+    "worlds": "Móns",
+    "you": "Tu",
+    "your-profile": "El teu perfil"
+  },
+  "sort": {
+    "label": "Ordena la llista",
+    "oldest": "Fa més temps",
+    "rating": "Millor valorats",
+    "rating_low": "Pitjor valorats",
+    "recent": "Visitats fa poc"
+  },
+  "worlds": {
+    "cook": {
+      "label": "Cuinar"
+    },
+    "dine": {
+      "label": "Sortir"
+    },
+    "plan": {
+      "label": "Pla"
     }
-  },
-  "profile": {
-    "sections": "Seccions del perfil",
-    "tab-overview": "Resum",
-    "tab-recipes": "Receptes",
-    "tab-reviews": "Ressenyes",
-    "tab-account": "Compte",
-    "since": "Cuinant aquí des de {{month}}",
-    "stat-places": "llocs",
-    "stat-reviews": "ressenyes",
-    "stat-average": "la teva mitjana",
-    "your-numbers": "Els teus números",
-    "mostly-eating": "Sobretot menges",
-    "latest": "Última: {{name}}",
-    "no-recipes-hint": "Encara no has escrit res",
-    "no-reviews-hint": "Encara no has ressenyat res",
-    "recipes-search-placeholder": "Cerca a les teves receptes…",
-    "recipes-search-label": "Cerca les teves receptes per títol",
-    "recipes-empty-title": "Encara no hi ha receptes.",
-    "recipes-empty-body": "Tot el que escriguis apareix aquí, i continua sent teu per editar-ho.",
-    "recipes-empty-action": "Escriu la primera",
-    "recipes-no-match-title": "No hi ha res que coincideixi.",
-    "recipes-no-match-body": "Prova amb una paraula més curta, o treu la categoria.",
-    "reviews-search-placeholder": "Cerca els llocs que has ressenyat…",
-    "reviews-search-label": "Cerca les teves ressenyes per nom del restaurant",
-    "reviews-empty-title": "Encara no hi ha ressenyes.",
-    "reviews-empty-body": "Cada lloc que ressenyis apareix aquí, amb el que en vas dir.",
-    "reviews-empty-action": "Cerca on menjar",
-    "reviews-no-match-title": "No hi ha res que coincideixi.",
-    "reviews-no-match-body": "Prova amb una paraula més curta — això només cerca al nom del restaurant.",
-    "review-sort-recent": "Més recents",
-    "review-sort-score": "Millor valorades",
-    "account-title": "Compte",
-    "account-body": "El teu nom visible apareix com a autor de les teves receptes.",
-    "email": "Correu electrònic",
-    "email-hint": "El defineix el compte amb què vas entrar, i no es pot editar aquí.",
-    "display-name": "Nom visible",
-    "display-name-placeholder": "p. ex. Manel",
-    "saved": "Desat.",
-    "name-taken": "Aquest nom ja està agafat — tria'n un altre.",
-    "save-failed": "No s'ha pogut desar el teu nom."
-  },
-  "map": {
-    "already-on-sam": "Ja és a SAM",
-    "loading": "S'està carregant el mapa…",
-    "loading-label": "S'està carregant el mapa",
-    "no-reviews": "Encara sense ressenyes",
-    "pin-hint": "Toca per posar el pin · arrossega per ajustar-lo",
-    "this-is-it": "És aquest — obre'l",
-    "view-details": "Mostra els detalls"
-  },
-  "delete-recipe": {
-    "title": "Elimina la recepta",
-    "body": "Vols eliminar «{{name}}»? SAM no la podrà tornar a buscar."
   }
 }

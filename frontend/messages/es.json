@@ -1,64 +1,47 @@
 {
   "app": {
+    "description": "SAM, el border collie, te trae tu mundo gastronómico: cocina en casa o encuentra dónde salir a comer.",
     "name": "SAM — Cocina y Restaurantes",
-    "short-name": "SAM",
-    "description": "SAM, el border collie, te trae tu mundo gastronómico: cocina en casa o encuentra dónde salir a comer."
+    "short-name": "SAM"
   },
   "common": {
     "back": "Atrás",
     "cancel": "Cancelar",
     "clear": "Limpiar",
+    "clear-all": "Quitar todo",
     "close": "Cerrar",
+    "created-by": "Añadida por",
     "delete": "Eliminar",
     "edit": "Editar",
+    "no-people-match": "No hay nadie que coincida.",
     "optional": "(opcional)",
+    "optional-marker": "(opcional)",
+    "people-count": {
+      "one": "{{count}} persona",
+      "other": "{{count}} personas"
+    },
     "required-marker": "*",
     "save-changes": "Guardar cambios",
     "saving": "Guardando…",
+    "search-people": "Buscar personas",
     "searching": "Buscando…",
+    "selected-count": {
+      "one": "{{count}} seleccionada",
+      "other": "{{count}} seleccionadas"
+    },
     "something-went-wrong": "Algo ha ido mal",
     "unknown": "Desconocido",
-    "working": "Procesando…"
+    "working": "Procesando…",
+    "you": "Tú"
   },
-  "shell": {
-    "cook-and-dine": "Cocina y Restaurantes",
-    "language": "Idioma",
-    "primary-navigation": "Principal",
-    "profile": "Perfil",
-    "sign-out": "Cerrar sesión",
-    "theme-to-dark": "Cambiar a modo oscuro",
-    "theme-to-light": "Cambiar a modo claro",
-    "theme-dark": "Modo oscuro",
-    "theme-light": "Modo claro",
-    "worlds": "Mundos",
-    "you": "Tú",
-    "your-profile": "Tu perfil"
-  },
-  "worlds": {
-    "cook": {
-      "label": "Cocinar"
-    },
-    "dine": {
-      "label": "Salir"
-    }
-  },
-  "food-types": {
-    "comida": {
-      "label": "Comida",
-      "description": "Platos principales y guisos"
-    },
-    "bebida": {
-      "label": "Bebida",
-      "description": "Batidos, zumos y cócteles"
-    },
-    "postre": {
-      "label": "Postre",
-      "description": "Dulces y postres"
-    },
-    "aperitivo": {
-      "label": "Aperitivo",
-      "description": "Snacks y entrantes"
-    }
+  "complete-profile": {
+    "body": "¿Cómo debería llamarte SAM? Así aparecerás como autor de tus recetas.",
+    "display-name": "Nombre visible",
+    "display-name-placeholder": "p. ej. Manel",
+    "name-taken": "Ese nombre ya está cogido — elige otro.",
+    "save-failed": "No se ha podido guardar tu nombre.",
+    "submit": "Vamos",
+    "title": "¡Un último olfateo!"
   },
   "cuisines": {
     "American": "Estadounidense",
@@ -74,93 +57,36 @@
     "Thai": "Tailandesa",
     "Vegan/Vegetarian": "Vegana / Vegetariana"
   },
-  "landing": {
-    "email": "Correo electrónico",
-    "email-placeholder": "tu@correo.com",
-    "google-sign-in": "Entrar con Google",
-    "google-sign-in-failed": "No se ha podido entrar con Google",
-    "new-here": "¿Nuevo por aquí?",
-    "no-account": "Pide una invitación a tu administrador",
-    "or": "o continúa con",
-    "password": "Contraseña",
-    "sign-in": "Entrar",
-    "sign-in-failed": "No se ha podido entrar. Revisa tus credenciales.",
-    "signing-in": "Entrando…",
-    "tagline": "Cocina en casa o sal a comer — tu border collie te trae las dos cosas."
-  },
-  "complete-profile": {
-    "title": "¡Un último olfateo!",
-    "body": "¿Cómo debería llamarte SAM? Así aparecerás como autor de tus recetas.",
-    "display-name": "Nombre visible",
-    "display-name-placeholder": "p. ej. Manel",
-    "submit": "Vamos",
-    "name-taken": "Ese nombre ya está cogido — elige otro.",
-    "save-failed": "No se ha podido guardar tu nombre."
-  },
   "dashboard": {
-    "title": "¿Qué cocinamos?",
+    "by-and-dates": "Por {{author}} · Creada {{created}} · Actualizada {{updated}}",
     "count": {
       "one": "{{count}} receta en la colección.",
       "other": "{{count}} recetas en la colección."
     },
-    "empty-collection": "Todavía no hay nada en la colección.",
-    "new-recipe": "Nueva receta",
-    "search-placeholder": "Buscar por título…",
-    "search-label": "Buscar recetas por título",
-    "no-recipes-title": "Todavía no hay recetas.",
-    "no-recipes-body": "Escribe la primera y quedará aquí para todos.",
-    "no-recipes-action": "Añadir la primera",
-    "no-match-title": "No hay nada que coincida.",
-    "no-match-body": "Prueba con una palabra más corta, o quita la categoría.",
-    "load-failed": "No se han podido cargar las recetas",
+    "delete-aria": "Eliminar receta",
     "delete-failed": "No se ha podido eliminar la receta",
-    "instructions": "Preparación",
-    "by-and-dates": "Por {{author}} · Creada {{created}} · Actualizada {{updated}}",
-    "edit-recipe-title": "Editar receta",
-    "new-recipe-title": "Nueva receta",
     "edit-aria": "Editar receta",
-    "delete-aria": "Eliminar receta"
-  },
-  "recipe-row": {
-    "ingredients": {
-      "one": "{{count}} ingrediente",
-      "other": "{{count}} ingredientes"
-    }
-  },
-  "recipe-form": {
-    "add-ingredient": "Añadir ingrediente",
-    "amount": "Cantidad",
-    "ingredient-name": "Nombre del ingrediente",
-    "ingredient-placeholder": "p. ej. harina",
-    "ingredient-placeholder-first": "p. ej. harina",
-    "ingredient-placeholder-rest": "ingrediente",
-    "ingredients": "Ingredientes",
+    "edit-recipe-title": "Editar receta",
+    "empty-collection": "Todavía no hay nada en la colección.",
+    "filter-people": "Quién la añadió",
     "instructions": "Preparación",
-    "instructions-placeholder": "Pasos de la receta…",
-    "invalid-servings": "Las raciones deben ser un número entero de 1 o más.",
-    "invalid-url": "El enlace de origen no parece una URL válida.",
-    "invalid-url-inline": "Eso no parece un URL válido.",
-    "need-an-ingredient": "Añade al menos un ingrediente.",
-    "preview": "Vista previa:",
-    "remove-ingredient": "Quitar ingrediente",
-    "servings": "Raciones",
-    "servings-hint": "El número de personas para las que dan estas cantidades — así cualquiera que vea la receta puede escalarla después.",
-    "servings-placeholder": "4",
-    "source": "Origen",
-    "source-hint": "De dónde viene la receta. Mostraremos solo el sitio, no el enlace completo.",
-    "source-placeholder": "recetas.ejemplo.com/…",
-    "submit-add": "Añadir receta",
-    "title": "Título",
-    "title-placeholder": "p. ej. Lasaña de verduras",
-    "type": "Tipo",
-    "unit": "Unidad"
+    "load-failed": "No se han podido cargar las recetas",
+    "new-recipe": "Nueva receta",
+    "new-recipe-title": "Nueva receta",
+    "no-match-body": "Prueba con una palabra más corta, o quita la categoría.",
+    "no-match-title": "No hay nada que coincida.",
+    "no-method-body": "Toca para escribir cómo lo haces.",
+    "no-method-title": "Sin método escrito",
+    "no-recipes-action": "Añadir la primera",
+    "no-recipes-body": "Escribe la primera y quedará aquí para todos.",
+    "no-recipes-title": "Todavía no hay recetas.",
+    "search-label": "Buscar recetas por título",
+    "search-placeholder": "Buscar por título…",
+    "title": "¿Qué cocinamos?"
   },
-  "ingredients-panel": {
-    "adjust-servings": "ajustar raciones",
-    "fewer-servings": "Menos raciones",
-    "more-servings": "Más raciones",
-    "servings-count": "Número de raciones",
-    "servings": "raciones"
+  "delete-recipe": {
+    "body": "¿Eliminar «{{name}}»? SAM no podrá traerla de vuelta.",
+    "title": "Eliminar receta"
   },
   "dine": {
     "add-restaurant": "Añadir restaurante",
@@ -206,42 +132,262 @@
     "write-a-review": "Escribir una reseña"
   },
   "dine-filters": {
-    "search-placeholder": "Buscar por nombre…",
-    "search-label": "Buscar restaurantes por nombre",
-    "reviewed-by-me": "Reseñados por mí",
     "price-level": "Nivel de precio {{level}} de 4",
     "results": {
       "one": "{{count}} restaurante",
       "other": "{{count}} restaurantes"
     },
+    "reviewed-by-me": "Reseñados por mí",
+    "search-label": "Buscar restaurantes por nombre",
+    "search-placeholder": "Buscar por nombre…",
     "updating": "Actualizando resultados"
   },
-  "sort": {
-    "label": "Ordenar la lista",
-    "recent": "Visitados hace poco",
-    "oldest": "Hace más tiempo",
-    "rating": "Mejor valorados",
-    "rating_low": "Peor valorados"
+  "food-types": {
+    "aperitivo": {
+      "label": "Aperitivo",
+      "description": "Snacks y entrantes"
+    },
+    "bebida": {
+      "label": "Bebida",
+      "description": "Batidos, zumos y cócteles"
+    },
+    "comida": {
+      "label": "Comida",
+      "description": "Platos principales y guisos"
+    },
+    "postre": {
+      "label": "Postre",
+      "description": "Dulces y postres"
+    }
+  },
+  "ingredients-panel": {
+    "adjust-servings": "ajustar raciones",
+    "fewer-servings": "Menos raciones",
+    "more-servings": "Más raciones",
+    "servings": "raciones",
+    "servings-count": "Número de raciones"
+  },
+  "landing": {
+    "email": "Correo electrónico",
+    "email-placeholder": "tu@correo.com",
+    "google-sign-in": "Entrar con Google",
+    "google-sign-in-failed": "No se ha podido entrar con Google",
+    "new-here": "¿Nuevo por aquí?",
+    "no-account": "Pide una invitación a tu administrador",
+    "or": "o continúa con",
+    "password": "Contraseña",
+    "sign-in": "Entrar",
+    "sign-in-failed": "No se ha podido entrar. Revisa tus credenciales.",
+    "signing-in": "Entrando…",
+    "tagline": "Cocina en casa o sal a comer — tu border collie te trae las dos cosas."
+  },
+  "map": {
+    "already-on-sam": "Ya está en SAM",
+    "loading": "Cargando el mapa…",
+    "loading-label": "Cargando el mapa",
+    "no-reviews": "Todavía sin reseñas",
+    "pin-hint": "Toca para poner el pin · arrastra para ajustarlo",
+    "this-is-it": "Es este — ábrelo",
+    "view-details": "Ver detalles"
+  },
+  "plan": {
+    "add": "Añadir",
+    "add-extra": "Añadir otra cosa",
+    "add-extra-placeholder": "yogures, fruta, bolsas de basura…",
+    "add-recipe": "Añadir una receta",
+    "add-to-list": "Añadir a la lista",
+    "added-by-hand": "Añadido a mano",
+    "already-added": "ya en la lista: {{amount}}",
+    "archived-note": "Esta semana está archivada. Aquí ya no se puede cambiar nada.",
+    "assign": "Añadir a la semana",
+    "back-to-this-week": "Volver a esta semana",
+    "calendar-closed-note": "La semana está cerrada. La lista de la compra sigue siendo tuya.",
+    "carry-over-body": "Las marcadas pasan a la lista de la semana que viene.",
+    "carry-over-heading": {
+      "one": "{{count}} cosa que no encontraste",
+      "other": "{{count}} cosas que no encontraste"
+    },
+    "change-recipe": "Cambiar la receta",
+    "choose-dish": "¿Qué vais a comer?",
+    "close-list": "Compra hecha",
+    "close-list-body": "Esto archiva la semana. Podrás consultarla, pero ya no cambiarla.",
+    "close-list-title": "¿Guardar esta semana?",
+    "conflict": "Esta semana ha cambiado — recarga para ver cómo está ahora.",
+    "dinner": "Cena",
+    "empty-slot": "Sin planificar",
+    "finish-week": "Cerrar la semana",
+    "finish-week-body": "Después de esto las recetas ya no se tocan. Podrás seguir añadiendo cosas a la lista y marcándolas — que es lo que harás en el súper.",
+    "finish-week-title": "¿Cerrar la semana?",
+    "for-people": {
+      "one": "para {{count}} persona",
+      "other": "para {{count}} personas"
+    },
+    "from-recipes": "De {{recipes}}",
+    "guest-note": "{{name}} ha compartido esta semana contigo. Puedes ir marcando la lista; las recetas son suyas.",
+    "how-many": "¿Cuántas personas?",
+    "ingredients-body": "Está todo marcado. Desmarca lo que ya tengas.",
+    "ingredients-title": "Qué comprar para esto",
+    "list-count": {
+      "one": "{{count}} cosa que comprar",
+      "other": "{{count}} cosas que comprar"
+    },
+    "list-empty-body": "Planifica una receta y sus ingredientes aparecen aquí. Lo demás lo puedes añadir a mano.",
+    "list-empty-title": "Todavía no hay nada en la lista",
+    "load-failed": "No se ha podido cargar el plan.",
+    "lunch": "Comida",
+    "next-shop": "Próxima compra",
+    "next-week": "Semana siguiente",
+    "no-ingredients": "Este todavía no tiene ingredientes apuntados.",
+    "no-matches": "No hay nada que coincida.",
+    "no-recipes-at-all": "Todavía no tienes recetas. Añade una en Cocina primero.",
+    "nobody-shared": "Todavía no la has compartido con nadie.",
+    "not-on-the-list": "Aún sin añadir",
+    "nothing-planned-body": "Elige un hueco y decide qué comes. La lista de la compra se va montando sola.",
+    "nothing-planned-title": "Esta semana no hay nada planificado",
+    "on-the-list": "En la lista",
+    "previous-week": "Semana anterior",
+    "remove-and-drop": {
+      "one": "Quitar y borrar su {{count}} ingrediente de la lista",
+      "other": "Quitar y borrar sus {{count}} ingredientes de la lista"
+    },
+    "remove-and-keep": "Quitar y dejar la lista como está",
+    "remove-line": "Quitar de la lista",
+    "remove-recipe": "Quitar de la semana",
+    "remove-recipe-confirm": "¿Quitar {{recipe}} del {{day}}?",
+    "save-failed": "No se ha guardado.",
+    "search-recipes": "Buscar en tus recetas",
+    "search-recipes-placeholder": "Buscar…",
+    "share": "Compartir",
+    "share-failed": "No se ha podido compartir.",
+    "share-hint": "Verá esta semana y podrá ir marcando la lista. No podrá cambiar las recetas.",
+    "share-placeholder": "Su nombre en SAM",
+    "share-unknown-person": "En SAM no hay nadie con ese nombre.",
+    "share-yourself": "Ese eres tú.",
+    "shared-by": "La semana de {{name}}",
+    "shared-with": "Compartida con",
+    "skip-for-now": "Ahora no",
+    "status-calendar-closed": "De compra",
+    "status-list-closed": "Archivada",
+    "status-planning": "Planificando",
+    "stop-sharing": "Dejar de compartir con {{name}}",
+    "this-week": "Esta semana",
+    "title": "La semana",
+    "view-calendar": "La semana",
+    "view-list": "Lista de la compra",
+    "your-week": "Tu semana"
+  },
+  "profile": {
+    "account-body": "Tu nombre visible aparece como autor de tus recetas.",
+    "account-title": "Cuenta",
+    "display-name": "Nombre visible",
+    "display-name-placeholder": "p. ej. Manel",
+    "email": "Correo electrónico",
+    "email-hint": "Lo define la cuenta con la que entraste, y no se puede editar aquí.",
+    "latest": "Última: {{name}}",
+    "mostly-eating": "Sobre todo comes",
+    "name-taken": "Ese nombre ya está cogido — elige otro.",
+    "no-recipes-hint": "Todavía no has escrito nada",
+    "no-reviews-hint": "Todavía no has reseñado nada",
+    "plans-bought": "{{checked}} de {{total}} comprados",
+    "plans-count": {
+      "one": "{{count}} semana",
+      "other": "{{count}} semanas"
+    },
+    "plans-empty-body": "Planifica una semana y se queda aquí: qué comisteis y qué comprasteis para ello.",
+    "plans-empty-title": "Todavía no has planificado ninguna semana",
+    "plans-next-year": "Año siguiente",
+    "plans-open": "Abrir esta semana",
+    "plans-previous-year": "Año anterior",
+    "plans-recipes": {
+      "one": "{{count}} receta",
+      "other": "{{count}} recetas"
+    },
+    "plans-shared-by": "compartida por {{name}}",
+    "plans-year-empty": "No hay nada planificado en {{year}}.",
+    "recipes-empty-action": "Escribe la primera",
+    "recipes-empty-body": "Todo lo que escribas aparece aquí, y sigue siendo tuyo para editarlo.",
+    "recipes-empty-title": "Todavía no hay recetas.",
+    "recipes-no-match-body": "Prueba con una palabra más corta, o quita la categoría.",
+    "recipes-no-match-title": "No hay nada que coincida.",
+    "recipes-search-label": "Buscar tus recetas por título",
+    "recipes-search-placeholder": "Buscar en tus recetas…",
+    "review-sort-recent": "Más recientes",
+    "review-sort-score": "Mejor valoradas",
+    "reviews-empty-action": "Buscar dónde comer",
+    "reviews-empty-body": "Cada sitio que reseñes aparece aquí, con lo que dijiste de él.",
+    "reviews-empty-title": "Todavía no hay reseñas.",
+    "reviews-no-match-body": "Prueba con una palabra más corta — esto solo busca en el nombre del restaurante.",
+    "reviews-no-match-title": "No hay nada que coincida.",
+    "reviews-search-label": "Buscar tus reseñas por nombre del restaurante",
+    "reviews-search-placeholder": "Buscar los sitios que has reseñado…",
+    "save-failed": "No se ha podido guardar tu nombre.",
+    "saved": "Guardado.",
+    "sections": "Secciones del perfil",
+    "since": "Cocinando aquí desde {{month}}",
+    "stat-average": "tu media",
+    "stat-places": "sitios",
+    "stat-reviews": "reseñas",
+    "tab-account": "Cuenta",
+    "tab-overview": "Resumen",
+    "tab-plans": "Semanas",
+    "tab-recipes": "Recetas",
+    "tab-reviews": "Reseñas",
+    "your-numbers": "Tus números"
   },
   "recent-visits": {
-    "eyebrow": "Últimamente",
     "blurb": "Los últimos sitios donde estuviste.",
+    "eyebrow": "Últimamente",
     "list-label": "Visitas recientes",
+    "no-notes": "Sin notas de esta visita.",
     "scroll-left": "Desplazar a la izquierda",
-    "scroll-right": "Desplazar a la derecha",
-    "no-notes": "Sin notas de esta visita."
+    "scroll-right": "Desplazar a la derecha"
+  },
+  "recipe-form": {
+    "add-ingredient": "Añadir ingrediente",
+    "amount": "Cantidad",
+    "ingredient-name": "Nombre del ingrediente",
+    "ingredient-placeholder": "p. ej. harina",
+    "ingredient-placeholder-first": "p. ej. harina",
+    "ingredient-placeholder-rest": "ingrediente",
+    "ingredients": "Ingredientes",
+    "instructions": "Preparación",
+    "instructions-hint": "Opcional. Déjalo vacío si ya sabes cocinarlo y solo lo quieres en la lista de la compra — puedes escribir el método más adelante.",
+    "instructions-placeholder": "Pasos de la receta…",
+    "invalid-servings": "Las raciones deben ser un número entero de 1 o más.",
+    "invalid-url": "El enlace de origen no parece una URL válida.",
+    "invalid-url-inline": "Eso no parece un URL válido.",
+    "need-an-ingredient": "Añade al menos un ingrediente.",
+    "preview": "Vista previa:",
+    "remove-ingredient": "Quitar ingrediente",
+    "servings": "Raciones",
+    "servings-hint": "El número de personas para las que dan estas cantidades — así cualquiera que vea la receta puede escalarla después.",
+    "servings-placeholder": "4",
+    "source": "Origen",
+    "source-hint": "De dónde viene la receta. Mostraremos solo el sitio, no el enlace completo.",
+    "source-placeholder": "recetas.ejemplo.com/…",
+    "submit-add": "Añadir receta",
+    "title": "Título",
+    "title-placeholder": "p. ej. Lasaña de verduras",
+    "type": "Tipo",
+    "unit": "Unidad"
+  },
+  "recipe-row": {
+    "ingredients": {
+      "one": "{{count}} ingrediente",
+      "other": "{{count}} ingredientes"
+    }
   },
   "restaurant-card": {
-    "visits-no-notes": {
-      "one": "Una visita, sin notas.",
-      "other": "{{count}} visitas, sin notas."
-    },
-    "not-reviewed": "Todavía sin reseñas — sé el primero.",
-    "rated": "Valorado {{score}} sobre 10",
-    "not-rated": "Todavía sin valorar",
     "more-reviewers": {
       "one": "{{count}} más",
       "other": "{{count}} más"
+    },
+    "not-rated": "Todavía sin valorar",
+    "not-reviewed": "Todavía sin reseñas — sé el primero.",
+    "rated": "Valorado {{score}} sobre 10",
+    "visits-no-notes": {
+      "one": "Una visita, sin notas.",
+      "other": "{{count}} visitas, sin notas."
     }
   },
   "restaurant-form": {
@@ -278,13 +424,11 @@
     "where-hint": "(ayuda a encontrar el correcto en el mapa)"
   },
   "review-form": {
-    "overall": "Total",
-    "overall-hint": "Media de las 4 puntuaciones de abajo",
-    "visited-at": "Día que fuiste",
     "comment": "Comentario",
     "comment-placeholder": "Cualquier cosa que merezca recordarse de esta visita…",
-    "submit": "Publicar reseña",
     "date-required": "Elige el día que fuiste.",
+    "overall": "Total",
+    "overall-hint": "Media de las 4 puntuaciones de abajo",
     "scores": {
       "location": {
         "label": "Ubicación y decoración",
@@ -302,60 +446,40 @@
         "label": "Relación calidad-precio",
         "hint": "¿Valía lo que costaba?"
       }
+    },
+    "submit": "Publicar reseña",
+    "visited-at": "Día que fuiste"
+  },
+  "shell": {
+    "cook-and-dine": "Cocina y Restaurantes",
+    "language": "Idioma",
+    "primary-navigation": "Principal",
+    "profile": "Perfil",
+    "sign-out": "Cerrar sesión",
+    "theme-dark": "Modo oscuro",
+    "theme-light": "Modo claro",
+    "theme-to-dark": "Cambiar a modo oscuro",
+    "theme-to-light": "Cambiar a modo claro",
+    "worlds": "Mundos",
+    "you": "Tú",
+    "your-profile": "Tu perfil"
+  },
+  "sort": {
+    "label": "Ordenar la lista",
+    "oldest": "Hace más tiempo",
+    "rating": "Mejor valorados",
+    "rating_low": "Peor valorados",
+    "recent": "Visitados hace poco"
+  },
+  "worlds": {
+    "cook": {
+      "label": "Cocinar"
+    },
+    "dine": {
+      "label": "Salir"
+    },
+    "plan": {
+      "label": "Plan"
     }
-  },
-  "profile": {
-    "sections": "Secciones del perfil",
-    "tab-overview": "Resumen",
-    "tab-recipes": "Recetas",
-    "tab-reviews": "Reseñas",
-    "tab-account": "Cuenta",
-    "since": "Cocinando aquí desde {{month}}",
-    "stat-places": "sitios",
-    "stat-reviews": "reseñas",
-    "stat-average": "tu media",
-    "your-numbers": "Tus números",
-    "mostly-eating": "Sobre todo comes",
-    "latest": "Última: {{name}}",
-    "no-recipes-hint": "Todavía no has escrito nada",
-    "no-reviews-hint": "Todavía no has reseñado nada",
-    "recipes-search-placeholder": "Buscar en tus recetas…",
-    "recipes-search-label": "Buscar tus recetas por título",
-    "recipes-empty-title": "Todavía no hay recetas.",
-    "recipes-empty-body": "Todo lo que escribas aparece aquí, y sigue siendo tuyo para editarlo.",
-    "recipes-empty-action": "Escribe la primera",
-    "recipes-no-match-title": "No hay nada que coincida.",
-    "recipes-no-match-body": "Prueba con una palabra más corta, o quita la categoría.",
-    "reviews-search-placeholder": "Buscar los sitios que has reseñado…",
-    "reviews-search-label": "Buscar tus reseñas por nombre del restaurante",
-    "reviews-empty-title": "Todavía no hay reseñas.",
-    "reviews-empty-body": "Cada sitio que reseñes aparece aquí, con lo que dijiste de él.",
-    "reviews-empty-action": "Buscar dónde comer",
-    "reviews-no-match-title": "No hay nada que coincida.",
-    "reviews-no-match-body": "Prueba con una palabra más corta — esto solo busca en el nombre del restaurante.",
-    "review-sort-recent": "Más recientes",
-    "review-sort-score": "Mejor valoradas",
-    "account-title": "Cuenta",
-    "account-body": "Tu nombre visible aparece como autor de tus recetas.",
-    "email": "Correo electrónico",
-    "email-hint": "Lo define la cuenta con la que entraste, y no se puede editar aquí.",
-    "display-name": "Nombre visible",
-    "display-name-placeholder": "p. ej. Manel",
-    "saved": "Guardado.",
-    "name-taken": "Ese nombre ya está cogido — elige otro.",
-    "save-failed": "No se ha podido guardar tu nombre."
-  },
-  "map": {
-    "already-on-sam": "Ya está en SAM",
-    "loading": "Cargando el mapa…",
-    "loading-label": "Cargando el mapa",
-    "no-reviews": "Todavía sin reseñas",
-    "pin-hint": "Toca para poner el pin · arrastra para ajustarlo",
-    "this-is-it": "Es este — ábrelo",
-    "view-details": "Ver detalles"
-  },
-  "delete-recipe": {
-    "title": "Eliminar receta",
-    "body": "¿Eliminar «{{name}}»? SAM no podrá traerla de vuelta."
   }
 }

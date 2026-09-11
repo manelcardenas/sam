@@ -16,6 +16,34 @@ export function parseDateOnly(isoDate: string): Date {
   return new Date(year, month - 1, day);
 }
 
+/**
+ * "Mon" — the planner's day column heading.
+ *
+ * Short rather than long because five of these sit side by side on a phone;
+ * `narrow` was rejected because Catalan renders Tuesday and Wednesday both as
+ * "d", and Spanish gives "m" to Tuesday and Wednesday alike.
+ */
+export function formatWeekday(isoDate: string, locale: string): string {
+  return parseDateOnly(isoDate).toLocaleDateString(locale, { weekday: "short" });
+}
+
+/** "9 Sep" — the date under a weekday, so a week in the past is identifiable. */
+export function formatDayAndMonth(isoDate: string, locale: string): string {
+  return parseDateOnly(isoDate).toLocaleDateString(locale, { day: "numeric", month: "short" });
+}
+
+/** "7–11 Sep" / "28 Sep – 2 Oct" — the week's own heading. */
+export function formatWeekRange(weekStart: string, weekEnd: string, locale: string): string {
+  const start = parseDateOnly(weekStart);
+  const end = parseDateOnly(weekEnd);
+  const sameMonth = start.getMonth() === end.getMonth();
+  // The month is dropped from the first half only when both ends share it —
+  // "28 Sep – 2 Oct" has to keep both or it reads as a five-day September week.
+  const from = start.toLocaleDateString(locale, sameMonth ? { day: "numeric" } : { day: "numeric", month: "short" });
+  const to = end.toLocaleDateString(locale, { day: "numeric", month: "short" });
+  return `${from} – ${to}`;
+}
+
 export function formatVisitedDate(isoDate: string, locale: string): string {
   return parseDateOnly(isoDate).toLocaleDateString(locale);
 }

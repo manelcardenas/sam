@@ -13,7 +13,7 @@ import { WORLDS, type WorldId } from "@/lib/worlds";
 
 /**
  * Shared chrome for every signed-in page: a sticky header (wordmark +
- * COOK/DINE world switch + theme + profile + sign out) on desktop, and a
+ * COOK/DINE/PLAN world switch + theme + profile + sign out) on desktop, and a
  * fixed bottom tab bar on mobile. Pages render their own content + sub-toolbar
  * inside `children`. Sign-out lives here so no page repeats it.
  */
@@ -29,7 +29,9 @@ export function AppShell({
   const router = useRouter();
 
   const onProfile = pathname.startsWith("/profile");
-  const activeWorld: WorldId = pathname.startsWith("/dine") ? "dine" : "cook";
+  // Derived from the WORLDS table rather than from a chain of startsWith, so
+  // adding a world is one entry in lib/worlds.ts and nothing here.
+  const activeWorld: WorldId = WORLDS.find((w) => pathname.startsWith(w.href))?.id ?? "cook";
 
   const handleSignOut = async () => {
     try {

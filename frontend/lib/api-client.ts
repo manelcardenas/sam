@@ -15,7 +15,8 @@ export interface IngredientsInput {
 export interface Recipe {
   id: string;
   title: string;
-  instructions: string;
+  /** Optional: a recipe you already know how to make is still plannable and shoppable. */
+  instructions: string | null;
   ingredients: IngredientsData;
   food_type: "bebida" | "postre" | "comida" | "aperitivo";
   source_url: string | null;
@@ -25,6 +26,92 @@ export interface Recipe {
   created_by_name: string | null;
   created_at: string;
   updated_at: string;
+}
+
+
+// ── Meal planner (docs/plans/meal-planner-plan.md) ───────────────────────────
+
+export type Meal = "lunch" | "dinner";
+/** `list_closed` is what the UI calls *archived* — see §8.2 for why it isn't a fourth state. */
+export type PlanStatus = "planning" | "calendar_closed" | "list_closed";
+
+/** Why a line is on the list. `dish_name` is a snapshot, so it survives the recipe being deleted. */
+export interface ListItemSource {
+  entry_id: string | null;
+  dish_name: string;
+  amount: number | null;
+}
+
+export interface ShoppingListItem {
+  id: string;
+  display_name: string;
+  normalised_name: string;
+  unit: string | null;
+  /** `null` for things with no quantity — "sal" is a real ingredient, not a zero. */
+  total_amount: number | null;
+  is_checked: boolean;
+  is_manual: boolean;
+  sources: ListItemSource[];
+}
+
+export interface PlanEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  meal: Meal;
+  recipe_id: string | null; // null once the recipe is deleted; dish_name survives
+  dish_name: string;
+  servings: number;
+}
+
+/** Someone a plan is shared with — read and tick only (docs/plans/meal-planner-plan.md §4.3). */
+export interface PlanGuest {
+  user_id: string;
+  display_name: string | null;
+}
+
+export interface MealPlan {
+  id: string;
+  owner_id: string;
+  owner_name: string | null;
+  week_start: string; // YYYY-MM-DD, always a Saturday — weeks run Sat→Fri
+  status: PlanStatus;
+  entries: PlanEntry[];
+  items: ShoppingListItem[];
+  shared_with: PlanGuest[];
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One week in the archive. Deliberately *not* a MealPlan: a year holds up to 53
+ * of them, and the year view shows which weeks were planned and how full they
+ * were — not what was in them.
+ */
+export interface PlanSummary {
+  id: string;
+  week_start: string;
+  status: PlanStatus;
+  owner_id: string;
+  owner_name: string | null;
+  /** False when the week was shared with you rather than planned by you. */
+  is_mine: boolean;
+  entry_count: number;
+  item_count: number;
+  checked_count: number;
+}
+
+export interface AssignDishInput {
+  date: string;
+  meal: Meal;
+  recipe_id: string | null;
+  dish_name: string;
+  servings: number;
+}
+
+export interface ListLineInput {
+  name: string;
+  amount?: number | null;
+  unit?: string | null;
 }
 
 export interface UserProfile {
@@ -180,7 +267,8 @@ export class ApiError extends Error {
 
 export interface CreateRecipeInput {
   title: string;
-  instructions: string;
+  /** Omit or send empty to create a dish rather than a recipe — docs/adr/0007. */
+  instructions: string | null;
   ingredients: IngredientsInput;
   food_type: "bebida" | "postre" | "comida" | "aperitivo";
   source_url?: string;
@@ -253,6 +341,7 @@ export class RecipeAPIClient {
     return { data: await response.json(), status: response.status };
   }
 
+  /** Every recipe. One collection — anything with ingredients is plannable. */
   async listRecipes(): Promise<Recipe[]> {
     return this.request<Recipe[]>("/recipes");
   }
@@ -272,6 +361,104 @@ export class RecipeAPIClient {
     return this.request<Recipe>(`/recipes/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
+    });
+  }
+
+
+  // ── Meal planner ───────────────────────────────────────────────────────────
+  //
+  // Every mutation returns the whole plan rather than the thing it changed: one
+  // write can move several parts (removing a dish can delete list lines, adding
+  // one can merge into an existing line), so patching a local copy from a
+  // partial response would drift.
+
+  /** The week containing `day`, or `null` — most weeks have no plan, which is not an error. */
+  async getPlan(day: string): Promise<MealPlan | null> {
+    return this.request<MealPlan | null>(`/plans?day=${encodeURIComponent(day)}`);
+  }
+
+  async assignDish(data: AssignDishInput): Promise<MealPlan> {
+    return this.request<MealPlan>("/plans/entries", { method: "PUT", body: JSON.stringify(data) });
+  }
+
+  /**
+   * Clear a slot. `dropFromList` defaults to false: the list never rewrites
+   * itself while you are holding it in the shop, so the caller asks first
+   * (docs/plans/meal-planner-plan.md §4.5).
+   */
+  async removeEntry(planId: string, entryId: string, dropFromList = false): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/entries/${entryId}?drop_from_list=${dropFromList}`, { method: "DELETE" });
+  }
+
+  /** `entryId` null means a hand-added extra — fruit, yoghurt, the things no dish implies. */
+  /**
+   * Put hand-typed lines on a week's list, whether or not that week has been
+   * planned. Keyed by a day rather than a plan id precisely because there may
+   * not be a plan yet — this is the path that lets you add sugar to next week
+   * in the middle of this one.
+   */
+  async addToWeekList(day: string, items: ListLineInput[]): Promise<MealPlan> {
+    return this.request<MealPlan>("/plans/items", {
+      method: "POST",
+      body: JSON.stringify({ day, items }),
+    });
+  }
+
+  async addToList(planId: string, items: ListLineInput[], entryId: string | null = null, dishName: string | null = null): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/items`, {
+      method: "POST",
+      body: JSON.stringify({ entry_id: entryId, dish_name: dishName, items }),
+    });
+  }
+
+  async tickItem(planId: string, itemId: string, isChecked: boolean): Promise<ShoppingListItem> {
+    return this.request<ShoppingListItem>(`/plans/${planId}/items/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_checked: isChecked }),
+    });
+  }
+
+  async removeItem(planId: string, itemId: string): Promise<void> {
+    await this.request<void>(`/plans/${planId}/items/${itemId}`, { method: "DELETE" });
+  }
+
+  /** Takes the one transition available. `fromStatus` is what the client believes it is leaving — a mismatch is a 409, so a double tap can't close both the calendar and the list. */
+  /**
+   * Weeks other people have shared with the caller.
+   *
+   * A list, and a separate call from `getPlan`: you can have your own week and
+   * be a guest on someone else's, so one endpoint returning "the plan" would
+   * have to pick between them.
+   */
+  async getSharedPlans(day: string): Promise<MealPlan[]> {
+    return this.request<MealPlan[]>(`/plans/shared?day=${encodeURIComponent(day)}`);
+  }
+
+  /** Weeks planned in a year, newest first — yours and any shared with you. */
+  async getPlanArchive(year: number): Promise<PlanSummary[]> {
+    return this.request<PlanSummary[]>(`/plans/archive?year=${year}`);
+  }
+
+  /** Share by the name people know each other by — it is the only identity a person can type from memory. */
+  async sharePlan(planId: string, displayName: string): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/shares`, {
+      method: "POST",
+      body: JSON.stringify({ display_name: displayName }),
+    });
+  }
+
+  async unsharePlan(planId: string, guestId: string): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/shares/${encodeURIComponent(guestId)}`, { method: "DELETE" });
+  }
+
+  async advancePlan(planId: string, fromStatus: "planning" | "calendar_closed", carryOver: string[] = []): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/status`, {
+      method: "POST",
+      // `carry_over` names the unticked lines to copy onto next week. It travels
+      // with the transition rather than as a second call because the lines have
+      // to be read while the plan is still open — once it is list_closed every
+      // write is refused, and a half-done carry-over would lose them.
+      body: JSON.stringify({ from_status: fromStatus, carry_over: carryOver }),
     });
   }
 
