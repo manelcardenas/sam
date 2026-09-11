@@ -28,8 +28,9 @@ class InMemoryRecipeRepository(RecipeRepository):
         recipes = []
         for recipe_data in self.table.values():
             recipe = Recipe(**recipe_data)
-            if created_by is None or recipe.created_by == created_by:
-                recipes.append(recipe)
+            if created_by is not None and recipe.created_by != created_by:
+                continue
+            recipes.append(recipe)
         return recipes
 
     def update_recipe(self, recipe: Recipe) -> Recipe:

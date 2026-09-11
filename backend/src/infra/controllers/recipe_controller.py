@@ -39,7 +39,7 @@ class RecipeController:
             response_model=list[Recipe],
             dependencies=[Depends(get_current_user)],
             summary="List recipes",
-            description="Returns all recipes, or only the caller's when `mine=true`",
+            description="Returns every recipe. `mine=true` narrows to the caller",
             tags=["Recipes"],
         )
 
@@ -97,8 +97,12 @@ class RecipeController:
         """Health check endpoint."""
         return HealthResponse(status="ok", service="recipes")
 
-    def list_recipes(self, mine: bool = False, current_user: TokenPayload = Depends(get_current_user)) -> list[Recipe]:
-        """List recipes — all of them, or only the caller's with `?mine=true`.
+    def list_recipes(
+        self,
+        mine: bool = False,
+        current_user: TokenPayload = Depends(get_current_user),
+    ) -> list[Recipe]:
+        """List recipes. `?mine=true` narrows to the caller.
 
         A query param on the existing route rather than a new endpoint, so no
         API Gateway route has to be added.

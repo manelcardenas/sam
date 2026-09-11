@@ -28,7 +28,7 @@ class Ingredients(BaseModel):
 class Recipe(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
-    instructions: str
+    instructions: str | None = None
     ingredients: Ingredients
     food_type: FoodType
     source_url: str | None = None
