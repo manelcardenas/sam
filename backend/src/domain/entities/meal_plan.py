@@ -28,29 +28,24 @@ class PlanEntry(BaseModel):
     recipe_id: str | None = None  # NULL once the recipe is deleted; the name survives
     dish_name: str
     servings: int = Field(ge=1)
-
-
-class PlanGuest(BaseModel):
-    """Someone the plan is shared with — read and tick only (§4.3).
-
-    Carries the display name as well as the id because every surface that shows
-    a guest shows their name, and the id alone would mean a second lookup on a
-    list the plan already has in hand.
-    """
-
-    user_id: str
-    display_name: str | None = None
+    # NULL for rows written before the kitchen existed, and once the account is
+    # gone. The slot is still a slot without a name on it.
+    created_by: str | None = None
+    created_by_name: str | None = None
 
 
 class MealPlan(BaseModel):
+    """One kitchen's week."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    owner_id: str
-    owner_name: str | None = None
+    kitchen_id: str
     week_start: date  # always a Saturday — see `week.week_start_for`
     status: PlanStatus = PlanStatus.PLANNING
     entries: list[PlanEntry] = Field(default_factory=list)
     items: list[ShoppingListItem] = Field(default_factory=list)
-    shared_with: list[PlanGuest] = Field(default_factory=list)
+    # Who started the week. Informational, like `restaurants.created_by` — it
+    # gates nothing, because membership is what gates writes.
+    created_by: str | None = None
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
@@ -68,11 +63,6 @@ class PlanSummary(BaseModel):
     id: str
     week_start: date
     status: PlanStatus
-    owner_id: str
-    owner_name: str | None = None
-    # False when the week was shared with you rather than planned by you — the
-    # one distinction §5.3 asks the year view to draw.
-    is_mine: bool
     entry_count: int = 0
     item_count: int = 0
     checked_count: int = 0
@@ -91,18 +81,3 @@ def sort_entries(entries: list[PlanEntry]) -> list[PlanEntry]:
     while production renders the week wrong.
     """
     return sorted(entries, key=lambda e: (e.date, _MEAL_ORDER[e.meal]))
-
-
-def may_read(plan: MealPlan, user_id: str) -> bool:
-    """Owners and guests can see a plan. Nobody else can.
-
-    Kept next to `may_write` so the asymmetry between them is visible in one
-    place: the *only* thing a guest may do beyond reading is tick, and that is
-    enforced by which use cases call which of these.
-    """
-    return plan.owner_id == user_id or any(guest.user_id == user_id for guest in plan.shared_with)
-
-
-def may_write(plan: MealPlan, user_id: str) -> bool:
-    """Only the owner changes a plan — v1 sharing is read-and-tick (§4.3)."""
-    return plan.owner_id == user_id

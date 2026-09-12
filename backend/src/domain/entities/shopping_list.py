@@ -54,6 +54,8 @@ class ShoppingListItem(BaseModel):
     is_checked: bool = False
     is_manual: bool = False  # hand-added extra rather than implied by a dish
     sources: list[ListItemSource] = Field(default_factory=list)
+    created_by: str | None = None
+    created_by_name: str | None = None
 
 
 def sort_items(items: list[ShoppingListItem]) -> list[ShoppingListItem]:

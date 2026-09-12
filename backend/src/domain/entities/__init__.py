@@ -1,12 +1,10 @@
 from src.domain.entities.cuisine import Cuisine
+from src.domain.entities.kitchen import Kitchen, KitchenInvite, KitchenMember, KitchenView, is_member
 from src.domain.entities.meal_plan import (
     Meal,
     MealPlan,
     PlanEntry,
-    PlanGuest,
     PlanSummary,
-    may_read,
-    may_write,
     sort_entries,
 )
 from src.domain.entities.place import Area, Place
@@ -28,7 +26,7 @@ from src.domain.entities.shopping_list import (
     normalise_ingredient_name,
     sort_items,
 )
-from src.domain.entities.user import User
+from src.domain.entities.user import Person, User
 from src.domain.entities.week import DAYS_IN_WEEK, week_start_for
 
 __all__ = [
@@ -38,13 +36,17 @@ __all__ = [
     "FoodType",
     "Ingredient",
     "Ingredients",
+    "Kitchen",
+    "KitchenInvite",
+    "KitchenMember",
+    "KitchenView",
     "ListItemSource",
     "Meal",
     "MealPlan",
+    "Person",
     "Place",
     "PlanAction",
     "PlanEntry",
-    "PlanGuest",
     "PlanStateError",
     "PlanStatus",
     "PlanSummary",
@@ -59,8 +61,7 @@ __all__ = [
     "User",
     "UserReview",
     "UserStats",
-    "may_read",
-    "may_write",
+    "is_member",
     "merge_key",
     "next_status",
     "normalise_ingredient_name",
