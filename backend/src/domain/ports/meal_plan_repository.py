@@ -12,10 +12,13 @@ class MealPlanRepository(ABC):
     wants all of them. The write methods are deliberately fine-grained rather
     than "save this whole plan" — the shopping list accretes one dish at a time
     (§2), and a whole-aggregate save would make two people ticking the same list
-    overwrite each other, which sharing depends on not happening.
+    overwrite each other, which a shared kitchen depends on not happening.
 
     Four contract facts the signatures cannot carry:
 
+    - **A plan belongs to a kitchen, not a person** (§8.12). Nothing here takes a
+      user id to decide access; the caller resolves which kitchens it may touch
+      and passes ids. `created_by` travels on the rows purely as attribution.
     - `get_plan_for_week` returning None is a normal answer, not an error. Most
       weeks have no plan yet.
     - `upsert_entry` upserts because the slot is the identity — assigning
@@ -24,8 +27,6 @@ class MealPlanRepository(ABC):
     - `drop_sources_for_entry` is separate from `delete_entry` on purpose. §4.5's
       drift rule: the list never rewrites itself, so unpicking a dish's lines is
       a second call the client makes after the user says yes.
-    - `share_plan` and `unshare_plan` are idempotent. Doing either twice is a
-      double tap, not an error.
     """
 
     @abstractmethod
@@ -33,11 +34,11 @@ class MealPlanRepository(ABC):
         pass
 
     @abstractmethod
-    def get_plan_for_week(self, owner_id: str, week_start: date) -> MealPlan | None:
+    def get_plan_for_week(self, kitchen_id: str, week_start: date) -> MealPlan | None:
         pass
 
     @abstractmethod
-    def create_plan(self, owner_id: str, week_start: date) -> MealPlan:
+    def create_plan(self, kitchen_id: str, week_start: date, created_by: str) -> MealPlan:
         pass
 
     @abstractmethod
@@ -69,17 +70,5 @@ class MealPlanRepository(ABC):
         pass
 
     @abstractmethod
-    def share_plan(self, plan_id: str, user_id: str) -> None:
-        pass
-
-    @abstractmethod
-    def unshare_plan(self, plan_id: str, user_id: str) -> None:
-        pass
-
-    @abstractmethod
-    def list_shared_with(self, user_id: str, week_start: date) -> list[MealPlan]:
-        pass
-
-    @abstractmethod
-    def list_year(self, user_id: str, year: int) -> list[PlanSummary]:
+    def list_year(self, kitchen_ids: list[str], year: int) -> list[PlanSummary]:
         pass
