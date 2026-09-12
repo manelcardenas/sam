@@ -5,12 +5,12 @@ wherever the schema actually lives — the split is about where things are writt
 not about making every caller track it.
 """
 
+from src.infra.controllers.schemas.kitchen import AnswerInvitationRequest, InviteRequest
 from src.infra.controllers.schemas.meal_plan import (
     AddToListRequest,
     AddToWeekListRequest,
     AdvancePlanRequest,
     AssignDishRequest,
-    SharePlanRequest,
     TickItemRequest,
 )
 from src.infra.controllers.schemas.place import ReverseGeocodeResponse
@@ -23,12 +23,13 @@ __all__ = [
     "AddToListRequest",
     "AddToWeekListRequest",
     "AdvancePlanRequest",
+    "AnswerInvitationRequest",
     "AssignDishRequest",
     "CreateRecipeRequest",
     "CreateRestaurantRequest",
     "CreateReviewRequest",
+    "InviteRequest",
     "ReverseGeocodeResponse",
-    "SharePlanRequest",
     "TickItemRequest",
     "UpdateMeRequest",
     "UpdateRecipeRequest",

@@ -83,14 +83,3 @@ class AdvancePlanRequest(BaseModel):
         max_length=200,
         description="Ids of unticked lines to copy onto next week's list. Only valid when closing the list — nothing has been shopped for yet when the calendar closes.",
     )
-
-
-class SharePlanRequest(BaseModel):
-    """Share a week with someone, by the name you know them by.
-
-    A display name rather than an id or an email: it is the identity the app
-    already shows everywhere else (reviews, recipe authors), it is UNIQUE, and it
-    is the only one of the three a person can actually type from memory.
-    """
-
-    display_name: str = Field(min_length=1, max_length=50)
