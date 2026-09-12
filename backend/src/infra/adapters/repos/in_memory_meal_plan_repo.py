@@ -1,17 +1,17 @@
 import uuid
 from datetime import UTC, date, datetime
 
-from src.domain.entities import MealPlan, PlanEntry, PlanGuest, PlanStatus, PlanSummary, ShoppingListItem, merge_key, sort_entries, sort_items
+from src.domain.entities import MealPlan, PlanEntry, PlanStatus, PlanSummary, ShoppingListItem, merge_key, sort_entries, sort_items
 from src.domain.ports import MealPlanRepository
 
 
 class InMemoryMealPlanRepository(MealPlanRepository):
     def __init__(self, names: dict[str, str] | None = None) -> None:
         self.plans: dict[str, MealPlan] = {}
-        # The SQL adapter reads guest names off a joined `users` row. This fake
-        # has no users table, so tests hand it the mapping — without it every
-        # guest would render nameless and a test asserting on names would pass
-        # against a repository that never resolves one.
+        # The SQL adapter reads an author's name off a joined `users` row. This
+        # fake has no users table, so tests hand it the mapping — without it every
+        # contributor would render nameless and a test asserting on names would
+        # pass against a repository that never resolves one.
         self._names: dict[str, str] = names or {}
 
     # ── helpers ──────────────────────────────────────────────────────────────
@@ -25,6 +25,14 @@ class InMemoryMealPlanRepository(MealPlanRepository):
     def _touch(self, plan: MealPlan) -> None:
         plan.updated_at = datetime.now(UTC).isoformat()
 
+    def _named(self, plan: MealPlan) -> MealPlan:
+        """Resolve `created_by` to a display name, the way the join does."""
+        for entry in plan.entries:
+            entry.created_by_name = self._names.get(entry.created_by or "")
+        for item in plan.items:
+            item.created_by_name = self._names.get(item.created_by or "")
+        return plan
+
     def _copy(self, plan: MealPlan) -> MealPlan:
         """Hand back a detached, ordered copy.
 
@@ -37,8 +45,7 @@ class InMemoryMealPlanRepository(MealPlanRepository):
         copy = plan.model_copy(deep=True)
         copy.entries = sort_entries(copy.entries)
         copy.items = sort_items(copy.items)
-        copy.shared_with = sorted(copy.shared_with, key=lambda g: (g.display_name or "").lower())
-        return copy
+        return self._named(copy)
 
     # ── reads ────────────────────────────────────────────────────────────────
 
@@ -46,14 +53,14 @@ class InMemoryMealPlanRepository(MealPlanRepository):
         plan = self.plans.get(plan_id)
         return self._copy(plan) if plan else None
 
-    def get_plan_for_week(self, owner_id: str, week_start: date) -> MealPlan | None:
-        plan = next((p for p in self.plans.values() if p.owner_id == owner_id and p.week_start == week_start), None)
+    def get_plan_for_week(self, kitchen_id: str, week_start: date) -> MealPlan | None:
+        plan = next((p for p in self.plans.values() if p.kitchen_id == kitchen_id and p.week_start == week_start), None)
         return self._copy(plan) if plan else None
 
     # ── writes ───────────────────────────────────────────────────────────────
 
-    def create_plan(self, owner_id: str, week_start: date) -> MealPlan:
-        plan = MealPlan(owner_id=owner_id, week_start=week_start)
+    def create_plan(self, kitchen_id: str, week_start: date, created_by: str) -> MealPlan:
+        plan = MealPlan(kitchen_id=kitchen_id, week_start=week_start, created_by=created_by)
         self.plans[plan.id] = plan
         return self._copy(plan)
 
@@ -65,13 +72,17 @@ class InMemoryMealPlanRepository(MealPlanRepository):
             plan.entries.append(stored)
         else:
             # The slot is the identity: reassigning it changes the dish, it does
-            # not create a second Wednesday dinner.
+            # not create a second Wednesday dinner. The author changes too —
+            # whoever set what is there now is who it is attributed to.
             existing.recipe_id = entry.recipe_id
             existing.dish_name = entry.dish_name
             existing.servings = entry.servings
+            existing.created_by = entry.created_by
             stored = existing
         self._touch(plan)
-        return stored.model_copy(deep=True)
+        copy = stored.model_copy(deep=True)
+        copy.created_by_name = self._names.get(copy.created_by or "")
+        return copy
 
     def delete_entry(self, entry_id: str) -> None:
         plan = self._plan_of_entry(entry_id)
@@ -96,6 +107,7 @@ class InMemoryMealPlanRepository(MealPlanRepository):
                     unit=incoming.unit,
                     total_amount=incoming.total_amount,
                     is_manual=incoming.is_manual,
+                    created_by=incoming.created_by,
                     sources=[],
                 )
                 plan.items.append(existing)
@@ -103,12 +115,18 @@ class InMemoryMealPlanRepository(MealPlanRepository):
                 # None is not zero: an amount-less line adopts the first real
                 # measurement rather than summing against a fictional 0.
                 existing.total_amount = (existing.total_amount or 0.0) + incoming.total_amount
+            # `created_by` is deliberately not touched on the merge branch: the
+            # line was put on the list once, by whoever got there first.
 
             existing.sources.extend(s.model_copy(deep=True) for s in incoming.sources)
             touched[existing.id] = existing
 
         self._touch(plan)
-        return [i.model_copy(deep=True) for i in touched.values()]
+        return [self._name_of(i.model_copy(deep=True)) for i in touched.values()]
+
+    def _name_of(self, item: ShoppingListItem) -> ShoppingListItem:
+        item.created_by_name = self._names.get(item.created_by or "")
+        return item
 
     def set_item_checked(self, item_id: str, is_checked: bool) -> ShoppingListItem | None:
         plan = self._plan_of_item(item_id)
@@ -117,7 +135,7 @@ class InMemoryMealPlanRepository(MealPlanRepository):
         item = next(i for i in plan.items if i.id == item_id)
         item.is_checked = is_checked
         self._touch(plan)
-        return item.model_copy(deep=True)
+        return self._name_of(item.model_copy(deep=True))
 
     def delete_item(self, item_id: str) -> None:
         plan = self._plan_of_item(item_id)
@@ -167,38 +185,13 @@ class InMemoryMealPlanRepository(MealPlanRepository):
         self._touch(plan)
         return self._copy(plan)
 
-    # ── sharing (§4.3) ───────────────────────────────────────────────────────
-
-    def share_plan(self, plan_id: str, user_id: str) -> None:
-        plan = self.plans[plan_id]
-        # Idempotent, like the SQL adapter's ON CONFLICT DO NOTHING: sharing
-        # twice with the same person is a double tap, not an error.
-        if not any(guest.user_id == user_id for guest in plan.shared_with):
-            plan.shared_with.append(PlanGuest(user_id=user_id, display_name=self._names.get(user_id)))
-            self._touch(plan)
-
-    def unshare_plan(self, plan_id: str, user_id: str) -> None:
-        plan = self.plans[plan_id]
-        plan.shared_with = [guest for guest in plan.shared_with if guest.user_id != user_id]
-        self._touch(plan)
-
-    def list_shared_with(self, user_id: str, week_start: date) -> list[MealPlan]:
-        return [self._copy(plan) for plan in self.plans.values() if plan.week_start == week_start and any(guest.user_id == user_id for guest in plan.shared_with)]
-
-    def list_year(self, user_id: str, year: int) -> list[PlanSummary]:
-        visible = [
-            plan
-            for plan in self.plans.values()
-            if plan.week_start.year == year and (plan.owner_id == user_id or any(guest.user_id == user_id for guest in plan.shared_with))
-        ]
+    def list_year(self, kitchen_ids: list[str], year: int) -> list[PlanSummary]:
+        visible = [plan for plan in self.plans.values() if plan.week_start.year == year and plan.kitchen_id in kitchen_ids]
         return [
             PlanSummary(
                 id=plan.id,
                 week_start=plan.week_start,
                 status=plan.status,
-                owner_id=plan.owner_id,
-                owner_name=self._names.get(plan.owner_id),
-                is_mine=plan.owner_id == user_id,
                 entry_count=len(plan.entries),
                 item_count=len(plan.items),
                 checked_count=sum(1 for item in plan.items if item.is_checked),

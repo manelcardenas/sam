@@ -1,13 +1,12 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import delete, func, or_, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.domain.entities import ListItemSource, MealPlan, PlanEntry, PlanGuest, PlanStatus, PlanSummary, ShoppingListItem, merge_key, sort_entries, sort_items
+from src.domain.entities import ListItemSource, MealPlan, PlanEntry, PlanStatus, PlanSummary, ShoppingListItem, merge_key, sort_entries, sort_items
 from src.domain.ports import MealPlanRepository
-from src.infra.db import ListItemSourceModel, MealPlanModel, PlanEntryModel, ShoppingListItemModel, plan_shares
+from src.infra.db import ListItemSourceModel, MealPlanModel, PlanEntryModel, ShoppingListItemModel
 
 # The stored `unit`, with its absence spelled as '' so NULLs compare equal.
 #
@@ -32,6 +31,8 @@ class PostgresMealPlanRepository(MealPlanRepository):
             recipe_id=str(model.recipe_id) if model.recipe_id else None,
             dish_name=model.dish_name,
             servings=model.servings,
+            created_by=model.created_by,
+            created_by_name=model.author.display_name if model.author else None,
         )
 
     def _item_to_entity(self, model: ShoppingListItemModel) -> ShoppingListItem:
@@ -43,6 +44,8 @@ class PostgresMealPlanRepository(MealPlanRepository):
             total_amount=float(model.total_amount) if model.total_amount is not None else None,
             is_checked=model.is_checked,
             is_manual=model.is_manual,
+            created_by=model.created_by,
+            created_by_name=model.author.display_name if model.author else None,
             sources=[
                 ListItemSource(
                     entry_id=str(source.entry_id) if source.entry_id else None,
@@ -56,20 +59,14 @@ class PostgresMealPlanRepository(MealPlanRepository):
     def _to_entity(self, model: MealPlanModel) -> MealPlan:
         return MealPlan(
             id=str(model.id),
-            owner_id=model.owner_id,
-            owner_name=model.owner.display_name if model.owner else None,
+            kitchen_id=str(model.kitchen_id),
+            created_by=model.created_by,
             week_start=model.week_start,
             status=model.status,
             # Ordered by the domain's own comparators, which both adapters
             # share — see sort_entries for why this is not `meal.value`.
             entries=sort_entries([self._entry_to_entity(e) for e in model.entries]),
             items=sort_items([self._item_to_entity(i) for i in model.items]),
-            # Alphabetical by name so the guest list does not reorder itself
-            # between reads — insertion order is invisible and looks like a bug.
-            shared_with=sorted(
-                (PlanGuest(user_id=u.id, display_name=u.display_name) for u in model.shared_with),
-                key=lambda g: (g.display_name or "").lower(),
-            ),
             created_at=model.created_at.isoformat(),
             updated_at=model.updated_at.isoformat(),
         )
@@ -81,16 +78,16 @@ class PostgresMealPlanRepository(MealPlanRepository):
             model = session.get(MealPlanModel, uuid.UUID(plan_id))
             return self._to_entity(model) if model else None
 
-    def get_plan_for_week(self, owner_id: str, week_start: date) -> MealPlan | None:
+    def get_plan_for_week(self, kitchen_id: str, week_start: date) -> MealPlan | None:
         with self._session_factory() as session:
-            model = session.scalars(select(MealPlanModel).where(MealPlanModel.owner_id == owner_id, MealPlanModel.week_start == week_start)).one_or_none()
+            model = session.scalars(select(MealPlanModel).where(MealPlanModel.kitchen_id == uuid.UUID(kitchen_id), MealPlanModel.week_start == week_start)).one_or_none()
             return self._to_entity(model) if model else None
 
     # ── writes ───────────────────────────────────────────────────────────────
 
-    def create_plan(self, owner_id: str, week_start: date) -> MealPlan:
+    def create_plan(self, kitchen_id: str, week_start: date, created_by: str) -> MealPlan:
         with self._session_factory() as session:
-            model = MealPlanModel(owner_id=owner_id, week_start=week_start, status=PlanStatus.PLANNING)
+            model = MealPlanModel(kitchen_id=uuid.UUID(kitchen_id), week_start=week_start, created_by=created_by, status=PlanStatus.PLANNING)
             session.add(model)
             session.commit()
             session.refresh(model)
@@ -115,6 +112,8 @@ class PostgresMealPlanRepository(MealPlanRepository):
             # plans without rewriting past ones (§8.3a).
             existing.dish_name = entry.dish_name
             existing.servings = entry.servings
+            # Whoever set what is in the slot now is who it is attributed to.
+            existing.created_by = entry.created_by
             session.commit()
             session.refresh(existing)
             return self._entry_to_entity(existing)
@@ -163,11 +162,14 @@ class PostgresMealPlanRepository(MealPlanRepository):
                         unit=incoming.unit,
                         total_amount=incoming.total_amount,
                         is_manual=incoming.is_manual,
+                        created_by=incoming.created_by,
                     )
                     session.add(existing)
                 elif incoming.total_amount is not None:
                     current = float(existing.total_amount) if existing.total_amount is not None else 0.0
                     existing.total_amount = current + incoming.total_amount
+                # `created_by` is deliberately not touched on the merge branch:
+                # the line was put on the list once, by whoever got there first.
 
                 for source in incoming.sources:
                     existing.sources.append(
@@ -238,32 +240,13 @@ class PostgresMealPlanRepository(MealPlanRepository):
             session.refresh(model)
             return self._to_entity(model)
 
-    # ── sharing (§4.3) ───────────────────────────────────────────────────────
+    def list_year(self, kitchen_ids: list[str], year: int) -> list[PlanSummary]:
+        if not kitchen_ids:
+            # A caller with no kitchen has no archive. Short-circuited rather than
+            # sent to the database, where `IN ()` is a syntax error in some
+            # dialects and a full scan in others.
+            return []
 
-    def share_plan(self, plan_id: str, user_id: str) -> None:
-        with self._session_factory() as session:
-            # ON CONFLICT DO NOTHING rather than a SELECT-then-INSERT: two taps
-            # on a slow connection would otherwise race into a primary-key
-            # violation on a table whose whole content is that key.
-            session.execute(pg_insert(plan_shares).values(plan_id=uuid.UUID(plan_id), user_id=user_id).on_conflict_do_nothing())
-            session.commit()
-
-    def unshare_plan(self, plan_id: str, user_id: str) -> None:
-        with self._session_factory() as session:
-            session.execute(delete(plan_shares).where(plan_shares.c.plan_id == uuid.UUID(plan_id), plan_shares.c.user_id == user_id))
-            session.commit()
-
-    def list_shared_with(self, user_id: str, week_start: date) -> list[MealPlan]:
-        with self._session_factory() as session:
-            models = session.scalars(
-                select(MealPlanModel)
-                .join(plan_shares, plan_shares.c.plan_id == MealPlanModel.id)
-                .where(plan_shares.c.user_id == user_id, MealPlanModel.week_start == week_start)
-                .order_by(MealPlanModel.created_at)
-            ).all()
-            return [self._to_entity(m) for m in models]
-
-    def list_year(self, user_id: str, year: int) -> list[PlanSummary]:
         with self._session_factory() as session:
             # Correlated scalar subqueries rather than joins with GROUP BY:
             # counting entries and list lines in one joined query multiplies the
@@ -277,17 +260,14 @@ class PostgresMealPlanRepository(MealPlanRepository):
                 .scalar_subquery()
             )
 
-            # Owned or shared, in one statement. An OR against the share table
-            # rather than two queries, so "mine" and "given to me" cannot come
-            # back in an order that interleaves badly or duplicates a plan the
-            # owner somehow also shared with themselves.
-            shared_to_me = select(plan_shares.c.plan_id).where(plan_shares.c.user_id == user_id).scalar_subquery()
-
             rows = session.execute(
                 select(MealPlanModel, entries, items, checked)
                 .where(
                     func.extract("year", MealPlanModel.week_start) == year,
-                    or_(MealPlanModel.owner_id == user_id, MealPlanModel.id.in_(shared_to_me)),
+                    # Every kitchen the caller has ever been in, not only the
+                    # current one: moving house does not take your old weeks with
+                    # you (§8.12).
+                    MealPlanModel.kitchen_id.in_([uuid.UUID(k) for k in kitchen_ids]),
                 )
                 .order_by(MealPlanModel.week_start.desc())
             ).all()
@@ -297,9 +277,6 @@ class PostgresMealPlanRepository(MealPlanRepository):
                     id=str(plan.id),
                     week_start=plan.week_start,
                     status=plan.status,
-                    owner_id=plan.owner_id,
-                    owner_name=plan.owner.display_name if plan.owner else None,
-                    is_mine=plan.owner_id == user_id,
                     entry_count=entry_count,
                     item_count=item_count,
                     checked_count=checked_count,
