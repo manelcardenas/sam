@@ -1,9 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, Eye, ListChecks, Lock } from "lucide-react";
+import { CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, DoorOpen, ListChecks, Lock } from "lucide-react";
 import { useAuthGate } from "@/components/auth/useAuthGate";
-import { ApiError, apiClient, type Meal, type MealPlan, type PlanEntry, type PlanGuest, type Recipe, type ShoppingListItem } from "@/lib/api-client";
+import {
+  ApiError,
+  apiClient,
+  type KitchenMember,
+  type KitchenView,
+  type Meal,
+  type MealPlan,
+  type Person,
+  type PlanEntry,
+  type Recipe,
+  type ShoppingListItem,
+} from "@/lib/api-client";
 import { currentParams, useBrowserNavigation, useHistoryDepth, writeUrl } from "@/lib/url-state";
 import { DAYS_IN_WEEK, fromQuery, homeWeekOf, shiftDate, toQuery, weekDays, weekStartOf, type PlanView } from "@/lib/plan-url";
 import type { ScaledLine } from "@/lib/plan-ingredients";
@@ -14,8 +25,10 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { WeekGrid } from "@/components/plan/WeekGrid";
 import { SlotSheet } from "@/components/plan/SlotSheet";
 import { ShoppingList } from "@/components/plan/ShoppingList";
-import { SharePanel } from "@/components/plan/SharePanel";
+import { KitchenBar } from "@/components/plan/KitchenBar";
+import { InvitationCard } from "@/components/plan/InvitationCard";
 import { CarryOverPicker } from "@/components/plan/CarryOverPicker";
+import { useLivePlan } from "@/lib/useLivePlan";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { formatWeekRange, formatWeekday } from "@/lib/format";
 
@@ -28,19 +41,23 @@ import { formatWeekRange, formatWeekday } from "@/lib/format";
  * the week you are shopping for right now.
  *
  * **The plan's status gates the page** (§8.2). `planning` edits everything;
- * `calendar_closed` is the shopping state — recipes fixed, list still yours;
+ * `calendar_closed` is the shopping state — recipes fixed, list still editable;
  * `list_closed` is archived and read-only. The server enforces all of it and
  * answers 409, so the disabled controls here are a courtesy, not the guard.
+ *
+ * **The status is now the only thing that gates it** (§8.12). There used to be a
+ * second axis — owner or guest — and a guest got a read-only calendar and a
+ * banner explaining why. A week belongs to a kitchen now, everybody in it can
+ * change everything, and that whole branch is gone along with the week selector
+ * that let you switch between your copy and somebody else's.
  */
 export default function PlanPage() {
   const { locale, t } = useI18n();
 
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
-  const [ownPlan, setOwnPlan] = useState<MealPlan | null>(null);
-  // Weeks other people shared. Separate from your own because you can have both
-  // for the same week, and merging them would need one to be picked.
-  const [sharedPlans, setSharedPlans] = useState<MealPlan[]>([]);
+  const [plan, setPlan] = useState<MealPlan | null>(null);
+  const [kitchen, setKitchen] = useState<KitchenView | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [error, setError] = useState("");
 
@@ -48,7 +65,7 @@ export default function PlanPage() {
   const [week, setWeek] = useState<string | null>(null);
   const [slot, setSlot] = useState<{ date: string; meal: Meal } | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<"finish" | "close" | null>(null);
+  const [confirming, setConfirming] = useState<"finish" | "close" | "leave" | null>(null);
   // Which unbought lines follow the week out. Seeded when the confirm opens,
   // not derived on render: the user unticks things in here, and a derived set
   // would put them straight back.
@@ -70,20 +87,29 @@ export default function PlanPage() {
 
   // ── Data ────────────────────────────────────────────────────────────────────
 
+  /**
+   * Read one week.
+   *
+   * `planId` wins when it is set, and the two are genuinely different requests:
+   * by date means "the week my kitchen is planning", by id means "this exact
+   * week", and they diverge for anybody who has moved between kitchens — an
+   * archive row from August belongs to a household they may have left.
+   */
   const loadPlan = useCallback(
-    async (saturday: string): Promise<MealPlan | null> => {
+    async (saturday: string, id: string | null = null): Promise<MealPlan | null> => {
       try {
         setError("");
-        // Both in one go: the week selector has to know whether there is
-        // anything to select before it can decide to render itself.
-        const [mine, shared] = await Promise.all([
-          apiClient.getPlan(saturday),
-          apiClient.getSharedPlans(saturday).catch(() => [] as MealPlan[]),
-        ]);
-        setOwnPlan(mine);
-        setSharedPlans(shared);
-        return mine;
+        const loaded = id ? await apiClient.getPlanById(id) : await apiClient.getPlan(saturday);
+        setPlan(loaded);
+        return loaded;
       } catch (err) {
+        // A plan id that no longer resolves — a stale link, or a kitchen you
+        // were never in — falls back to your own week rather than to an error
+        // screen. The link stopped working; the page did not.
+        if (id) {
+          setPlanId(null);
+          return loadPlan(saturday);
+        }
         setError(err instanceof Error ? err.message : t("plan.load-failed"));
         return null;
       }
@@ -91,13 +117,23 @@ export default function PlanPage() {
     [t],
   );
 
+  const loadKitchen = useCallback(async () => {
+    // Never fatal: the planner works perfectly well for one person, and a
+    // kitchen that failed to load should cost you the member list, not the week.
+    setKitchen(await apiClient.getKitchen().catch(() => null));
+  }, []);
+
   useEffect(() => {
     if (!me?.id || !me.display_name) return;
     let cancelled = false;
     void (async () => {
       // Every recipe is plannable, method or not, so the picker asks
       // for both. The ADR-0007 lens is left unset on purpose.
-      const [mine, loaded] = await Promise.all([loadPlan(weekStart), apiClient.listRecipes().catch(() => [] as Recipe[])]);
+      const [mine, loaded] = await Promise.all([
+        loadPlan(weekStart, currentParams().get("plan")),
+        apiClient.listRecipes().catch(() => [] as Recipe[]),
+        loadKitchen(),
+      ]);
       if (cancelled) return;
       setRecipes(loaded);
 
@@ -110,7 +146,7 @@ export default function PlanPage() {
       // land on it, closed or not. One hop only; two closed weeks in a row means
       // you planned a fortnight ahead, and guessing further would be guessing.
       const home = homeWeekOf(weekStart, mine?.status);
-      if (!currentParams().get("week") && home !== weekStart) {
+      if (!currentParams().get("week") && !currentParams().get("plan") && home !== weekStart) {
         const following = home;
         setWeek(following);
         // Loaded here rather than left to the effect below so the first paint
@@ -129,9 +165,9 @@ export default function PlanPage() {
   // Paging between weeks refetches the plan; the recipe list is week-independent.
   useEffect(() => {
     if (loading) return;
-    void loadPlan(weekStart);
+    void loadPlan(weekStart, planId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart]);
+  }, [weekStart, planId]);
 
   // ── URL sync ────────────────────────────────────────────────────────────────
 
@@ -177,62 +213,90 @@ export default function PlanPage() {
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
-  // A plan id that no longer resolves — access withdrawn, or a stale link from
-  // another week — falls back to your own week rather than to an error. The
-  // link stopped working; the page did not.
-  const viewing = (planId ? sharedPlans.find((p) => p.id === planId) : null) ?? ownPlan;
-  const plan = viewing;
-  const isGuest = Boolean(plan && me?.id && plan.owner_id !== me.id);
-
   const status = plan?.status ?? "planning";
-  // Three permissions, not one. Ticking is the single write sharing grants
-  // (§4.3), so it is the only one a guest keeps — and `calendar_closed` is the
-  // state you are actually shopping in, so it keeps ticking open too.
-  const calendarEditable = !isGuest && status === "planning";
-  const listEditable = !isGuest && (status === "planning" || status === "calendar_closed");
-  const canTick = status === "planning" || status === "calendar_closed";
+  // **Two gates, both about the plan's state and neither about who you are.**
+  // Everybody in the kitchen has the same reach (§8.12); what varies is how far
+  // the week has got. `calendar_closed` is the state you are actually shopping
+  // in, so it keeps the list and the ticking open.
+  const calendarEditable = status === "planning";
+  const listEditable = status === "planning" || status === "calendar_closed";
+  // The one week you can see but not touch: one planned in a kitchen you have
+  // since left, reached from the archive. The server refuses the writes; this
+  // keeps the controls from offering them.
+  const readOnly = Boolean(kitchen && plan && plan.kitchen_id !== kitchen.kitchen.id);
   const openEntry = slot ? plan?.entries.find((e) => e.date === slot.date && e.meal === slot.meal) : undefined;
   const days = weekDays(weekStart);
   // What the shop did not have. Offered to next week when the list closes.
   const unbought = plan?.items.filter((item) => !item.is_checked) ?? [];
+  const sharedKitchen = (kitchen?.kitchen.members.length ?? 0) > 1;
+
+  // ── Live ────────────────────────────────────────────────────────────────────
+
+  // Only the shopping list, and only when somebody else could be changing it.
+  // The calendar gets filled in by one person at a time; the list is the screen
+  // two people have open in the same shop. See `useLivePlan` for the rest of the
+  // gates and for why this polls rather than holding a connection open.
+  useLivePlan({
+    enabled: sharedKitchen && view === "list" && Boolean(plan) && status !== "list_closed",
+    onRefresh: () => void loadPlan(weekStart, planId),
+  });
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
-  /**
-   * Put a refreshed plan back where it came from.
-   *
-   * A mutation can land on your own week or on one you are a guest on — ticking
-   * is allowed on both — so "set the plan" is ambiguous now. Routing it by
-   * ownership keeps the week selector honest: writing a guest's plan into
-   * `ownPlan` would make it look like yours.
-   */
-  const applyUpdatedPlan = (updated: MealPlan) => {
-    if (me?.id && updated.owner_id !== me.id) {
-      setSharedPlans((current) => current.map((p) => (p.id === updated.id ? updated : p)));
-      return;
-    }
-    setOwnPlan(updated);
-  };
+  const applyUpdatedPlan = (updated: MealPlan) => setPlan(updated);
 
-  const shareWith = async (displayName: string): Promise<string | null> => {
-    if (!plan) return null;
+  /** Stable, because `KitchenBar` fetches on first open and an unstable identity would refetch on every render. */
+  const loadPeople = useCallback(() => apiClient.listInvitablePeople(), []);
+
+  const invite = async (person: Person): Promise<string | null> => {
     try {
-      applyUpdatedPlan(await apiClient.sharePlan(plan.id, displayName));
+      const updated = await apiClient.inviteToKitchen(person.id);
+      setKitchen((current) => (current ? { ...current, kitchen: updated } : current));
       return null;
     } catch (err) {
-      // The API distinguishes "no such person" (404) from "that's you" (422),
-      // and both deserve their own sentence — "couldn't share it" would send
-      // someone looking at their connection.
-      const status = err instanceof ApiError ? err.status : 0;
-      if (status === 404) return t("plan.share-unknown-person");
-      if (status === 422) return t("plan.share-yourself");
-      return err instanceof Error ? err.message : t("plan.share-failed");
+      // 404 and 422 both mean the picker was drawn before something changed —
+      // they left SAM, or somebody else asked them in the meantime. The server
+      // carries the sentence that says which, because it is the one that knows.
+      if (err instanceof ApiError && err.message) return err.message;
+      return err instanceof Error ? err.message : t("kitchen.invite-failed");
     }
   };
 
-  const stopSharing = async (guest: PlanGuest) => {
-    if (!plan) return;
-    await withPlan(() => apiClient.unsharePlan(plan.id, guest.user_id));
+  const withdraw = async (member: KitchenMember) => {
+    try {
+      const updated = await apiClient.removeFromKitchen(member.user_id);
+      setKitchen((current) => (current ? { ...current, kitchen: updated } : current));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("plan.save-failed"));
+    }
+  };
+
+  const answerInvitation = async (kitchenId: string, accept: boolean) => {
+    try {
+      setError("");
+      setKitchen(await apiClient.answerInvitation(kitchenId, accept));
+      // Accepting *moves* you: the week on screen belonged to the kitchen you
+      // just left, so it has to be re-read rather than patched.
+      if (accept) {
+        setPlanId(null);
+        await loadPlan(weekStart);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("kitchen.answer-failed"));
+    }
+  };
+
+  const leaveKitchen = async () => {
+    setConfirming(null);
+    try {
+      setError("");
+      await apiClient.removeFromKitchen(me?.id ?? "");
+      await loadKitchen();
+      setPlanId(null);
+      await loadPlan(weekStart);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("plan.save-failed"));
+    }
   };
 
   /** Every mutation re-reads the plan, because one write can move several parts. */
@@ -319,19 +383,11 @@ export default function PlanPage() {
 
   const goToWeek = (saturday: string) => {
     setSlot(null);
-    // A plan id belongs to one week, so carrying it across would leave `?plan=`
-    // pointing at a plan that is not in view. The lookup falls back to your own
-    // week, which renders correctly — but the selector would then show *no* chip
-    // active while your week is on screen, which looks like a broken control.
+    // A plan id names one exact week, so carrying it across would leave `?plan=`
+    // pointing at a week that is not the one on screen. Paging means "the week
+    // my kitchen is planning", which is the date lookup.
     setPlanId(null);
     setWeek(saturday === today ? null : saturday);
-  };
-
-  const showPlan = (id: string | null) => {
-    // A slot open on your week must not carry into someone else's: the sheet
-    // would be addressing a date in a plan you cannot write to.
-    setSlot(null);
-    setPlanId(id);
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -383,29 +439,45 @@ export default function PlanPage() {
           )}
         </div>
 
-        <div className="inline-flex items-center rounded-full border border-line bg-surface p-1">
-          {(["calendar", "list"] as PlanView[]).map((option) => {
-            const on = view === option;
-            const Icon = option === "calendar" ? CalendarDays : ListChecks;
-            return (
-              <button
-                key={option}
-                type="button"
-                onClick={() => {
-                  setSlot(null);
-                  setView(option);
-                }}
-                aria-current={on ? "page" : undefined}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-                  on ? "bg-tomato text-white shadow-pop" : "text-muted hover:text-fg"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {t(option === "calendar" ? "plan.view-calendar" : "plan.view-list")}
-                {option === "list" && outstanding > 0 && <span className="tabular-nums opacity-70">{outstanding}</span>}
-              </button>
-            );
-          })}
+        <div className="flex items-center gap-2">
+          {/* Beside the view toggle rather than at the foot of the page, where
+              the share panel used to live. Who you are planning with is context
+              for everything below it, not a footnote after it. */}
+          {kitchen && (
+            <KitchenBar
+              kitchen={kitchen.kitchen}
+              currentUserId={me?.id ?? null}
+              onInvite={invite}
+              onLoadPeople={loadPeople}
+              onWithdraw={withdraw}
+              onLeave={() => setConfirming("leave")}
+            />
+          )}
+
+          <div className="inline-flex items-center rounded-full border border-line bg-surface p-1">
+            {(["calendar", "list"] as PlanView[]).map((option) => {
+              const on = view === option;
+              const Icon = option === "calendar" ? CalendarDays : ListChecks;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => {
+                    setSlot(null);
+                    setView(option);
+                  }}
+                  aria-current={on ? "page" : undefined}
+                  className={`flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+                    on ? "bg-tomato text-white shadow-pop" : "text-muted hover:text-fg"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {t(option === "calendar" ? "plan.view-calendar" : "plan.view-list")}
+                  {option === "list" && outstanding > 0 && <span className="tabular-nums opacity-70">{outstanding}</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -415,30 +487,12 @@ export default function PlanPage() {
         </div>
       )}
 
-      {/* Whose week. Rendered only when there is something to choose between —
-          a selector with one option is a label pretending to be a control. */}
-      {sharedPlans.length > 0 && (
-        <div className="mb-5 flex flex-wrap gap-2">
-          <WeekChip label={t("plan.your-week")} active={!planId} onClick={() => showPlan(null)} />
-          {sharedPlans.map((shared) => (
-            <WeekChip
-              key={shared.id}
-              label={t("plan.shared-by", { name: shared.owner_name ?? "" })}
-              active={planId === shared.id}
-              onClick={() => showPlan(shared.id)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* What being a guest means, said plainly. Otherwise the disabled slots
-          read as the app being broken rather than as someone else's week. */}
-      {isGuest && plan && (
-        <div className="mb-5 flex items-start gap-2.5 rounded-2xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
-          <Eye className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <p>{t("plan.guest-note", { name: plan.owner_name ?? "" })}</p>
-        </div>
-      )}
+      {/* Addressed *to you*, so it is on the page rather than inside the kitchen
+          dropdown — which is a control you may never open, because its face
+          already answers the only question it usually has. */}
+      {kitchen?.invitations.map((invite) => (
+        <InvitationCard key={invite.kitchen_id} invite={invite} onAnswer={(accept) => answerInvitation(invite.kitchen_id, accept)} />
+      ))}
 
       {/* What the current state permits, said once rather than left to be
           inferred from disabled buttons — v1's transitions are one-way, so the
@@ -465,8 +519,9 @@ export default function PlanPage() {
             weekStart={weekStart}
             plan={plan}
             today={todayIso}
-            editable={calendarEditable}
+            editable={calendarEditable && !readOnly}
             onOpenSlot={(date, meal) => setSlot({ date, meal })}
+            currentUserId={me?.id ?? null}
           />
         </>
       ) : (
@@ -475,9 +530,9 @@ export default function PlanPage() {
           // line is what creates the week, so an empty-state panel here instead
           // would be a dead end with the one control you came for missing.
           plan={plan}
-          editable={listEditable}
-          canTick={canTick}
+          editable={listEditable && !readOnly}
           onTick={tick}
+          currentUserId={me?.id ?? null}
           onRemove={(item) => {
             if (!plan) return;
             void withPlan(async () => void (await apiClient.removeItem(plan.id, item.id)));
@@ -491,18 +546,9 @@ export default function PlanPage() {
         />
       )}
 
-      {/* Owner-only: a guest resharing would hand out access the owner never
-          granted. Hidden entirely rather than disabled, because there is nothing
-          a guest could do with it. */}
-      {plan && !isGuest && (
-        <div className="mt-8">
-          <SharePanel guests={plan.shared_with} onShare={shareWith} onUnshare={stopSharing} />
-        </div>
-      )}
-
       {/* The one-way transitions sit at the bottom, out of the way of the thing
           you came here to do. */}
-      {plan && !isGuest && status !== "list_closed" && (
+      {plan && !readOnly && status !== "list_closed" && (
         <div className="mt-8 flex justify-end border-t border-line pt-5">
           <button
             type="button"
@@ -521,8 +567,8 @@ export default function PlanPage() {
           dayLabel={formatWeekday(slot.date, locale)}
           mealLabel={t(`plan.${slot.meal}`)}
           recipes={recipes}
-          editable={calendarEditable}
-          listEditable={listEditable}
+          editable={calendarEditable && !readOnly}
+          listEditable={listEditable && !readOnly}
           onAssign={assign}
           onAddToList={addToList}
           onRemove={removeEntry}
@@ -531,7 +577,18 @@ export default function PlanPage() {
         />
       )}
 
-      {confirming && (
+      {confirming === "leave" && (
+        <ConfirmModal
+          title={t("kitchen.leave-title")}
+          message={t("kitchen.leave-body")}
+          confirmLabel={t("kitchen.leave")}
+          icon={<DoorOpen className="h-5 w-5 text-tomato" />}
+          onConfirm={leaveKitchen}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
+
+      {(confirming === "finish" || confirming === "close") && (
         <ConfirmModal
           title={t(confirming === "finish" ? "plan.finish-week-title" : "plan.close-list-title")}
           message={
@@ -564,22 +621,8 @@ export default function PlanPage() {
           onCancel={() => setConfirming(null)}
         />
       )}
-    </AppShell>
-  );
-}
 
-function WeekChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`h-11 cursor-pointer rounded-full border px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-        active ? "border-tomato bg-tomato/10 text-tomato" : "border-line text-muted hover:border-tomato/40 hover:text-fg"
-      }`}
-    >
-      {label}
-    </button>
+    </AppShell>
   );
 }
 
