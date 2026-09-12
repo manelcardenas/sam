@@ -17,6 +17,20 @@ export function parseDateOnly(isoDate: string): Date {
 }
 
 /**
+ * The BCP-47 tag to format dates with, for one of the app's languages.
+ *
+ * `Intl` reads a bare `en` as American English, which puts the month first:
+ * "Sep 12", and "Sep 12 – 18" for a range. Everyone who reads this app writes
+ * the day first, and so does every other language it speaks — so `en` on its
+ * own was the odd one out rather than the neutral choice. `en-GB` is the same
+ * English with the ordering the app actually means, which is cheaper and more
+ * correct than assembling the parts by hand.
+ */
+function dateLocale(locale: string): string {
+  return locale === "en" ? "en-GB" : locale;
+}
+
+/**
  * "Mon" — the planner's day column heading.
  *
  * Short rather than long because five of these sit side by side on a phone;
@@ -24,42 +38,48 @@ export function parseDateOnly(isoDate: string): Date {
  * "d", and Spanish gives "m" to Tuesday and Wednesday alike.
  */
 export function formatWeekday(isoDate: string, locale: string): string {
-  return parseDateOnly(isoDate).toLocaleDateString(locale, { weekday: "short" });
+  return parseDateOnly(isoDate).toLocaleDateString(dateLocale(locale), { weekday: "short" });
 }
 
 /** "9 Sep" — the date under a weekday, so a week in the past is identifiable. */
 export function formatDayAndMonth(isoDate: string, locale: string): string {
-  return parseDateOnly(isoDate).toLocaleDateString(locale, { day: "numeric", month: "short" });
+  return parseDateOnly(isoDate).toLocaleDateString(dateLocale(locale), { day: "numeric", month: "short" });
 }
 
-/** "7–11 Sep" / "28 Sep – 2 Oct" — the week's own heading. */
+/**
+ * "12–18 Sep" / "28 Sep – 2 Oct" — the week's own heading.
+ *
+ * `formatRange` rather than two `format` calls joined by a dash. Building it by
+ * hand meant deciding where the month goes and when to drop it from the first
+ * half, and that decision is not ours to make: it is a property of the language.
+ * Getting it wrong printed "12 – Sep 18" in English, which is not a date range
+ * in any locale. `Intl` already knows all of it — which half keeps the month,
+ * which dash the language uses, and that it tightens to "12–18" when both ends
+ * share a month but stays spaced across a month boundary.
+ */
 export function formatWeekRange(weekStart: string, weekEnd: string, locale: string): string {
-  const start = parseDateOnly(weekStart);
-  const end = parseDateOnly(weekEnd);
-  const sameMonth = start.getMonth() === end.getMonth();
-  // The month is dropped from the first half only when both ends share it —
-  // "28 Sep – 2 Oct" has to keep both or it reads as a five-day September week.
-  const from = start.toLocaleDateString(locale, sameMonth ? { day: "numeric" } : { day: "numeric", month: "short" });
-  const to = end.toLocaleDateString(locale, { day: "numeric", month: "short" });
-  return `${from} – ${to}`;
+  return new Intl.DateTimeFormat(dateLocale(locale), { day: "numeric", month: "short" }).formatRange(
+    parseDateOnly(weekStart),
+    parseDateOnly(weekEnd),
+  );
 }
 
 export function formatVisitedDate(isoDate: string, locale: string): string {
-  return parseDateOnly(isoDate).toLocaleDateString(locale);
+  return parseDateOnly(isoDate).toLocaleDateString(dateLocale(locale));
 }
 
 /** "September 2025" — month precision, for "member since". */
 export function formatMonthYear(iso: string, locale: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(locale, { month: "long", year: "numeric" });
+  return date.toLocaleDateString(dateLocale(locale), { month: "long", year: "numeric" });
 }
 
 /** A full date, for the created/updated line on a recipe. */
 export function formatDate(iso: string, locale: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(locale);
+  return date.toLocaleDateString(dateLocale(locale));
 }
 
 const MINUTE = 60_000;
@@ -82,7 +102,7 @@ export function formatRelativeDate(
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const days = Math.round((then.getTime() - today.getTime()) / DAY);
 
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const rtf = new Intl.RelativeTimeFormat(dateLocale(locale), { numeric: "auto" });
   const abs = Math.abs(days);
 
   if (abs === 0) return rtf.format(0, "day"); // "today"
