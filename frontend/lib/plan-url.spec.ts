@@ -162,7 +162,7 @@ describe("shiftDate", () => {
   });
 });
 
-describe("viewing a week someone shared", () => {
+describe("opening one exact week from the archive", () => {
   it("encodes the plan id", () => {
     const state: PlanUrlState = { view: "calendar", week: null, slot: null, planId: "p-123" };
     expect(toQuery(state)).toBe("plan=p-123");
@@ -174,11 +174,11 @@ describe("viewing a week someone shared", () => {
     expect(roundTrip(state)).toEqual(state);
   });
 
-  it("is absent for your own plan, so /plan stays the canonical link", () => {
+  it("is absent for the current week, so /plan stays the canonical link", () => {
     expect(toQuery(INITIAL_STATE)).toBe("");
   });
 
-  it("treats an empty value as your own plan", () => {
+  it("treats an empty value as no id at all", () => {
     expect(fromQuery(new URLSearchParams("plan=")).planId).toBeNull();
   });
 });

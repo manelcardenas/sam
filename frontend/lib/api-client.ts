@@ -52,6 +52,13 @@ export interface ShoppingListItem {
   is_checked: boolean;
   is_manual: boolean;
   sources: ListItemSource[];
+  /**
+   * Who put the line on the list. Attribution, not permission — anyone in the
+   * kitchen can tick or remove any line. A line two people contributed to keeps
+   * the first name: the question is who added it, and that happened once.
+   */
+  created_by: string | null;
+  created_by_name: string | null;
 }
 
 export interface PlanEntry {
@@ -61,23 +68,72 @@ export interface PlanEntry {
   recipe_id: string | null; // null once the recipe is deleted; dish_name survives
   dish_name: string;
   servings: number;
+  /** Whoever last set this slot — attribution only; anyone in the kitchen can change it. */
+  created_by: string | null;
+  created_by_name: string | null;
 }
 
-/** Someone a plan is shared with — read and tick only (docs/plans/meal-planner-plan.md §4.3). */
-export interface PlanGuest {
+/**
+ * Someone in a kitchen, or someone invited to one
+ * (docs/plans/meal-planner-plan.md §8.12).
+ *
+ * `joined_at` is null while an invitation is outstanding. That is the only
+ * difference between a member and an invite — there is no status field, because
+ * "invited" is exactly "a membership nobody has accepted yet".
+ */
+export interface KitchenMember {
   user_id: string;
   display_name: string | null;
+  joined_at: string | null;
+  invited_by: string | null;
+}
+
+/**
+ * A household's shared planner. No owner, no roles: if you are in it, the week
+ * and its list are yours. A kitchen of one is the ordinary case.
+ */
+export interface Kitchen {
+  id: string;
+  members: KitchenMember[];
+  /** Invitations this kitchen has sent that nobody has answered yet. */
+  pending: KitchenMember[];
+  created_at: string;
+}
+
+/** An invitation addressed to you, showing whose kitchen it is — accepting is a move. */
+export interface KitchenInvite {
+  kitchen_id: string;
+  invited_by: string;
+  invited_by_name: string | null;
+  members: KitchenMember[];
+}
+
+export interface KitchenView {
+  kitchen: Kitchen;
+  invitations: KitchenInvite[];
+}
+
+/**
+ * Somebody you could ask into your kitchen: a name and an id, nothing else.
+ *
+ * Not a `User` — the invite picker is the one place this app shows somebody
+ * else's account, and an email has no business travelling with it.
+ */
+export interface Person {
+  id: string;
+  display_name: string;
 }
 
 export interface MealPlan {
   id: string;
-  owner_id: string;
-  owner_name: string | null;
+  /** The household this week belongs to, not a person — see §8.12. */
+  kitchen_id: string;
   week_start: string; // YYYY-MM-DD, always a Saturday — weeks run Sat→Fri
   status: PlanStatus;
   entries: PlanEntry[];
   items: ShoppingListItem[];
-  shared_with: PlanGuest[];
+  /** Who started the week. Informational — membership is what gates writes. */
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -91,10 +147,6 @@ export interface PlanSummary {
   id: string;
   week_start: string;
   status: PlanStatus;
-  owner_id: string;
-  owner_name: string | null;
-  /** False when the week was shared with you rather than planned by you. */
-  is_mine: boolean;
   entry_count: number;
   item_count: number;
   checked_count: number;
@@ -377,6 +429,21 @@ export class RecipeAPIClient {
     return this.request<MealPlan | null>(`/plans?day=${encodeURIComponent(day)}`);
   }
 
+  /**
+   * One exact week, by id — how the archive links to a week.
+   *
+   * The same route as `getPlan`, with the other parameter. A `/plans/{id}` path
+   * would sit next to the literal `/plans/archive` on an API Gateway that
+   * matches exactly, which the CDK stack names as a hazard; so the choice is a
+   * query parameter instead, and the server refuses both or neither.
+   *
+   * It reads wider than `getPlan` does: a kitchen you have left still owes you
+   * its archive, so this resolves against every kitchen you have been in.
+   */
+  async getPlanById(planId: string): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans?plan_id=${encodeURIComponent(planId)}`);
+  }
+
   async assignDish(data: AssignDishInput): Promise<MealPlan> {
     return this.request<MealPlan>("/plans/entries", { method: "PUT", body: JSON.stringify(data) });
   }
@@ -422,34 +489,61 @@ export class RecipeAPIClient {
     await this.request<void>(`/plans/${planId}/items/${itemId}`, { method: "DELETE" });
   }
 
-  /** Takes the one transition available. `fromStatus` is what the client believes it is leaving — a mismatch is a 409, so a double tap can't close both the calendar and the list. */
-  /**
-   * Weeks other people have shared with the caller.
-   *
-   * A list, and a separate call from `getPlan`: you can have your own week and
-   * be a guest on someone else's, so one endpoint returning "the plan" would
-   * have to pick between them.
-   */
-  async getSharedPlans(day: string): Promise<MealPlan[]> {
-    return this.request<MealPlan[]>(`/plans/shared?day=${encodeURIComponent(day)}`);
-  }
-
-  /** Weeks planned in a year, newest first — yours and any shared with you. */
+  /** Weeks planned in a year, newest first — across every kitchen you have been in. */
   async getPlanArchive(year: number): Promise<PlanSummary[]> {
     return this.request<PlanSummary[]>(`/plans/archive?year=${year}`);
   }
 
-  /** Share by the name people know each other by — it is the only identity a person can type from memory. */
-  async sharePlan(planId: string, displayName: string): Promise<MealPlan> {
-    return this.request<MealPlan>(`/plans/${planId}/shares`, {
+  // ── The kitchen (docs/plans/meal-planner-plan.md §8.12) ────────────────────
+
+  /** Who you share a planner with, plus any invitations addressed to you. Creates your kitchen on first call. */
+  async getKitchen(): Promise<KitchenView> {
+    return this.request<KitchenView>("/kitchen");
+  }
+
+
+  /**
+   * Who the invite picker offers: everybody not already here and not already
+   * asked. Filtered by the server, because "invitable" is a fact about the
+   * kitchen and keeping a copy of the rule here would give it two places to be
+   * wrong.
+   */
+  async listInvitablePeople(): Promise<Person[]> {
+    return this.request<Person[]>("/kitchen/people");
+  }
+
+  /**
+   * Invite someone you picked from that list. An invitation rather than an
+   * addition: joining means leaving their own kitchen.
+   *
+   * By id, not by name. Typing a name exactly was the old form, and a
+   * misremembered spelling came back as "nobody here is called that" — an error
+   * for a question the app could already answer.
+   */
+  async inviteToKitchen(userId: string): Promise<Kitchen> {
+    return this.request<Kitchen>("/kitchen/members", {
       method: "POST",
-      body: JSON.stringify({ display_name: displayName }),
+      body: JSON.stringify({ user_id: userId }),
     });
   }
 
-  async unsharePlan(planId: string, guestId: string): Promise<MealPlan> {
-    return this.request<MealPlan>(`/plans/${planId}/shares/${encodeURIComponent(guestId)}`, { method: "DELETE" });
+  /** Accept or decline. Accepting leaves the kitchen you are in, in the same step. */
+  async answerInvitation(kitchenId: string, accept: boolean): Promise<KitchenView> {
+    return this.request<KitchenView>(`/kitchen/invitations/${encodeURIComponent(kitchenId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ accept }),
+    });
   }
+
+  /**
+   * Leave (pass your own id) or withdraw an invitation you sent (pass theirs).
+   * The only two permitted targets — nobody can remove anybody else.
+   */
+  async removeFromKitchen(userId: string): Promise<Kitchen> {
+    return this.request<Kitchen>(`/kitchen/members/${encodeURIComponent(userId)}`, { method: "DELETE" });
+  }
+
+  /** Takes the one transition available. `fromStatus` is what the client believes it is leaving — a mismatch is a 409, so a double tap can't close both the calendar and the list. */
 
   async advancePlan(planId: string, fromStatus: "planning" | "calendar_closed", carryOver: string[] = []): Promise<MealPlan> {
     return this.request<MealPlan>(`/plans/${planId}/status`, {

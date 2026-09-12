@@ -93,6 +93,8 @@ const item = (over: Partial<ShoppingListItem>): ShoppingListItem => ({
   is_checked: false,
   is_manual: false,
   sources: [],
+  created_by: null,
+  created_by_name: null,
   ...over,
 });
 

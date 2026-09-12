@@ -3,9 +3,9 @@ import type { Meal, PlanStatus } from "@/lib/api-client";
 /**
  * The /plan view state, as a query string.
  *
- * calendar  →  /plan                              (this week, yours)
+ * calendar  →  /plan                              (this week, your kitchen's)
  *           →  /plan?week=2026-09-14              (another week)
- *           →  /plan?plan=<id>                    (a week someone shared with you)
+ *           →  /plan?plan=<id>                    (one exact week, from the archive)
  * slot      →  /plan?slot=2026-09-09:dinner       (the assign sheet, on this week)
  * list      →  /plan?view=list
  *
@@ -34,11 +34,14 @@ export interface PlanUrlState {
   /** The slot whose sheet is open, if any. */
   slot: PlanSlot | null;
   /**
-   * A shared plan to show instead of your own, by id. Null means yours.
+   * One exact week by id, rather than whatever your kitchen is planning for
+   * those dates. Null means "the week for this date".
    *
-   * An id rather than the owner's name: names are editable, and a link that
-   * stops working because someone renamed themselves is worse than one that
-   * shows nothing when access is withdrawn.
+   * **The two are the same thing for almost everybody**, and different for
+   * anybody who has moved between kitchens: an archive row from August belongs
+   * to a household they may have left, and opening it by date would show the
+   * week their *current* kitchen has for those dates — a different week under
+   * the same heading. So the archive always links by id (§8.12).
    */
   planId: string | null;
 }
@@ -134,8 +137,8 @@ export function fromQuery(params: URLSearchParams): PlanUrlState {
   const [date, meal] = (params.get("slot") ?? "").split(":");
   const slot = view === "calendar" && isIsoDate(date ?? null) && MEALS.has(meal) ? { date, meal: meal as Meal } : null;
 
-  // No validation beyond presence: an id that no longer resolves — unshared,
-  // or a week the plan was never for — falls back to your own plan at the page
-  // level, where the list of what you can actually see is known.
+  // No validation beyond presence: an id that no longer resolves — a stale link,
+  // or a kitchen you were never in — falls back to your own week at the page
+  // level, where the server's answer is available to decide on.
   return { view, week, slot, planId: params.get("plan") || null };
 }
