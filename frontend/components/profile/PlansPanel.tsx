@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, CalendarRange, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarRange } from "lucide-react";
 import type { PlanSummary } from "@/lib/api-client";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
@@ -9,6 +9,11 @@ import { weekEndOf } from "@/lib/plan-url";
 
 /**
  * The year view (docs/plans/meal-planner-plan.md §5.3).
+ *
+ * **Every week here is equally yours.** Rows used to carry a "shared by X" badge
+ * for weeks somebody had given you; §8.12 removed the distinction along with the
+ * owner — a week planned in your kitchen is your week, whichever of you filled
+ * it in, and the archive spans every kitchen you have been in.
  *
  * This is the payoff for two decisions that look modest on their own: entries
  * keyed to real dates (§4.4) and a shopping list that is a saved artifact rather
@@ -113,14 +118,6 @@ function WeekRow({ week, onOpen }: { week: PlanSummary; onOpen: () => void }) {
           <span className="truncate font-display text-sm font-semibold text-fg transition-colors group-hover:text-tomato">
             {formatWeekRange(week.week_start, weekEndOf(week.week_start), locale)}
           </span>
-          {/* Whose week it was. Only shown when it isn't yours — labelling your
-              own weeks with your own name is noise on every row. */}
-          {!week.is_mine && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[0.65rem] font-semibold text-muted">
-              <Users className="h-3 w-3" aria-hidden />
-              {t("profile.plans-shared-by", { name: week.owner_name ?? "" })}
-            </span>
-          )}
         </span>
         <span className="mt-1 block text-xs text-muted">
           {tp("profile.plans-recipes", week.entry_count)}
