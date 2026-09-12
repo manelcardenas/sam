@@ -9,6 +9,12 @@ interface ConfirmModalProps {
   message: React.ReactNode;
   /** Defaults to the translated "Delete". */
   confirmLabel?: string;
+  /**
+   * Defaults to a bin. Worth overriding for a confirmation that is *not* a
+   * deletion — the planner's "finish the week" is irreversible but creates
+   * nothing to mourn, and a bin icon would make it read as destructive.
+   */
+  icon?: React.ReactNode;
   onConfirm: () => Promise<void>;
   onCancel: () => void;
 }
@@ -17,6 +23,7 @@ export default function ConfirmModal({
   title,
   message,
   confirmLabel,
+  icon,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
@@ -46,7 +53,7 @@ export default function ConfirmModal({
         <div className="mb-4 flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-full bg-tomato/15">
-              <Trash2 className="h-5 w-5 text-tomato" />
+              {icon ?? <Trash2 className="h-5 w-5 text-tomato" />}
             </div>
             <h2 className="font-display text-lg font-bold text-fg">{title}</h2>
           </div>

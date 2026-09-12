@@ -6,7 +6,7 @@ import { signOut } from "aws-amplify/auth";
 
 import { useAuthGate } from "@/components/auth/useAuthGate";
 import { useMe } from "@/components/auth/UserProvider";
-import { apiClient, type Recipe, type UserReview, type UserStats } from "@/lib/api-client";
+import { apiClient, type PlanSummary, type Recipe, type UserReview, type UserStats } from "@/lib/api-client";
 import { currentParams, useBrowserNavigation, writeUrl } from "@/lib/url-state";
 import {
   INITIAL_STATE,
@@ -26,9 +26,11 @@ import { OverviewPanel } from "@/components/profile/OverviewPanel";
 import { RecipeList } from "@/components/profile/RecipeList";
 import { ReviewList } from "@/components/profile/ReviewList";
 import { AccountPanel } from "@/components/profile/AccountPanel";
+import { PlansPanel } from "@/components/profile/PlansPanel";
+import { toQuery as toPlanQuery } from "@/lib/plan-url";
 
 /**
- * Your profile, as four tabbed sections instead of one long scroll.
+ * Your profile, as tabbed sections instead of one long scroll.
  *
  * The page it replaces rendered stats, an account form and two unbounded lists
  * top to bottom — so the form nobody edits sat above the content everybody came
@@ -57,6 +59,14 @@ export default function ProfilePage() {
   const [state, setState] = useState<ProfileUrlState>(INITIAL_STATE);
   const restored = useRef(false);
 
+  // The archive is fetched per year, and only once the tab is opened — a year of
+  // summaries is cheap but it is not free, and most visits to /profile never go
+  // near it.
+  const [archive, setArchive] = useState<PlanSummary[]>([]);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const thisYear = useRef(new Date().getFullYear()).current;
+  const shownYear = state.year ?? thisYear;
+
   // Keyed on the id so a background revalidation doesn't refetch all three lists.
   useEffect(() => {
     if (!me?.id) return;
@@ -82,6 +92,29 @@ export default function ProfilePage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.id]);
+
+  useEffect(() => {
+    if (state.tab !== "plans" || !me?.id) return;
+    let cancelled = false;
+    setArchiveLoading(true);
+    void apiClient
+      .getPlanArchive(shownYear)
+      .then((weeks) => {
+        if (!cancelled) setArchive(weeks);
+      })
+      // An empty archive and a failed one look the same on screen, which is a
+      // real shortcoming — but the alternative here is an error banner on a
+      // panel most people open once, and the year pager makes a retry a tap.
+      .catch(() => {
+        if (!cancelled) setArchive([]);
+      })
+      .finally(() => {
+        if (!cancelled) setArchiveLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.tab, shownYear, me?.id]);
 
   // Restore the tab from the address bar once, after the skeleton gives way —
   // so a link straight to ?tab=reviews opens on reviews.
@@ -176,12 +209,13 @@ export default function ProfilePage() {
                   `/dashboard?${toDashboardQuery({
                     view: "detail",
                     category: recipe.food_type,
+                    authors: [],
                     recipeId: recipe.id,
                     q: "",
                   })}`,
                 )
               }
-              onCreate={() => router.push(`/dashboard?${toDashboardQuery({ view: "add", category: null, recipeId: null, q: "" })}`)}
+              onCreate={() => router.push(`/dashboard?${toDashboardQuery({ view: "add", category: null, authors: [], recipeId: null, q: "" })}`)}
             />
           )}
 
@@ -196,6 +230,32 @@ export default function ProfilePage() {
               // which dropped you at the top of the archive to find it again.
               onOpen={(review) => router.push(`/dine?${toDineQuery("", "detail", review.restaurant_id)}`)}
               onFindPlaces={() => router.push("/dine")}
+            />
+          )}
+
+          {state.tab === "plans" && (
+            <PlansPanel
+              year={shownYear}
+              weeks={archive}
+              loading={archiveLoading}
+              // The current year stays out of the URL, so ?tab=plans keeps
+              // meaning "the archive" rather than "2026" forever.
+              onYearChange={(year) => narrow({ year: year === thisYear ? null : year })}
+              onOpen={(week) =>
+                router.push(
+                  `/plan?${toPlanQuery({
+                    view: "calendar",
+                    week: week.week_start,
+                    slot: null,
+                    // Always by id, never only by date. They are the same week
+                    // for anybody who has stayed in one kitchen, and different
+                    // weeks for anybody who has moved — the archive links to the
+                    // row you tapped, not to whatever your household is planning
+                    // for those dates now.
+                    planId: week.id,
+                  })}`,
+                )
+              }
             />
           )}
 

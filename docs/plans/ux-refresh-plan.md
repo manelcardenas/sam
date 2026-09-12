@@ -14,7 +14,7 @@
 > (§6).
 >
 > **It comes before the meal planner on purpose.** The planner needs a home, an archive surface
-> and a dish picker; building those into a layout that is already known to be wrong means
+> and a recipe picker; building those into a layout that is already known to be wrong means
 > building them twice.
 
 ## 1. The profile page has outgrown one scroll — ✅ DONE (2026-09-07)
@@ -106,6 +106,15 @@ either adopt `UserProvider` or be deleted if the dashboard's URL state has super
 > the inconsistency this section fixes at page level. `NarrowRow` moved to `components/ui/` as its
 > third caller.
 >
+> **Update 2026-09-11 — the deferred chip shipped, and was then removed the same day.** It went in
+> with the meal planner's Phase A exactly as the note below predicted, and came back out when the
+> recipe/dish distinction itself was dropped: see the amendment at the top of
+> [ADR 0007](../adr/0007-a-dish-is-a-recipe-without-instructions.md). The short version is that the
+> chip *hid* rows — a recipe with no method was invisible on `/dashboard` until you found it —
+> which is a worse failure than the empty chip this section was worried about. There is now one
+> list holding everything, which is what §2 argued for in the first place; the lens was the one
+> part of it that added a concept rather than removing one.
+>
 > **Deferred with a reason: the Recipes / Dishes chip.** This section proposed the
 > [ADR 0007](../adr/0007-a-dish-is-a-recipe-without-instructions.md) lens as one more chip. It
 > cannot ship yet — `RecipeModel.instructions` is `NOT NULL` and `RecipeForm` requires the field,
@@ -136,10 +145,11 @@ right tool was **filter chips, not navigation**, and shipped a search box with a
 row. Two list pages, two philosophies, one app.
 
 **Change:** drop the landing grid. One list, with search and chips — the three real categories
-become chips, and the **Recipes / Dishes** lens from
-[ADR 0007](../adr/0007-a-dish-is-a-recipe-without-instructions.md) becomes one more chip rather
-than a new navigation concept. The empty category stops needing a decision; it simply has no
-chip.
+become chips. The empty category stops needing a decision; it simply has no chip.
+
+> The original version of this paragraph also made the **Recipes / Dishes** lens from
+> [ADR 0007](../adr/0007-a-dish-is-a-recipe-without-instructions.md) one more chip. That shipped
+> and was removed on 2026-09-11 along with the distinction behind it.
 
 This *deletes* code rather than adding it, and reuses components that exist.
 
@@ -462,7 +472,8 @@ collections, real-time shared list ticking, no screen timeout while cooking, and
 photos / websites / TikTok.
 
 Three of those are already decided elsewhere and are not in scope here: collections (§2, deferred),
-shared list ticking ([planner plan](./meal-planner-plan.md) §4.3), and import
+shared list ticking ([planner plan](./meal-planner-plan.md) §4.3, and now §8.12's kitchen — where
+"real-time" turned out to mean a 20-second poll behind four gates, for reasons of cost), and import
 ([roadmap](./future-roadmap.md) item 9).
 
 **The task**: use the app for a week on a phone, and each time something feels worse than mise,
@@ -475,9 +486,9 @@ Candidates worth evaluating, listed so they are not forgotten rather than becaus
 | Pattern | Where it might apply | Note |
 | --- | --- | --- |
 | Bottom navigation | Top-level: dine / recipes / planner / profile | Four destinations is exactly the count a bottom bar suits. Also the natural home for the planner |
-| Bottom sheets instead of full-page views | Recipe detail, the planner's ingredient popup | Keeps context visible. Fits the planner's per-dish tick flow well |
+| Bottom sheets instead of full-page views | Recipe detail, the planner's ingredient popup | Keeps context visible. Fits the planner's per-recipe tick flow well |
 | Swipe between sections | Dashboard categories, planner days | Cheap on mobile, invisible on desktop |
-| Drag and drop | Assigning dishes to slots | mise uses it for exactly this. Fiddly on touch; a tap-to-assign fallback is mandatory |
+| Drag and drop | Assigning recipes to slots | mise uses it for exactly this. Fiddly on touch; a tap-to-assign fallback is mandatory |
 | Screen-wake during cooking | Recipe detail | Small, self-contained, and genuinely useful |
 
 **Constraint that rules some things out:** the app is `output: 'export'` (static, no server), and
@@ -510,7 +521,7 @@ because "this wording is confusing on a phone" becomes a one-line fix in three f
 
 - [`./frontend-ux-plan.md`](./frontend-ux-plan.md) — the first UX pass (implemented 2026-09-01)
 - [ADR 0005](../adr/0005-restaurant-list-is-a-scrapbook.md) — filters over search, the precedent §2 follows
-- [ADR 0007](../adr/0007-a-dish-is-a-recipe-without-instructions.md) — the Recipes/Dishes lens §2 needs a chip for
+- [ADR 0007](../adr/0007-a-dish-is-a-recipe-without-instructions.md) — why there is one table; its lens was removed 2026-09-11
 - [`./meal-planner-plan.md`](./meal-planner-plan.md) — what this clears the way for
 - [`./future-roadmap.md`](./future-roadmap.md) — the queue this sits in; §4's tooling note is the
   only place the app takes on a dependency it could have avoided, so it is worth revisiting there

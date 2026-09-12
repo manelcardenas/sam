@@ -23,7 +23,8 @@ function normalizeUrl(raw: string): { url: string | null; invalid: boolean } {
 
 interface RecipeFormInitialData {
   title: string;
-  instructions: string;
+  /** `null` when nobody wrote the method down — the form shows it as empty. */
+  instructions: string | null;
   /** `servings` may be null — recipes created before this field existed. */
   ingredients: IngredientsData;
   food_type: FoodType;
@@ -125,6 +126,11 @@ export default function RecipeForm({
     try {
       await onSubmit({
         ...formData,
+        // Blank becomes null rather than "": one spelling of "no method" on the
+        // wire, so the ADR-0007 lens is a single test everywhere behind it. The
+        // API normalises this too — doing it here as well means the optimistic
+        // local copy agrees with what comes back.
+        instructions: formData.instructions.trim() || null,
         ingredients: { servings: servingsNum, items },
         // Omit the key when empty so the backend stores NULL (clears it on edit).
         source_url: source.url ?? undefined,
@@ -146,7 +152,7 @@ export default function RecipeForm({
 
       <div>
         <label htmlFor="title" className={labelClass}>
-          Title *
+          {t("recipe-form.title")} {t("common.required-marker")}
         </label>
         <input
           id="title"
@@ -196,19 +202,29 @@ export default function RecipeForm({
         </div>
       </div>
 
+      {/* Optional, and the hint below says why rather than leaving the marker
+          to imply "you forgot": a recipe you already know how to make is worth
+          saving for its ingredients alone, and the method can be written in
+          later (docs/adr/0007). */}
       <div>
-        <label htmlFor="instructions" className={labelClass}>
-          Instructions *
-        </label>
+        <div className="mb-1.5 flex items-baseline justify-between gap-3">
+          <label htmlFor="instructions" className="block text-sm font-semibold text-fg">
+            {t("recipe-form.instructions")}{" "}
+            <span className="font-normal text-muted">{t("common.optional-marker")}</span>
+          </label>
+        </div>
         <textarea
           id="instructions"
-          required
           rows={3}
           value={formData.instructions}
           onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
           className={`${fieldClass} resize-none`}
           placeholder={t("recipe-form.instructions-placeholder")}
+          aria-describedby="instructions-hint"
         />
+        <p id="instructions-hint" className="mt-1.5 text-xs text-muted">
+          {t("recipe-form.instructions-hint")}
+        </p>
       </div>
 
       <div>
@@ -219,7 +235,7 @@ export default function RecipeForm({
           <div className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 text-muted" />
             <label htmlFor="servings" className="text-xs font-semibold text-muted">
-              Servings *
+              {t("recipe-form.servings")} {t("common.required-marker")}
             </label>
             <input
               id="servings"

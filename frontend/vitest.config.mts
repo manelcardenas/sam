@@ -27,6 +27,18 @@ export default defineConfig({
     // describe/it/expect without importing them, matching pytest's feel.
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    // A fixed, *non-UTC* timezone, ahead of Greenwich.
+    //
+    // Date bugs in this app are timezone bugs — the planner builds a week from
+    // local y/m/d and has to land on the same Saturday everywhere. Running tests
+    // in the machine's own zone makes them pass or fail depending on who ran
+    // them, and running them in UTC is worse: UTC is the one zone where every
+    // offset bug disappears, and CI runs in UTC by default. So the suite pins a
+    // zone where getting it wrong is visible.
+    //
+    // Asia/Tokyo (UTC+9, no DST) rather than somewhere closer: a whole-day
+    // offset shows up at any hour of the test's clock, not only near midnight.
+    env: { TZ: "Asia/Tokyo" },
     // Colocated: `thing.spec.ts` sits beside `thing.ts`. A test next to its
     // subject gets updated with it; one in a parallel tree gets forgotten.
     include: ["**/*.spec.{ts,tsx}"],

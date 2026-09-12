@@ -26,18 +26,18 @@ describe("toQuery / fromQuery round trip", () => {
   });
 
   it("restores a searched recipe list", () => {
-    const state: ProfileUrlState = { tab: "recipes", q: "lasaña", category: "comida", sort: "recent" };
+    const state: ProfileUrlState = { tab: "recipes", q: "lasaña", category: "comida", sort: "recent", year: null };
     expect(roundTrip(state)).toEqual(state);
   });
 
   it("restores a searched, re-sorted review list", () => {
-    const state: ProfileUrlState = { tab: "reviews", q: "casa", category: null, sort: "score" };
+    const state: ProfileUrlState = { tab: "reviews", q: "casa", category: null, sort: "score", year: null };
     expect(roundTrip(state)).toEqual(state);
   });
 
   it("keeps the default sort out of the URL", () => {
-    expect(toQuery({ tab: "reviews", q: "", category: null, sort: "recent" })).toBe("tab=reviews");
-    expect(toQuery({ tab: "reviews", q: "", category: null, sort: "score" })).toBe(
+    expect(toQuery({ tab: "reviews", q: "", category: null, sort: "recent", year: null })).toBe("tab=reviews");
+    expect(toQuery({ tab: "reviews", q: "", category: null, sort: "score", year: null })).toBe(
       "tab=reviews&sort=score",
     );
   });
@@ -50,8 +50,8 @@ describe("toQuery / fromQuery round trip", () => {
 
 describe("narrowing is scoped to the tab that owns it", () => {
   it("does not write a category on tabs that have no categories", () => {
-    expect(toQuery({ tab: "reviews", q: "", category: "postre", sort: "recent" })).toBe("tab=reviews");
-    expect(toQuery({ tab: "account", q: "", category: "postre", sort: "score" })).toBe("tab=account");
+    expect(toQuery({ tab: "reviews", q: "", category: "postre", sort: "recent", year: null })).toBe("tab=reviews");
+    expect(toQuery({ tab: "account", q: "", category: "postre", sort: "score", year: null })).toBe("tab=account");
   });
 
   it("does not write a search on the hub or the account tab", () => {
@@ -89,7 +89,7 @@ describe("guards against hand-edited URLs", () => {
 
 describe("withTab", () => {
   it("drops the previous tab's narrowing", () => {
-    const searched: ProfileUrlState = { tab: "recipes", q: "pan", category: "comida", sort: "recent" };
+    const searched: ProfileUrlState = { tab: "recipes", q: "pan", category: "comida", sort: "recent", year: null };
     expect(withTab("reviews")).toEqual({ ...INITIAL_STATE, tab: "reviews" });
     // The search must not survive the switch, or the reviews list looks empty
     // for no visible reason.
@@ -101,5 +101,37 @@ describe("withTab", () => {
     for (const tab of PROFILE_TABS) {
       expect(withTab(tab)).toEqual(fromQuery(new URLSearchParams(toQuery(withTab(tab)))));
     }
+  });
+});
+
+describe("the plans archive tab", () => {
+  it("keeps /profile?tab=plans as the link to 'the archive'", () => {
+    // Not to one particular year forever — a bookmark made in 2026 should still
+    // open on the current year in 2027.
+    expect(toQuery({ ...INITIAL_STATE, tab: "plans" })).toBe("tab=plans");
+    expect(fromQuery(new URLSearchParams("tab=plans")).year).toBeNull();
+  });
+
+  it("restores a chosen year", () => {
+    const state: ProfileUrlState = { ...INITIAL_STATE, tab: "plans", year: 2025 };
+    expect(toQuery(state)).toBe("tab=plans&year=2025");
+    expect(fromQuery(new URLSearchParams(toQuery(state)))).toEqual(state);
+  });
+
+  it.each(["banana", "25", "0", "12026", "1999", "2201", ""])("ignores an unusable year %j", (raw) => {
+    // Rejected rather than clamped: a clamped year would show something other
+    // than what the URL claims.
+    expect(fromQuery(new URLSearchParams(`tab=plans&year=${raw}`)).year).toBeNull();
+  });
+
+  it("drops the year on every other tab", () => {
+    // Same rule as `category` and `sort`: narrowing is scoped to the tab that
+    // owns it, or switching tabs carries a filter with no visible cause.
+    expect(fromQuery(new URLSearchParams("tab=reviews&year=2025")).year).toBeNull();
+    expect(toQuery({ ...INITIAL_STATE, tab: "recipes", year: 2025 })).toBe("tab=recipes");
+  });
+
+  it("is dropped by withTab, like every other narrowing", () => {
+    expect(withTab("plans").year).toBeNull();
   });
 });

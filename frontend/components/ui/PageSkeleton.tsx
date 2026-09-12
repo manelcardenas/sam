@@ -1,5 +1,5 @@
 /**
- * Placeholder shapes for /dashboard and /profile.
+ * Placeholder shapes for /dashboard, /profile and /plan.
  *
  * Both pages used to blank to a spinner while waiting on the network, which
  * says "something is happening" but not *what* — and it collapses the layout,
@@ -93,6 +93,51 @@ export function ProfileSkeleton() {
             <div className="min-w-0 flex-1">
               <Bar className="h-4 w-24" />
               <Bar className="mt-2 h-3 w-32" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * Matches the week pager, view switch and five day columns on /plan.
+ *
+ * The week's date range is a shape rather than text for the reason §4 of the
+ * UX refresh found the hard way: a heading rendered before hydration ships in
+ * the prerendered HTML, so a Spanish or Catalan reader sees it flash English.
+ * A skeleton that holds the space keeps the page honest in every language.
+ */
+export function PlanSkeleton() {
+  return (
+    <div aria-hidden>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Bar className="h-11 w-11" />
+          <div>
+            <Bar className="h-6 w-36" />
+            <Bar className="mt-2 h-3 w-20" />
+          </div>
+          <Bar className="h-11 w-11" />
+        </div>
+        <Bar className="h-12 w-52 rounded-full" />
+      </div>
+
+      {/* Seven day columns, each holding two slots at their real height — the
+          grid collapses to one column per row on a phone, which is why the
+          shape mirrors the same responsive classes rather than a fixed row. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7 lg:gap-2">
+        {[0, 1, 2, 3, 4, 5, 6].map((day) => (
+          <div key={day} className="rounded-3xl border border-line bg-surface p-3">
+            <div className="mb-2.5 flex items-baseline justify-between px-1">
+              <Bar className="h-4 w-10" />
+              <Bar className="h-3 w-12" />
+            </div>
+            <div className="space-y-2">
+              <Bar className="h-[4.25rem] w-full rounded-2xl" />
+              <Bar className="h-[4.25rem] w-full rounded-2xl" />
             </div>
           </div>
         ))}

@@ -1,8 +1,9 @@
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.domain.entities import User
+from src.domain.entities import Person, User
 from src.domain.errors import DisplayNameTakenError
 from src.domain.ports import UserRepository
 from src.infra.db import UserModel
@@ -36,6 +37,11 @@ class PostgresUserRepository(UserRepository):
             if model is None:
                 return None
             return self._to_entity(model)
+
+    def list_people(self) -> list[Person]:
+        with self._session_factory() as session:
+            models = session.query(UserModel).filter(UserModel.display_name.isnot(None)).order_by(func.lower(UserModel.display_name)).all()
+            return [Person(id=m.id, display_name=m.display_name or "") for m in models]
 
     def update_display_name(self, user_id: str, new_name: str) -> User:
         with self._session_factory() as session:

@@ -1,0 +1,63 @@
+import unicodedata
+import uuid
+
+from pydantic import BaseModel, Field
+
+
+def normalise_ingredient_name(name: str) -> str:
+    """The shopping list's merge key (§8.3c).
+
+    Lowercase, collapse whitespace, strip diacritics. **That is all** — no plural
+    stemming, for the same reason §3 refuses unit conversion: merging
+    `cebolla`/`cebollas` is pleasant right up until `pimiento`/`pimienta` merge
+    too, and a wrong merge means coming home without an ingredient.
+
+    Stripping diacritics is safe in a way stemming is not: it only ever folds two
+    spellings of one word together, and phone keyboards make `platano`/`plátano`
+    a real pair rather than a hypothetical one.
+    """
+    decomposed = unicodedata.normalize("NFD", name.strip().lower())
+    without_marks = "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
+    return " ".join(without_marks.split())
+
+
+def merge_key(name: str, unit: str | None) -> tuple[str, str]:
+    """`(normalised name, unit)` with the unit's absence made explicit.
+
+    The empty string rather than None is not cosmetic: Postgres treats NULLs as
+    distinct in a unique constraint, so a key holding None would let two `huevos`
+    rows exist side by side — and most household ingredients have no unit, which
+    makes that the common case rather than the edge one (§8.3b). The SQL index
+    uses `COALESCE(unit, '')` for exactly this reason and this mirrors it.
+    """
+    return normalise_ingredient_name(name), (unit or "").strip().lower()
+
+
+class ListItemSource(BaseModel):
+    """Why a line is on the list, and how much of it this dish accounts for.
+
+    `dish_name` is a snapshot rather than a join: the answer to *"why is there
+    fennel on this list?"* has to survive deleting the recipe that put it there.
+    """
+
+    entry_id: str | None = None
+    dish_name: str
+    amount: float | None = None
+
+
+class ShoppingListItem(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    display_name: str  # as first typed — the list reads in the user's own words
+    normalised_name: str
+    unit: str | None = None
+    total_amount: float | None = None
+    is_checked: bool = False
+    is_manual: bool = False  # hand-added extra rather than implied by a dish
+    sources: list[ListItemSource] = Field(default_factory=list)
+    created_by: str | None = None
+    created_by_name: str | None = None
+
+
+def sort_items(items: list[ShoppingListItem]) -> list[ShoppingListItem]:
+    """By normalised name, so the list reads stably however lines were added."""
+    return sorted(items, key=lambda i: i.normalised_name)

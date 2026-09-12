@@ -1,4 +1,4 @@
-"""Seed script — loads the 14 real recipes plus a DINE dev fixture into PostgreSQL.
+"""Seed script — loads the 14 real recipes, 5 method-less ones, and a DINE dev fixture into PostgreSQL.
 
 HOW TO RUN (local)
 ------------------
@@ -13,7 +13,7 @@ already exists. Safe to re-run.
 
 SCHEMA
 ------
-  instructions (str)   — recipe steps
+  instructions (str?)  — recipe steps; optional (docs/adr/0007)
   ingredients  (JSONB) — {"servings": null, "items": [{"name": x} for x in list]}
   food_type            — comida/postre/bebida/aperitivo
   created_by           — seed placeholder user (see SEED_USER below)
@@ -92,6 +92,116 @@ DEV_USER = {
 def _items(raw: list[str]) -> list[dict]:
     """Convert a flat list of ingredient strings to the JSONB items format."""
     return [{"name": ingredient} for ingredient in raw]
+
+
+def _measured(raw: list[tuple[str, float | None, str | None]]) -> list[dict]:
+    """Ingredient items with `amount`/`unit` actually filled in.
+
+    Everything in RECIPES below uses `_items`, which mirrors the production data
+    faithfully — quantities typed into the name, structured fields empty (see
+    meal-planner-plan.md §3). That is the right fixture for the recipe pages and
+    the wrong one for the meal planner, which cannot aggregate a shopping list
+    from it at all. QUICK_RECIPES use this instead, so local dev has something the
+    planner can actually add up.
+    """
+    return [{"name": name, "amount": amount, "unit": unit} for name, amount, unit in raw]
+
+
+# ---------------------------------------------------------------------------
+# Recipes saved without a written method — the things you already know how to
+# make and only want on the shopping list (docs/adr/0007).
+#
+# Invented, not copied from production, and chosen to cover the states the
+# planner has to render:
+#
+#   · shared ingredients across several of them (cebolla, ajo, tomate) so the
+#     shopping list's merge-and-keep-the-breakdown behaviour has something to
+#     merge
+#   · the same ingredient in two different units (aceite in ml and cucharadas),
+#     which must stay two lines — no unit conversion, ever (§3)
+#   · one with no quantities at all, because "sal" is a real ingredient that
+#     legitimately has no amount
+#   · a range of servings, so scaling to a headcount is visible
+#   · one aperitivo and one postre, so the category chips are populated by rows
+#     that have no method as well as by rows that do
+#   · **two authors.** `created_by` defaults to the seed user; two of these name
+#     DEV_USER_ID instead, in two different categories. Without a second author
+#     the "who added it" chips do not render at all — one chip that selects the
+#     whole list is the Bebida dead end again — so a single-author fixture makes
+#     a shipped filter look broken in local dev. The same reasoning that gave
+#     DEV_USER its reviews, extended to recipes.
+# ---------------------------------------------------------------------------
+QUICK_RECIPES: list[dict] = [
+    {
+        "title": "Espaguetis a la boloñesa",
+        "ingredients": {
+            "servings": 4,
+            "items": _measured(
+                [
+                    ("espaguetis", 400, "g"),
+                    ("carne picada", 500, "g"),
+                    ("cebolla", 1, None),
+                    ("ajo", 2, "diente"),
+                    ("tomate triturado", 1, "lata"),
+                    ("aceite", 2, "cucharada"),
+                    ("sal", None, None),
+                ]
+            ),
+        },
+        "food_type": FoodType.COMIDA,
+    },
+    {
+        "title": "Lentejas",
+        "created_by": DEV_USER_ID,
+        "ingredients": {
+            "servings": 6,
+            "items": _measured(
+                [
+                    ("lentejas", 500, "g"),
+                    ("cebolla", 1, None),
+                    ("zanahoria", 2, None),
+                    ("ajo", 3, "diente"),
+                    ("pimentón", 1, "cucharadita"),
+                    ("aceite", 50, "ml"),
+                ]
+            ),
+        },
+        "food_type": FoodType.COMIDA,
+    },
+    {
+        "title": "Tortilla de patatas",
+        "ingredients": {
+            "servings": 4,
+            "items": _measured(
+                [
+                    ("huevos", 6, None),
+                    ("patata", 800, "g"),
+                    ("cebolla", 1, None),
+                    ("aceite", 200, "ml"),
+                    ("sal", None, None),
+                ]
+            ),
+        },
+        "food_type": FoodType.COMIDA,
+    },
+    {
+        "title": "Ensalada de tomate",
+        "ingredients": {
+            "servings": 2,
+            "items": _measured([("tomate", 3, None), ("cebolla", 1, None), ("aceite", 1, "cucharada"), ("sal", None, None)]),
+        },
+        "food_type": FoodType.APERITIVO,
+    },
+    {
+        "title": "Yogur con fruta",
+        "created_by": DEV_USER_ID,
+        "ingredients": {
+            "servings": 2,
+            "items": _measured([("yogur natural", 2, None), ("plátano", 1, None), ("miel", 1, "cucharada")]),
+        },
+        "food_type": FoodType.POSTRE,
+    },
+]
 
 
 # ---------------------------------------------------------------------------
@@ -521,6 +631,42 @@ def run() -> None:
 
         session.commit()
         print(f"\nRecipes — {inserted} inserted, {skipped} skipped.")
+
+        # --- Insert the method-less recipes: same table, instructions NULL ---
+        inserted = skipped = reattributed = 0
+        for data in QUICK_RECIPES:
+            author = data.get("created_by", SEED_USER_ID)
+            exists = session.execute(select(RecipeModel).where(RecipeModel.title == data["title"])).scalar_one_or_none()
+            if exists is not None:
+                # These five are invented dev fixtures, so their authorship is
+                # part of the fixture and may be corrected in place — unlike the
+                # 14 real recipes above, which are the owner's own data and are
+                # only ever inserted. Without this, a database seeded before the
+                # second author existed keeps one author forever and the filter
+                # stays invisible.
+                if exists.created_by != author:
+                    exists.created_by = author
+                    reattributed += 1
+                    print(f"↻ Reattributing: {data['title']}")
+                else:
+                    print(f"  Skipping (already exists): {data['title']}")
+                    skipped += 1
+                continue
+
+            session.add(
+                RecipeModel(
+                    title=data["title"],
+                    instructions=None,  # optional, and nothing branches on it
+                    ingredients=data["ingredients"],
+                    food_type=data["food_type"],
+                    created_by=author,
+                )
+            )
+            inserted += 1
+            print(f"✓ Inserting (no method): {data['title']}")
+
+        session.commit()
+        print(f"Recipes without a method — {inserted} inserted, {skipped} skipped, {reattributed} reattributed.")
 
         # --- Insert the dine fixture, skipping names that already exist ---
         vocabulary = {c.name: c for c in session.execute(select(CuisineModel)).scalars()}

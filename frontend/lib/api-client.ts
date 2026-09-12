@@ -15,7 +15,8 @@ export interface IngredientsInput {
 export interface Recipe {
   id: string;
   title: string;
-  instructions: string;
+  /** Optional: a recipe you already know how to make is still plannable and shoppable. */
+  instructions: string | null;
   ingredients: IngredientsData;
   food_type: "bebida" | "postre" | "comida" | "aperitivo";
   source_url: string | null;
@@ -25,6 +26,144 @@ export interface Recipe {
   created_by_name: string | null;
   created_at: string;
   updated_at: string;
+}
+
+
+// ── Meal planner (docs/plans/meal-planner-plan.md) ───────────────────────────
+
+export type Meal = "lunch" | "dinner";
+/** `list_closed` is what the UI calls *archived* — see §8.2 for why it isn't a fourth state. */
+export type PlanStatus = "planning" | "calendar_closed" | "list_closed";
+
+/** Why a line is on the list. `dish_name` is a snapshot, so it survives the recipe being deleted. */
+export interface ListItemSource {
+  entry_id: string | null;
+  dish_name: string;
+  amount: number | null;
+}
+
+export interface ShoppingListItem {
+  id: string;
+  display_name: string;
+  normalised_name: string;
+  unit: string | null;
+  /** `null` for things with no quantity — "sal" is a real ingredient, not a zero. */
+  total_amount: number | null;
+  is_checked: boolean;
+  is_manual: boolean;
+  sources: ListItemSource[];
+  /**
+   * Who put the line on the list. Attribution, not permission — anyone in the
+   * kitchen can tick or remove any line. A line two people contributed to keeps
+   * the first name: the question is who added it, and that happened once.
+   */
+  created_by: string | null;
+  created_by_name: string | null;
+}
+
+export interface PlanEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  meal: Meal;
+  recipe_id: string | null; // null once the recipe is deleted; dish_name survives
+  dish_name: string;
+  servings: number;
+  /** Whoever last set this slot — attribution only; anyone in the kitchen can change it. */
+  created_by: string | null;
+  created_by_name: string | null;
+}
+
+/**
+ * Someone in a kitchen, or someone invited to one
+ * (docs/plans/meal-planner-plan.md §8.12).
+ *
+ * `joined_at` is null while an invitation is outstanding. That is the only
+ * difference between a member and an invite — there is no status field, because
+ * "invited" is exactly "a membership nobody has accepted yet".
+ */
+export interface KitchenMember {
+  user_id: string;
+  display_name: string | null;
+  joined_at: string | null;
+  invited_by: string | null;
+}
+
+/**
+ * A household's shared planner. No owner, no roles: if you are in it, the week
+ * and its list are yours. A kitchen of one is the ordinary case.
+ */
+export interface Kitchen {
+  id: string;
+  members: KitchenMember[];
+  /** Invitations this kitchen has sent that nobody has answered yet. */
+  pending: KitchenMember[];
+  created_at: string;
+}
+
+/** An invitation addressed to you, showing whose kitchen it is — accepting is a move. */
+export interface KitchenInvite {
+  kitchen_id: string;
+  invited_by: string;
+  invited_by_name: string | null;
+  members: KitchenMember[];
+}
+
+export interface KitchenView {
+  kitchen: Kitchen;
+  invitations: KitchenInvite[];
+}
+
+/**
+ * Somebody you could ask into your kitchen: a name and an id, nothing else.
+ *
+ * Not a `User` — the invite picker is the one place this app shows somebody
+ * else's account, and an email has no business travelling with it.
+ */
+export interface Person {
+  id: string;
+  display_name: string;
+}
+
+export interface MealPlan {
+  id: string;
+  /** The household this week belongs to, not a person — see §8.12. */
+  kitchen_id: string;
+  week_start: string; // YYYY-MM-DD, always a Saturday — weeks run Sat→Fri
+  status: PlanStatus;
+  entries: PlanEntry[];
+  items: ShoppingListItem[];
+  /** Who started the week. Informational — membership is what gates writes. */
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One week in the archive. Deliberately *not* a MealPlan: a year holds up to 53
+ * of them, and the year view shows which weeks were planned and how full they
+ * were — not what was in them.
+ */
+export interface PlanSummary {
+  id: string;
+  week_start: string;
+  status: PlanStatus;
+  entry_count: number;
+  item_count: number;
+  checked_count: number;
+}
+
+export interface AssignDishInput {
+  date: string;
+  meal: Meal;
+  recipe_id: string | null;
+  dish_name: string;
+  servings: number;
+}
+
+export interface ListLineInput {
+  name: string;
+  amount?: number | null;
+  unit?: string | null;
 }
 
 export interface UserProfile {
@@ -180,7 +319,8 @@ export class ApiError extends Error {
 
 export interface CreateRecipeInput {
   title: string;
-  instructions: string;
+  /** Omit or send empty to create a dish rather than a recipe — docs/adr/0007. */
+  instructions: string | null;
   ingredients: IngredientsInput;
   food_type: "bebida" | "postre" | "comida" | "aperitivo";
   source_url?: string;
@@ -253,6 +393,7 @@ export class RecipeAPIClient {
     return { data: await response.json(), status: response.status };
   }
 
+  /** Every recipe. One collection — anything with ingredients is plannable. */
   async listRecipes(): Promise<Recipe[]> {
     return this.request<Recipe[]>("/recipes");
   }
@@ -272,6 +413,146 @@ export class RecipeAPIClient {
     return this.request<Recipe>(`/recipes/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
+    });
+  }
+
+
+  // ── Meal planner ───────────────────────────────────────────────────────────
+  //
+  // Every mutation returns the whole plan rather than the thing it changed: one
+  // write can move several parts (removing a dish can delete list lines, adding
+  // one can merge into an existing line), so patching a local copy from a
+  // partial response would drift.
+
+  /** The week containing `day`, or `null` — most weeks have no plan, which is not an error. */
+  async getPlan(day: string): Promise<MealPlan | null> {
+    return this.request<MealPlan | null>(`/plans?day=${encodeURIComponent(day)}`);
+  }
+
+  /**
+   * One exact week, by id — how the archive links to a week.
+   *
+   * The same route as `getPlan`, with the other parameter. A `/plans/{id}` path
+   * would sit next to the literal `/plans/archive` on an API Gateway that
+   * matches exactly, which the CDK stack names as a hazard; so the choice is a
+   * query parameter instead, and the server refuses both or neither.
+   *
+   * It reads wider than `getPlan` does: a kitchen you have left still owes you
+   * its archive, so this resolves against every kitchen you have been in.
+   */
+  async getPlanById(planId: string): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans?plan_id=${encodeURIComponent(planId)}`);
+  }
+
+  async assignDish(data: AssignDishInput): Promise<MealPlan> {
+    return this.request<MealPlan>("/plans/entries", { method: "PUT", body: JSON.stringify(data) });
+  }
+
+  /**
+   * Clear a slot. `dropFromList` defaults to false: the list never rewrites
+   * itself while you are holding it in the shop, so the caller asks first
+   * (docs/plans/meal-planner-plan.md §4.5).
+   */
+  async removeEntry(planId: string, entryId: string, dropFromList = false): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/entries/${entryId}?drop_from_list=${dropFromList}`, { method: "DELETE" });
+  }
+
+  /** `entryId` null means a hand-added extra — fruit, yoghurt, the things no dish implies. */
+  /**
+   * Put hand-typed lines on a week's list, whether or not that week has been
+   * planned. Keyed by a day rather than a plan id precisely because there may
+   * not be a plan yet — this is the path that lets you add sugar to next week
+   * in the middle of this one.
+   */
+  async addToWeekList(day: string, items: ListLineInput[]): Promise<MealPlan> {
+    return this.request<MealPlan>("/plans/items", {
+      method: "POST",
+      body: JSON.stringify({ day, items }),
+    });
+  }
+
+  async addToList(planId: string, items: ListLineInput[], entryId: string | null = null, dishName: string | null = null): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/items`, {
+      method: "POST",
+      body: JSON.stringify({ entry_id: entryId, dish_name: dishName, items }),
+    });
+  }
+
+  async tickItem(planId: string, itemId: string, isChecked: boolean): Promise<ShoppingListItem> {
+    return this.request<ShoppingListItem>(`/plans/${planId}/items/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_checked: isChecked }),
+    });
+  }
+
+  async removeItem(planId: string, itemId: string): Promise<void> {
+    await this.request<void>(`/plans/${planId}/items/${itemId}`, { method: "DELETE" });
+  }
+
+  /** Weeks planned in a year, newest first — across every kitchen you have been in. */
+  async getPlanArchive(year: number): Promise<PlanSummary[]> {
+    return this.request<PlanSummary[]>(`/plans/archive?year=${year}`);
+  }
+
+  // ── The kitchen (docs/plans/meal-planner-plan.md §8.12) ────────────────────
+
+  /** Who you share a planner with, plus any invitations addressed to you. Creates your kitchen on first call. */
+  async getKitchen(): Promise<KitchenView> {
+    return this.request<KitchenView>("/kitchen");
+  }
+
+
+  /**
+   * Who the invite picker offers: everybody not already here and not already
+   * asked. Filtered by the server, because "invitable" is a fact about the
+   * kitchen and keeping a copy of the rule here would give it two places to be
+   * wrong.
+   */
+  async listInvitablePeople(): Promise<Person[]> {
+    return this.request<Person[]>("/kitchen/people");
+  }
+
+  /**
+   * Invite someone you picked from that list. An invitation rather than an
+   * addition: joining means leaving their own kitchen.
+   *
+   * By id, not by name. Typing a name exactly was the old form, and a
+   * misremembered spelling came back as "nobody here is called that" — an error
+   * for a question the app could already answer.
+   */
+  async inviteToKitchen(userId: string): Promise<Kitchen> {
+    return this.request<Kitchen>("/kitchen/members", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
+
+  /** Accept or decline. Accepting leaves the kitchen you are in, in the same step. */
+  async answerInvitation(kitchenId: string, accept: boolean): Promise<KitchenView> {
+    return this.request<KitchenView>(`/kitchen/invitations/${encodeURIComponent(kitchenId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ accept }),
+    });
+  }
+
+  /**
+   * Leave (pass your own id) or withdraw an invitation you sent (pass theirs).
+   * The only two permitted targets — nobody can remove anybody else.
+   */
+  async removeFromKitchen(userId: string): Promise<Kitchen> {
+    return this.request<Kitchen>(`/kitchen/members/${encodeURIComponent(userId)}`, { method: "DELETE" });
+  }
+
+  /** Takes the one transition available. `fromStatus` is what the client believes it is leaving — a mismatch is a 409, so a double tap can't close both the calendar and the list. */
+
+  async advancePlan(planId: string, fromStatus: "planning" | "calendar_closed", carryOver: string[] = []): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/status`, {
+      method: "POST",
+      // `carry_over` names the unticked lines to copy onto next week. It travels
+      // with the transition rather than as a second call because the lines have
+      // to be read while the plan is still open — once it is list_closed every
+      // write is refused, and a half-done carry-over would lose them.
+      body: JSON.stringify({ from_status: fromStatus, carry_over: carryOver }),
     });
   }
 
