@@ -1,9 +1,10 @@
-"""The planner's domain rules: the state machine, and the merge key.
+"""The planner's domain rules: the state machine, the merge key, and membership.
 
-Both are pure functions with no database, which is the point — they are the two
-places a bug is silent. A wrong state transition locks someone out of their own
-week with no way back (v1 transitions are one-way). A wrong merge key produces a
-shopping list that looks fine and is wrong, which you discover at the till.
+All pure functions with no database, which is the point — they are the places a
+bug is silent. A wrong state transition locks someone out of their own week with
+no way back (v1 transitions are one-way). A wrong merge key produces a shopping
+list that looks fine and is wrong, which you discover at the till. And a wrong
+membership predicate hands somebody's week to somebody who was only asked.
 """
 
 from datetime import date
@@ -11,9 +12,12 @@ from datetime import date
 import pytest
 
 from src.domain.entities import (
+    Kitchen,
+    KitchenMember,
     PlanAction,
     PlanStateError,
     PlanStatus,
+    is_member,
     merge_key,
     next_status,
     normalise_ingredient_name,
@@ -152,3 +156,26 @@ class TestWeekStart:
 
         assert {week_start_for(day) for day in resolved} == {first}
         assert (second - first).days == 7
+
+
+class TestMembership:
+    """One predicate, and the distinction it has to draw.
+
+    `is_member` is what replaced the owner/guest split, so it is now the only
+    thing standing between "we share a planner" and "somebody asked me to". A
+    version that counted pending rows would hand over the week at the moment of
+    the invitation rather than at the moment of the answer.
+    """
+
+    def test_somebody_in_the_kitchen_is_a_member(self) -> None:
+        kitchen = Kitchen(members=[KitchenMember(user_id="nel", joined_at="2026-09-11T00:00:00Z")])
+
+        assert is_member(kitchen, "nel")
+
+    def test_somebody_merely_invited_is_not(self) -> None:
+        kitchen = Kitchen(members=[KitchenMember(user_id="nel")], pending=[KitchenMember(user_id="martina")])
+
+        assert not is_member(kitchen, "martina")
+
+    def test_a_stranger_is_not(self) -> None:
+        assert not is_member(Kitchen(members=[KitchenMember(user_id="nel")]), "someone-else")
