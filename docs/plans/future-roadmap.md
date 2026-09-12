@@ -235,8 +235,8 @@ Agreed order, replacing "pick whichever item looks interesting":
 | **1** | Profile UX rework | ✅ done 2026-09-07 — [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §1 |
 | **2** | UX pass: dashboard chips, brand-voice trim, the dine ordering control, cuisine colour | ✅ done 2026-09-07 — [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §2, §3, §5, §6 |
 | **3** | English / Spanish / Catalan switch, and all copy out of the code | ✅ done 2026-09-07 — [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §4 |
-| **4** | mise.cooking pattern research | [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §7 — a week of phone use, not a design task. **Runs in the background; does not block 5** |
-| **5** | Build the meal planner | [`./meal-planner-plan.md`](./meal-planner-plan.md) — ready to start, with §6's state machine to settle first |
+| **4** | mise.cooking pattern research | [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §7 — a week of phone use, not a design task. **Did not block the planner**: PLAN became a third world in the existing bottom bar, which is where §7's own bottom-nav candidate would put it anyway |
+| **5** | Build the meal planner | ✅ **done 2026-09-11** — [`./meal-planner-plan.md`](./meal-planner-plan.md) §8. Phases A–D shipped, v1 complete: data fix, backend, week view, shopping list, sharing and the year archive. Post-v1: the week moved to Sat→Fri (§8.9), the filter row is now shared with `/dashboard` with a new by-author axis (§8.10), the list stopped being downstream of the calendar (§8.11), and sharing became a **kitchen** — a week belongs to a household rather than to a person, with no owner and no guest (§8.12) |
 | later | AI ingredient capture (9), prices (10), page-file split (11) | 11 becomes urgent if the planner copies the page-orchestration pattern a fourth time |
 | parked | Search (4), Redis (5), toasts (12) | None has a trigger; 12 may simply be deleted |
 
@@ -248,5 +248,5 @@ work migrates to a dedicated plan, the plan it came from stops being updated.** 
 the one document that should always be current.
 
 **Why the UX work comes before the feature that motivated it:** the planner needs a home in the
-navigation, an archive surface in the profile, and a dish picker. Building those into a layout
+navigation, an archive surface in the profile, and a recipe picker. Building those into a layout
 already known to be wrong means building them twice.

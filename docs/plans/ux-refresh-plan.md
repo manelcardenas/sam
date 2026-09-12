@@ -472,7 +472,8 @@ collections, real-time shared list ticking, no screen timeout while cooking, and
 photos / websites / TikTok.
 
 Three of those are already decided elsewhere and are not in scope here: collections (§2, deferred),
-shared list ticking ([planner plan](./meal-planner-plan.md) §4.3), and import
+shared list ticking ([planner plan](./meal-planner-plan.md) §4.3, and now §8.12's kitchen — where
+"real-time" turned out to mean a 20-second poll behind four gates, for reasons of cost), and import
 ([roadmap](./future-roadmap.md) item 9).
 
 **The task**: use the app for a week on a phone, and each time something feels worse than mise,
