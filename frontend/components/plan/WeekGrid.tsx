@@ -2,6 +2,7 @@
 
 import { Check, Plus, ShoppingBasket, Users } from "lucide-react";
 import type { Meal, MealPlan, PlanEntry } from "@/lib/api-client";
+import { PersonMark } from "@/components/ui/PersonMark";
 import { weekDays } from "@/lib/plan-url";
 import { linesFromEntry } from "@/lib/plan-ingredients";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
@@ -29,12 +30,15 @@ export function WeekGrid({
   today,
   editable,
   onOpenSlot,
+  currentUserId,
 }: {
   weekStart: string;
   plan: MealPlan | null;
   today: string;
   editable: boolean;
   onOpenSlot: (date: string, meal: Meal) => void;
+  /** So a slot somebody else in the kitchen filled can say so. */
+  currentUserId: string | null;
 }) {
   const { locale, t } = useI18n();
 
@@ -81,6 +85,7 @@ export function WeekGrid({
                     editable={editable}
                     onClick={() => onOpenSlot(date, meal)}
                     mealLabel={t(`plan.${meal}`)}
+                    currentUserId={currentUserId}
                   />
                 );
               })}
@@ -98,12 +103,14 @@ function Slot({
   editable,
   onClick,
   mealLabel,
+  currentUserId,
 }: {
   entry: PlanEntry | undefined;
   onList: boolean;
   editable: boolean;
   onClick: () => void;
   mealLabel: string;
+  currentUserId: string | null;
 }) {
   const { t, tp } = useI18n();
 
@@ -150,9 +157,20 @@ function Slot({
       <span className="line-clamp-2 w-full text-sm font-semibold leading-snug text-fg [overflow-wrap:anywhere]">
         {entry.dish_name}
       </span>
-      <span className="flex items-center gap-1 text-[0.7rem] text-muted">
+      <span className="flex w-full items-center gap-1 text-[0.7rem] text-muted">
         <Users className="h-3 w-3" aria-hidden />
         {tp("plan.for-people", entry.servings)}
+        {/* Pushed to the end of the footer rather than sitting under the dish
+            name: at 138px wide the name already wraps to two lines, and a badge
+            beside it would take a third. */}
+        <span className="ml-auto">
+          <PersonMark
+            userId={entry.created_by}
+            name={entry.created_by_name}
+            currentUserId={currentUserId}
+            label={(name) => t("kitchen.planned-by", { name })}
+          />
+        </span>
       </span>
     </button>
   );

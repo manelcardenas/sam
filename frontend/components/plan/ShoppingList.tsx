@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Plus, ShoppingBasket, Trash2 } from "lucide-react";
 import type { MealPlan, ShoppingListItem } from "@/lib/api-client";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
+import { PersonMark } from "@/components/ui/PersonMark";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 /**
@@ -30,24 +31,27 @@ import { useI18n } from "@/lib/i18n/LocaleProvider";
 export function ShoppingList({
   plan,
   editable,
-  canTick,
   onTick,
   onRemove,
   onAddExtra,
+  currentUserId,
 }: {
   /** Null for a week nothing has been put in yet — still a week you can add to. */
   plan: MealPlan | null;
-  /** Owner-only: adding extras and removing lines. */
-  editable: boolean;
   /**
-   * Owner *or* guest. Split from `editable` because ticking is the single write
-   * sharing grants (§4.3) — collapsing the two would either lock guests out of
-   * the one thing they are here to do, or let them edit someone else's list.
+   * Whether this week can still be changed at all — adding, ticking, removing.
+   *
+   * **One flag, where there used to be two.** Ticking was split out because it
+   * was the single write sharing granted to a guest; §8.12 removed the guest, so
+   * everybody in the kitchen reaches all three and the two flags had become the
+   * same boolean passed twice.
    */
-  canTick: boolean;
+  editable: boolean;
   onTick: (item: ShoppingListItem, checked: boolean) => void;
   onRemove: (item: ShoppingListItem) => void;
   onAddExtra: (name: string) => Promise<void>;
+  /** So a line somebody else added can say so, and yours stay unmarked. */
+  currentUserId: string | null;
 }) {
   const { t, tp } = useI18n();
   const [draft, setDraft] = useState("");
@@ -83,7 +87,14 @@ export function ShoppingList({
       ) : (
         <ul className="space-y-1.5">
           {[...outstanding, ...done].map((item) => (
-            <Line key={item.id} item={item} editable={editable} canTick={canTick} onTick={onTick} onRemove={onRemove} />
+            <Line
+              key={item.id}
+              item={item}
+              editable={editable}
+              onTick={onTick}
+              onRemove={onRemove}
+              currentUserId={currentUserId}
+            />
           ))}
         </ul>
       )}
@@ -118,15 +129,15 @@ export function ShoppingList({
 function Line({
   item,
   editable,
-  canTick,
   onTick,
   onRemove,
+  currentUserId,
 }: {
   item: ShoppingListItem;
   editable: boolean;
-  canTick: boolean;
   onTick: (item: ShoppingListItem, checked: boolean) => void;
   onRemove: (item: ShoppingListItem) => void;
+  currentUserId: string | null;
 }) {
   const { t } = useI18n();
 
@@ -145,7 +156,7 @@ function Line({
       <button
         type="button"
         onClick={() => onTick(item, !item.is_checked)}
-        disabled={!canTick}
+        disabled={!editable}
         role="checkbox"
         aria-checked={item.is_checked}
         aria-label={item.display_name}
@@ -170,6 +181,16 @@ function Line({
       {amount && (
         <span className={`shrink-0 text-sm font-semibold tabular-nums ${item.is_checked ? "text-muted" : "text-fg"}`}>{amount}</span>
       )}
+
+      {/* Left of the amount would push the number around as names come and go.
+          Here it sits in the row's quiet end, next to the delete button it will
+          often share a line with. */}
+      <PersonMark
+        userId={item.created_by}
+        name={item.created_by_name}
+        currentUserId={currentUserId}
+        label={(name) => t("kitchen.added-by", { name })}
+      />
 
       {editable && (
         <button

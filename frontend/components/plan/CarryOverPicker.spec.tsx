@@ -27,6 +27,8 @@ function line(id: string, name: string, extra: Partial<ShoppingListItem> = {}): 
     is_checked: false,
     is_manual: true,
     sources: [],
+    created_by: null,
+    created_by_name: null,
     ...extra,
   };
 }
