@@ -1,5 +1,30 @@
 # A dish is a recipe without instructions — one entity, two lenses
 
+> **Amended 2026-09-11 — the second lens is gone; the single entity stands.**
+>
+> Everything below about **one entity rather than two** is still the decision, and it is still
+> load-bearing: `instructions` is nullable, a recipe you already know how to make is plannable and
+> shoppable on its ingredients alone, and writing the method in later is just an edit.
+>
+> What was removed is the **vocabulary and the split UI** built on top of it — the `RecipeKind`
+> enum, `GET /recipes?kind=`, the `_HAS_INSTRUCTIONS` SQL expression, the Dishes chip on
+> `/dashboard`, and the "Saving as a dish" badge in the form. There is one collection, and
+> everything in it is a recipe.
+>
+> **Why:** calling the same row two different names depending on one nullable column made the
+> product harder to describe than the thing it described. The entity carries `source_url`,
+> `prep_time_minutes` and `cook_time_minutes` — three properties of a *recipe*, not of a plate of
+> food — so the schema had already picked the word. The lens also hid rows: a recipe with no
+> method was invisible on `/dashboard` until you found a chip, which is a worse failure than the
+> orphan heading this ADR was written to fix.
+>
+> **What replaced the lens:** nothing. One list holds everything, and the detail view renders the
+> method only when there is one — offering the owner a tap through to the editor where the heading
+> would have been. The orphan-heading fix survives; the taxonomy around it does not.
+>
+> The title is kept because ADR numbers are stable references. Read it as a record of why there is
+> one table, not as a description of today's UI.
+
 The meal planner needs something to put in a calendar slot: a named thing with a list of
 ingredients and a headcount those ingredients are sized for. That is almost exactly what `Recipe`
 already is. The temptation was to add a second entity — `Dish` — on the grounds that the two are
@@ -30,6 +55,22 @@ you change your mind.
 
 ## Consequences
 
+**Update 2026-09-11: implemented, then half-reverted.** `instructions` is nullable (migration
+`f1c8d3b5e207`) and `RecipeForm` treats the method as optional — both still true. The lens shipped
+the same day as `GET /recipes?kind=recipe|dish` and a Dishes chip on `/dashboard`, and was removed
+later that day; see the amendment at the top. Three things worth recording because they were not
+obvious from the decision above:
+
+- **The lens is a trimmed-text test, not a NULL test.** `instructions = ''` has to count as a
+  dish too, or a row holding an empty string lists as a recipe and renders the orphan heading
+  this ADR set out to remove. The rule now exists in three places — `coalesce(btrim(...), '')` in
+  the Postgres repo, `Recipe.kind` in the entity, `recipeKind()` on the client — and each is
+  tested against the same table of inputs, because nothing else keeps them agreeing.
+- **The API normalises blank to `null` at the edge**, so there is one spelling of "no method"
+  behind the controller rather than three (`null`, `""`, `"   "`).
+- **The chip renders only when dishes exist**, which is the rule `/dashboard` already applies to
+  empty categories. That, rather than the deferral below, is what keeps it from being a dead end.
+
 **Update 2026-09-07:** the Recipes / Dishes chip proposed in
 [`../plans/ux-refresh-plan.md`](../plans/ux-refresh-plan.md) §2 was deliberately **not** built
 with the rest of that section. The lens is derived from `instructions` being empty, but
@@ -43,9 +84,11 @@ is simpler than a `kind` field and impossible to get out of sync, but it is invi
 schema, which is why it is written here. Anything that lists recipes must apply the filter
 deliberately; `list_recipes` grows a parameter alongside the existing `created_by`.
 
-`dashboard/page.tsx` renders an **Instructions** heading unconditionally, so an instruction-less
-entry currently shows an orphan heading over nothing, and `RecipeForm` requires the field. Both
-need to accept empty.
+~~`dashboard/page.tsx` renders an **Instructions** heading unconditionally, so an instruction-less
+entry currently shows an orphan heading over nothing, and `RecipeForm` requires the field.~~
+**Both fixed 2026-09-11.** The detail view renders the method only when there is one, and in its
+place offers the creator the way *out* of being a dish — a tap through to the editor, since
+writing the method is the whole promotion mechanism and it was otherwise invisible.
 
 The migration is one `ALTER COLUMN instructions DROP NOT NULL`, and it is one-way in practice:
 once instruction-less rows exist, the constraint cannot come back without deleting data.
