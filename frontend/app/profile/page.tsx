@@ -247,10 +247,12 @@ export default function ProfilePage() {
                     view: "calendar",
                     week: week.week_start,
                     slot: null,
-                    // A week someone shared has to open *as theirs*; without the
-                    // id the planner would show your own week for those dates,
-                    // which is a different week with the same heading.
-                    planId: week.is_mine ? null : week.id,
+                    // Always by id, never only by date. They are the same week
+                    // for anybody who has stayed in one kitchen, and different
+                    // weeks for anybody who has moved — the archive links to the
+                    // row you tapped, not to whatever your household is planning
+                    // for those dates now.
+                    planId: week.id,
                   })}`,
                 )
               }
