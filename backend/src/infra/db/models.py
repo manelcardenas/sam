@@ -128,30 +128,88 @@ class ReviewModel(Base):
     reviewer: Mapped["UserModel"] = relationship(lazy="joined")
 
 
-plan_shares = Table(
-    "plan_shares",
-    Base.metadata,
-    Column("plan_id", UUID(as_uuid=True), ForeignKey("meal_plans.id", ondelete="CASCADE"), primary_key=True),
-    Column("user_id", String, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
-    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
-    Index("ix_plan_shares_user_id", "user_id"),
-)
+class KitchenModel(Base):
+    """A household's shared planner (docs/plans/meal-planner-plan.md §8.12).
+
+    **A row with no columns of its own, and that is the point.** The kitchen has
+    no name, no owner and no settings — it exists so that a week can belong to
+    *the household* rather than to one of the two people in it. Everything
+    interesting is in the membership rows.
+    """
+
+    __tablename__ = "kitchens"
+
+    id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class KitchenMemberModel(Base):
+    """Who is in a kitchen, who was invited, and who has left.
+
+    One table for all three, because they are the same fact at different points:
+    `accepted_at IS NULL` is an outstanding invitation, `left_at IS NOT NULL` is
+    somebody who has moved out, and the rest are the household.
+
+    **No role column, deliberately.** §8.12's rule is that membership is
+    symmetric: there is no owner to promote to and nobody to eject. The one
+    asymmetry that exists — you may withdraw an invitation you sent — is carried
+    by `invited_by`, which is already here for the "who asked me?" line on the
+    invitation itself.
+    """
+
+    __tablename__ = "kitchen_members"
+
+    __table_args__ = (
+        # Rejoining reuses the row rather than stacking a second one, which keeps
+        # "was this person ever in this kitchen?" — the archive's question — a
+        # single-row lookup.
+        Index("uq_kitchen_members_pair", "kitchen_id", "user_id", unique=True),
+        # **One active kitchen per person.** Partial, so the rows left behind by
+        # leaving and the rows waiting to be accepted do not count against it —
+        # which is exactly what lets somebody hold an invitation while still
+        # living in their own kitchen.
+        Index(
+            "uq_kitchen_members_active_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text("accepted_at IS NOT NULL AND left_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    kitchen_id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("kitchens.id", ondelete="CASCADE"), nullable=False, index=True)
+    # CASCADE: a deleted account should not leave a membership granting access to
+    # a user id that no longer resolves to anyone.
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    invited_by: Mapped[str | None] = mapped_column(
+        String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, comment="NULL for the person the kitchen was created for"
+    )
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, comment="NULL while the invitation is outstanding")
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, comment="Set on leaving; the row stays so the archive still resolves")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    member: Mapped["UserModel"] = relationship(lazy="joined", foreign_keys=[user_id])
+    inviter: Mapped["UserModel | None"] = relationship(lazy="joined", foreign_keys=[invited_by])
 
 
 class MealPlanModel(Base):
-    """One person's week (docs/plans/meal-planner-plan.md §8.3)."""
+    """One kitchen's week (docs/plans/meal-planner-plan.md §8.3, §8.12)."""
 
     __tablename__ = "meal_plans"
 
     __table_args__ = (
-        # One plan per person per week. The owner is in the key because a plan
-        # belongs to a person (§4.2) — two people planning the same week is
-        # normal, and the same person planning it twice is not.
-        Index("uq_meal_plans_owner_week", "owner_id", "week_start", unique=True),
+        # **One plan per kitchen per week.** This replaced a key on the owner
+        # (§8.12): two people in one household planning the same week used to be
+        # two plans and two shopping lists, which is the duplication the kitchen
+        # exists to remove.
+        Index("uq_meal_plans_kitchen_week", "kitchen_id", "week_start", unique=True),
     )
 
     id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
-    owner_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False)
+    kitchen_id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("kitchens.id"), nullable=False, index=True)
+    created_by: Mapped[str | None] = mapped_column(
+        String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, comment="Who started the week — informational only, membership is what gates writes"
+    )
     week_start: Mapped[date] = mapped_column(
         Date, nullable=False, comment="Always a Saturday — the week runs Sat→Fri, normalised server-side so one week can't exist twice"
     )
@@ -173,11 +231,6 @@ class MealPlanModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
-    owner: Mapped["UserModel"] = relationship(lazy="joined")
-    # Read-and-tick guests (§4.3). A secondary relationship rather than a mapped
-    # class, because the row carries no data of its own — adding `can_edit` later
-    # is when it earns one.
-    shared_with: Mapped[list["UserModel"]] = relationship(secondary=plan_shares, lazy="selectin")
     # selectin rather than joined: a plan pulls at most ten entries and a few
     # dozen list lines, and joining both onto one row would multiply them out.
     entries: Mapped[list["PlanEntryModel"]] = relationship(back_populates="plan", lazy="selectin", cascade="all, delete-orphan")
@@ -211,9 +264,14 @@ class PlanEntryModel(Base):
     )
     dish_name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Snapshot — the plan records what you ate, not a live view of the collection")
     servings: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Attribution, not permission (§8.12): anyone in the kitchen can reassign any
+    # slot, and this records who last did. SET NULL rather than CASCADE for the
+    # same reason as `recipe_id` — a departed account must not erase the week.
+    created_by: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     plan: Mapped["MealPlanModel"] = relationship(back_populates="entries")
+    author: Mapped["UserModel | None"] = relationship(lazy="joined")
 
 
 class ShoppingListItemModel(Base):
@@ -237,10 +295,14 @@ class ShoppingListItemModel(Base):
     total_amount: Mapped[float | None] = mapped_column(Numeric(10, 3), nullable=True, comment="NULL for things with no quantity — 'sal' is a real ingredient")
     is_checked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     is_manual: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    # Who put the line on the list (§8.12). A line two people both contributed to
+    # keeps the first name: the question is who added it, and that happened once.
+    created_by: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     plan: Mapped["MealPlanModel"] = relationship(back_populates="items")
+    author: Mapped["UserModel | None"] = relationship(lazy="joined")
     sources: Mapped[list["ListItemSourceModel"]] = relationship(back_populates="item", lazy="selectin", cascade="all, delete-orphan")
 
 

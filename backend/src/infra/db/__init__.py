@@ -2,6 +2,8 @@ from src.infra.db.base import Base
 from src.infra.db.engine import DatabaseConnectionPool, build_dsn
 from src.infra.db.models import (
     CuisineModel,
+    KitchenMemberModel,
+    KitchenModel,
     ListItemSourceModel,
     MealPlanModel,
     PlanEntryModel,
@@ -10,13 +12,14 @@ from src.infra.db.models import (
     ReviewModel,
     ShoppingListItemModel,
     UserModel,
-    plan_shares,
 )
 
 __all__ = [
     "Base",
     "CuisineModel",
     "DatabaseConnectionPool",
+    "KitchenMemberModel",
+    "KitchenModel",
     "ListItemSourceModel",
     "MealPlanModel",
     "PlanEntryModel",
@@ -26,5 +29,4 @@ __all__ = [
     "ShoppingListItemModel",
     "UserModel",
     "build_dsn",
-    "plan_shares",
 ]
