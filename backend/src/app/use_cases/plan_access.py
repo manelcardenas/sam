@@ -1,45 +1,53 @@
 from datetime import date
 
-from src.domain.entities import MealPlan, may_read, may_write
+from src.domain.entities import MealPlan
 from src.domain.ports import MealPlanRepository
 
 
-def owned_plan(plan: MealPlan | None, user_id: str) -> MealPlan:
+def writable_plan(plan: MealPlan | None, kitchen_id: str) -> MealPlan:
     """Resolve a plan the caller may *change*, or raise.
 
-    Sharing is read-and-tick (§4.3), so this stayed owner-only when guests
-    arrived — the scenario is that Martina plans the week and you both shop, not
-    that you edit her Wednesday.
+    **One question, asked of the kitchen and not of the person** (§8.12). The
+    old version asked "are you the owner?", which is what made one of the two
+    people in a household a guest on their own shopping list. If the week belongs
+    to the kitchen you are in, it is yours — there is no second, lesser tier of
+    member to check for.
     """
     if plan is None:
         raise KeyError("Plan not found")
-    if not may_write(plan, user_id):
-        raise PermissionError("Only the plan's owner can change it")
+    if plan.kitchen_id != kitchen_id:
+        raise PermissionError("This week belongs to another kitchen")
     return plan
 
 
-def visible_plan(plan: MealPlan | None, user_id: str) -> MealPlan:
-    """Resolve a plan the caller may *see*, or raise. Owners and guests both."""
+def readable_plan(plan: MealPlan | None, kitchen_ids: list[str]) -> MealPlan:
+    """Resolve a plan the caller may *see*, or raise.
+
+    Wider than `writable_plan` by exactly one case: a kitchen you have left. Its
+    weeks stay in your archive (§8.12) — moving out of a household does not
+    delete what you ate last August — so they have to stay readable, while
+    writing to them does not.
+    """
     if plan is None:
         raise KeyError("Plan not found")
-    if not may_read(plan, user_id):
-        raise PermissionError("This plan isn't shared with you")
+    if plan.kitchen_id not in kitchen_ids:
+        raise PermissionError("This week isn't yours")
     return plan
 
 
-def plan_for_week(repository: MealPlanRepository, owner_id: str, week_start: date) -> MealPlan:
-    """The caller's plan for that week, created if this is the first thing in it.
+def plan_for_week(repository: MealPlanRepository, kitchen_id: str, week_start: date, created_by: str) -> MealPlan:
+    """The kitchen's plan for that week, created if this is the first thing in it.
 
     Lazy creation is deliberate: an empty plan row for every week somebody merely
     *looked* at would fill the archive (§5.3) with weeks nobody planned.
 
-    **Two callers, and that is the point.** A week can now be started from either
+    **Two callers, and that is the point.** A week can be started from either
     end — by assigning a dish, or by putting one thing on its list. Sharing the
     helper is what makes "adding sugar starts the week" the same rule as
     "assigning lunch starts the week", rather than two implementations that can
     drift apart.
     """
-    plan = repository.get_plan_for_week(owner_id, week_start)
+    plan = repository.get_plan_for_week(kitchen_id, week_start)
     if plan is None:
-        plan = repository.create_plan(owner_id, week_start)
-    return owned_plan(plan, owner_id)
+        plan = repository.create_plan(kitchen_id, week_start, created_by)
+    return writable_plan(plan, kitchen_id)

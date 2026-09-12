@@ -1,4 +1,4 @@
-from src.app.use_cases.plan_access import owned_plan
+from src.app.use_cases.plan_access import writable_plan
 from src.domain.entities import PlanAction, ShoppingListItem, require
 from src.domain.ports import MealPlanRepository
 
@@ -15,7 +15,7 @@ class AddToList:
     def __init__(self, repository: MealPlanRepository) -> None:
         self.repository = repository
 
-    def execute(self, owner_id: str, plan_id: str, items: list[ShoppingListItem]) -> list[ShoppingListItem]:
-        plan = owned_plan(self.repository.get_plan(plan_id), owner_id)
+    def execute(self, kitchen_id: str, plan_id: str, items: list[ShoppingListItem]) -> list[ShoppingListItem]:
+        plan = writable_plan(self.repository.get_plan(plan_id), kitchen_id)
         require(plan.status, PlanAction.EDIT_LIST)
         return self.repository.add_items(plan.id, items)

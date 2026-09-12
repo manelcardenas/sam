@@ -1,4 +1,4 @@
-from src.app.use_cases.plan_access import owned_plan
+from src.app.use_cases.plan_access import writable_plan
 from src.domain.entities import MealPlan, PlanAction, require
 from src.domain.ports import MealPlanRepository
 
@@ -15,8 +15,8 @@ class RemoveDish:
     def __init__(self, repository: MealPlanRepository) -> None:
         self.repository = repository
 
-    def execute(self, owner_id: str, plan_id: str, entry_id: str) -> MealPlan:
-        plan = owned_plan(self.repository.get_plan(plan_id), owner_id)
+    def execute(self, kitchen_id: str, plan_id: str, entry_id: str) -> MealPlan:
+        plan = writable_plan(self.repository.get_plan(plan_id), kitchen_id)
         require(plan.status, PlanAction.EDIT_CALENDAR)
         if not any(e.id == entry_id for e in plan.entries):
             raise KeyError(f"Plan entry {entry_id} not found")

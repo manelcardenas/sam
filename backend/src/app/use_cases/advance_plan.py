@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from src.app.use_cases.plan_access import owned_plan, plan_for_week
+from src.app.use_cases.plan_access import plan_for_week, writable_plan
 from src.domain.entities import (
     DAYS_IN_WEEK,
     MealPlan,
@@ -20,7 +20,8 @@ class AdvancePlan:
     One-way and one step at a time in v1 (§5.2). The caller states which status
     it believes it is leaving, and a mismatch is a 409 rather than a silent
     double-advance — two taps on a slow connection must not close the calendar
-    *and* the list.
+    *and* the list. In a shared kitchen that guard earns its keep twice over:
+    the second tap can now come from the other person's phone.
 
     Closing the list can carry the things you did not get into next week. That
     belongs *here* rather than in a second call the client makes afterwards,
@@ -34,12 +35,13 @@ class AdvancePlan:
 
     def execute(
         self,
-        owner_id: str,
+        kitchen_id: str,
+        user_id: str,
         plan_id: str,
         expected: PlanStatus | None = None,
         carry_over: list[str] | None = None,
     ) -> MealPlan:
-        plan = owned_plan(self.repository.get_plan(plan_id), owner_id)
+        plan = writable_plan(self.repository.get_plan(plan_id), kitchen_id)
         if expected is not None and plan.status is not expected:
             raise PlanStateError(f"The plan is {plan.status.value}, not {expected.value}")
         following = next_status(plan.status)
@@ -50,20 +52,20 @@ class AdvancePlan:
                 # meaning at the end of a shop. Closing the *calendar* has not
                 # been shopped yet, so every line would qualify.
                 raise ValueError("Only closing the list can carry lines over")
-            self._carry(plan, owner_id, carry_over)
+            self._carry(plan, kitchen_id, user_id, carry_over)
 
         advanced = self.repository.set_status(plan.id, following)
         if advanced is None:
             raise KeyError(f"Plan {plan_id} not found")
         return advanced
 
-    def _carry(self, plan: MealPlan, owner_id: str, item_ids: list[str]) -> None:
+    def _carry(self, plan: MealPlan, kitchen_id: str, user_id: str, item_ids: list[str]) -> None:
         """Copy chosen unbought lines onto next week's list.
 
         An id that is not on this plan is a client bug — or an id borrowed from
-        someone else's list — and raises. An id that has since been *ticked* is
-        skipped silently instead: that is the other person in the shop finding it
-        after all, and it must not stop the week from closing.
+        another kitchen's list — and raises. An id that has since been *ticked*
+        is skipped silently instead: that is the other person in the shop finding
+        it after all, and it must not stop the week from closing.
         """
         known = {item.id: item for item in plan.items}
         chosen = []
@@ -76,7 +78,7 @@ class AdvancePlan:
         if not chosen:
             return
 
-        target = plan_for_week(self.repository, owner_id, plan.week_start + timedelta(days=DAYS_IN_WEEK))
+        target = plan_for_week(self.repository, kitchen_id, plan.week_start + timedelta(days=DAYS_IN_WEEK), user_id)
         require(target.status, PlanAction.EDIT_LIST)
         self.repository.add_items(
             target.id,
@@ -91,6 +93,10 @@ class AdvancePlan:
                     # week's list at last week's Wednesday would be a breakdown row
                     # that goes nowhere. It is a thing you still need — by hand now.
                     is_manual=True,
+                    # Attributed to whoever closed the week, not to whoever first
+                    # wrote the line. They are the one carrying it forward, and
+                    # the original name belongs to a week that is now archived.
+                    created_by=user_id,
                 )
                 for item in chosen
             ],

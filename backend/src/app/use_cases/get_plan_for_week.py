@@ -14,7 +14,7 @@ class GetPlanForWeek:
     def __init__(self, repository: MealPlanRepository) -> None:
         self.repository = repository
 
-    def execute(self, owner_id: str, day: date) -> MealPlan | None:
+    def execute(self, kitchen_id: str, day: date) -> MealPlan | None:
         # Any day of the week resolves to its Saturday, so two clients disagreeing
         # about which day identifies a week can't create two plans for it (§4.4).
-        return self.repository.get_plan_for_week(owner_id, week_start_for(day))
+        return self.repository.get_plan_for_week(kitchen_id, week_start_for(day))

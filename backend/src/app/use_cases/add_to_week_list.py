@@ -15,7 +15,7 @@ class AddToWeekList:
 
     So this takes a *day* rather than a plan id, resolves it to that week's
     Saturday, and creates the plan if it does not exist yet — the same lazy
-    creation `AssignDish` uses, which is why both go through `_plan_for_week`.
+    creation `AssignDish` uses, which is why both go through `plan_for_week`.
     A week holding one line and no dishes is a real week: you are going to that
     shop.
     """
@@ -23,8 +23,8 @@ class AddToWeekList:
     def __init__(self, repository: MealPlanRepository) -> None:
         self.repository = repository
 
-    def execute(self, owner_id: str, day: date, items: list[ShoppingListItem]) -> MealPlan:
-        plan = plan_for_week(self.repository, owner_id, week_start_for(day))
+    def execute(self, kitchen_id: str, user_id: str, day: date, items: list[ShoppingListItem]) -> MealPlan:
+        plan = plan_for_week(self.repository, kitchen_id, week_start_for(day), user_id)
         require(plan.status, PlanAction.EDIT_LIST)
         self.repository.add_items(plan.id, items)
         return plan

@@ -6,18 +6,20 @@ from src.domain.ports import MealPlanRepository
 class AssignDish:
     """Put a dish in a slot, creating the week's plan if this is the first one.
 
-    See `_plan_for_week` for why creation is lazy.
+    See `plan_for_week` for why creation is lazy. The entry carries whoever is
+    assigning it, which is attribution and not permission — anyone in the kitchen
+    can change any slot (§8.12).
     """
 
     def __init__(self, repository: MealPlanRepository) -> None:
         self.repository = repository
 
-    def execute(self, owner_id: str, entry: PlanEntry) -> tuple[MealPlan, PlanEntry]:
+    def execute(self, kitchen_id: str, entry: PlanEntry) -> tuple[MealPlan, PlanEntry]:
         # The week is derived from the entry's own date rather than passed
         # alongside it. An earlier version took both and guarded that they
         # agreed — which was unreachable, because the only caller sent the same
         # date twice. Deriving it means an entry cannot land in a week that does
         # not contain it, instead of that being a rule someone has to enforce.
-        plan = plan_for_week(self.repository, owner_id, week_start_for(entry.date))
+        plan = plan_for_week(self.repository, kitchen_id, week_start_for(entry.date), entry.created_by or "")
         require(plan.status, PlanAction.EDIT_CALENDAR)
         return plan, self.repository.upsert_entry(plan.id, entry)
