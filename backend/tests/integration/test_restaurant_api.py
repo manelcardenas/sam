@@ -11,7 +11,7 @@ from datetime import date
 from fastapi import APIRouter, FastAPI
 from starlette.testclient import TestClient
 
-from src.domain.entities import Cuisine, Restaurant, Review, User
+from src.domain.entities import Cuisine, Person, Restaurant, Review, User
 from src.domain.ports import UserRepository
 from src.infra.adapters.repos.in_memory_cuisine_repo import InMemoryCuisineRepository
 from src.infra.adapters.repos.in_memory_restaurant_repo import InMemoryRestaurantRepository
@@ -30,8 +30,8 @@ class StubUserRepository(UserRepository):
     def get_by_id(self, user_id: str) -> User | None:  # noqa: ARG002
         return None
 
-    def get_by_display_name(self, display_name: str) -> User | None:  # noqa: ARG002
-        return None
+    def list_people(self) -> list[Person]:
+        return []
 
     def update_display_name(self, user_id: str, new_name: str) -> User:
         raise NotImplementedError

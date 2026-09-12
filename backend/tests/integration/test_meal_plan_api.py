@@ -17,9 +17,10 @@ import pytest
 from fastapi import APIRouter, FastAPI
 from starlette.testclient import TestClient
 
+from src.infra.adapters.repos.in_memory_kitchen_repo import InMemoryKitchenRepository
 from src.infra.adapters.repos.in_memory_meal_plan_repo import InMemoryMealPlanRepository
 from src.infra.adapters.repos.in_memory_user_repo import InMemoryUserRepository
-from src.infra.controllers import MealPlanController
+from src.infra.controllers import KitchenController, MealPlanController
 from src.infra.security import TokenPayload, get_current_user
 
 OWNER = "user-nel"
@@ -42,6 +43,17 @@ def repository() -> InMemoryMealPlanRepository:
     return InMemoryMealPlanRepository(names=NAMES)
 
 
+@pytest.fixture
+def kitchens() -> InMemoryKitchenRepository:
+    """One kitchen store per test, shared by every client the test builds.
+
+    This is what makes "two people in one kitchen" testable at all: two clients
+    over two *different* stores would each get their own household and pass every
+    isolation test for the wrong reason.
+    """
+    return InMemoryKitchenRepository(names=NAMES)
+
+
 def _users() -> InMemoryUserRepository:
     users = InMemoryUserRepository()
     for user_id, name in NAMES.items():
@@ -49,9 +61,15 @@ def _users() -> InMemoryUserRepository:
     return users
 
 
-def _app(repository: InMemoryMealPlanRepository, caller: str = OWNER, users: InMemoryUserRepository | None = None) -> TestClient:
+def _app(
+    repository: InMemoryMealPlanRepository,
+    kitchens: InMemoryKitchenRepository,
+    caller: str = OWNER,
+    users: InMemoryUserRepository | None = None,
+) -> TestClient:
     router = APIRouter()
-    MealPlanController(repository, users or _users(), router)
+    MealPlanController(repository, kitchens, router)
+    KitchenController(kitchens, users or _users(), router)
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_current_user] = lambda: TokenPayload(sub=caller, email="n@example.com", exp=9999999999)
@@ -59,8 +77,23 @@ def _app(repository: InMemoryMealPlanRepository, caller: str = OWNER, users: InM
 
 
 @pytest.fixture
-def client(repository: InMemoryMealPlanRepository) -> TestClient:
-    return _app(repository)
+def client(repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> TestClient:
+    return _app(repository, kitchens)
+
+
+def _share_a_kitchen(repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> tuple[TestClient, TestClient]:
+    """Nel invites Martina and she accepts. Returns both clients.
+
+    The setup almost every test below wants, because the interesting assertions
+    are about what happens *after* two people share one week — and the invitation
+    dance itself is tested once, in `TestTheKitchen`.
+    """
+    nel = _app(repository, kitchens)
+    martina = _app(repository, kitchens, caller=SOMEONE_ELSE)
+    assert nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE}).status_code == 201
+    kitchen_id = martina.get("/kitchen").json()["invitations"][0]["kitchen_id"]
+    assert martina.patch(f"/kitchen/invitations/{kitchen_id}", json={"accept": True}).status_code == 200
+    return nel, martina
 
 
 def _assign(client: TestClient, *, day: date = SATURDAY, meal: str = "dinner", name: str = "Lentejas", servings: int = 4) -> dict:
@@ -101,10 +134,36 @@ class TestTheWeekView:
 
         assert plan["week_start"] == SATURDAY.isoformat()
 
-    def test_a_plan_is_not_visible_to_anyone_else(self, repository: InMemoryMealPlanRepository) -> None:
-        _assign(_app(repository))
+    def test_a_plan_is_not_visible_to_anyone_else(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        _assign(_app(repository, kitchens))
 
-        assert _app(repository, caller=SOMEONE_ELSE).get("/plans", params={"day": SATURDAY.isoformat()}).json() is None
+        assert _app(repository, kitchens, caller=SOMEONE_ELSE).get("/plans", params={"day": SATURDAY.isoformat()}).json() is None
+
+
+class TestAskingForAWeek:
+    """`GET /plans` takes a day *or* a plan id, and exactly one of them.
+
+    One route rather than two because `/plans/{plan_id}` would sit beside the
+    literal `/plans/archive` on an API Gateway that matches exactly — the hazard
+    the stack file names. So the choice moves into a query parameter, and the
+    server refuses the ambiguous shapes rather than picking one.
+    """
+
+    def test_neither_is_refused(self, client: TestClient) -> None:
+        assert client.get("/plans").status_code == 422
+
+    def test_both_at_once_is_refused(self, client: TestClient) -> None:
+        plan = _assign(client)
+
+        assert client.get("/plans", params={"day": SATURDAY.isoformat(), "plan_id": plan["id"]}).status_code == 422
+
+    def test_a_week_by_id_is_the_same_week(self, client: TestClient) -> None:
+        plan = _assign(client)
+
+        assert client.get("/plans", params={"plan_id": plan["id"]}).json()["id"] == plan["id"]
+
+    def test_a_missing_id_is_a_404(self, client: TestClient) -> None:
+        assert client.get("/plans", params={"plan_id": "00000000-0000-0000-0000-000000000000"}).status_code == 404
 
 
 class TestAssigningDishes:
@@ -287,13 +346,13 @@ class TestTheShoppingList:
         assert response.status_code == 200
         assert response.json()["is_checked"] is True
 
-    def test_a_line_from_another_plan_cannot_be_ticked_by_guessing_its_id(self, repository: InMemoryMealPlanRepository) -> None:
-        mine = _app(repository)
+    def test_a_line_from_another_plan_cannot_be_ticked_by_guessing_its_id(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        mine = _app(repository, kitchens)
         plan = _assign(mine)
         plan = mine.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "yogur"}]}).json()
         item = _item(plan, "yogur")
 
-        theirs = _app(repository, caller=SOMEONE_ELSE)
+        theirs = _app(repository, kitchens, caller=SOMEONE_ELSE)
         response = theirs.patch(f"/plans/{plan['id']}/items/{item['id']}", json={"is_checked": True})
 
         assert response.status_code == 403
@@ -439,11 +498,11 @@ class TestTheStateMachineOverHttp:
 
 
 class TestOwnership:
-    def test_someone_elses_plan_cannot_be_written_to(self, repository: InMemoryMealPlanRepository) -> None:
-        plan = _assign(_app(repository))
+    def test_someone_elses_plan_cannot_be_written_to(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        plan = _assign(_app(repository, kitchens))
         entry = _entry(plan, "Lentejas")
 
-        theirs = _app(repository, caller=SOMEONE_ELSE)
+        theirs = _app(repository, kitchens, caller=SOMEONE_ELSE)
 
         assert theirs.delete(f"/plans/{plan['id']}/entries/{entry['id']}").status_code == 403
         assert theirs.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "x"}]}).status_code == 403
@@ -455,155 +514,331 @@ class TestOwnership:
         assert client.post(f"/plans/{missing}/status", json={"from_status": "planning"}).status_code == 404
 
 
-class TestSharing:
-    """Read-and-tick, and nothing else (§4.3).
+class TestTheKitchen:
+    """Two people, one week (§8.12).
 
-    The scenario the feature exists for: Martina plans the week and you both
-    shop. So the tests that matter most are the negative ones — a guest must be
-    able to tick a line and must *not* be able to move Wednesday's dinner. A
-    sharing feature that is slightly too permissive is indistinguishable from a
-    working one until someone else's week gets rearranged.
+    The feature replaced sharing, and the tests that matter most are the ones
+    that would have *failed* under sharing: Martina moving Wednesday's dinner,
+    Martina adding to the list, Martina closing the week. A shared planner where
+    one person is quietly less able than the other is the exact problem this was
+    built to remove, and it is invisible until somebody tries.
     """
 
-    def _shared_plan(self, repository: InMemoryMealPlanRepository) -> dict:
-        owner = _app(repository)
-        plan = _assign(owner)
-        response = owner.post(f"/plans/{plan['id']}/shares", json={"display_name": "Martina"})
-        assert response.status_code == 201, response.text
-        return response.json()
+    def test_everybody_has_a_kitchen_without_asking_for_one(self, client: TestClient) -> None:
+        """Living alone is a household too. There is no "not in a kitchen yet"
+        state for the rest of the app to branch on."""
+        view = client.get("/kitchen").json()
 
-    def test_sharing_names_the_guest(self, repository: InMemoryMealPlanRepository) -> None:
-        plan = self._shared_plan(repository)
+        assert [m["display_name"] for m in view["kitchen"]["members"]] == ["Nel"]
+        assert view["invitations"] == []
 
-        assert [g["display_name"] for g in plan["shared_with"]] == ["Martina"]
+    def test_the_same_kitchen_comes_back_every_time(self, client: TestClient) -> None:
+        """Lazy creation that ran twice would put somebody in a fresh household
+        on every page load, taking their week with it."""
+        first = client.get("/kitchen").json()["kitchen"]["id"]
 
-    def test_a_guest_sees_the_week_under_shared_not_under_their_own(self, repository: InMemoryMealPlanRepository) -> None:
-        """You can have your own week *and* be a guest on someone else's, so the
-        two must not be served from the same place."""
-        self._shared_plan(repository)
-        guest = _app(repository, caller=SOMEONE_ELSE)
+        assert client.get("/kitchen").json()["kitchen"]["id"] == first
 
-        assert guest.get("/plans", params={"day": SATURDAY.isoformat()}).json() is None
-        assert len(guest.get("/plans/shared", params={"day": SATURDAY.isoformat()}).json()) == 1
+    def test_an_invitation_waits_to_be_answered(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """Joining is a *move* — she leaves her own kitchen — so it cannot happen
+        because somebody typed her name."""
+        nel = _app(repository, kitchens)
+        nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE})
 
-    def test_a_guest_can_tick_a_line(self, repository: InMemoryMealPlanRepository) -> None:
-        """The one write sharing grants, and the whole point of it: you are in
-        the shop holding someone else's list."""
-        plan = self._shared_plan(repository)
-        owner = _app(repository)
-        plan = owner.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "yogur"}]}).json()
+        martina = _app(repository, kitchens, caller=SOMEONE_ELSE)
+        view = martina.get("/kitchen").json()
+
+        assert [m["display_name"] for m in view["kitchen"]["members"]] == ["Martina"], "still in her own"
+        assert [i["invited_by_name"] for i in view["invitations"]] == ["Nel"]
+
+    def test_an_invitation_grants_nothing_until_it_is_answered(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """Pending is not membership. If it were, inviting somebody would hand
+        them the week before they agreed to anything."""
+        nel = _app(repository, kitchens)
+        plan = _assign(nel)
+        nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE})
+
+        martina = _app(repository, kitchens, caller=SOMEONE_ELSE)
+
+        assert martina.get("/plans", params={"day": SATURDAY.isoformat()}).json() is None
+        assert martina.get("/plans/archive", params={"year": 2026}).json() == []
+        assert martina.get("/plans", params={"plan_id": plan["id"]}).status_code == 403
+
+    def test_an_invitation_names_who_is_already_in_it(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """The honest question to answer before accepting is whose kitchen it
+        is, not only who sent the invitation."""
+        _app(repository, kitchens).post("/kitchen/members", json={"user_id": SOMEONE_ELSE})
+
+        invite = _app(repository, kitchens, caller=SOMEONE_ELSE).get("/kitchen").json()["invitations"][0]
+
+        assert [m["display_name"] for m in invite["members"]] == ["Nel"]
+
+    def test_accepting_puts_both_of_them_in_one_kitchen(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        nel, martina = _share_a_kitchen(repository, kitchens)
+
+        assert nel.get("/kitchen").json()["kitchen"]["id"] == martina.get("/kitchen").json()["kitchen"]["id"]
+        assert [m["display_name"] for m in nel.get("/kitchen").json()["kitchen"]["members"]] == ["Martina", "Nel"]
+
+    def test_accepting_leaves_the_kitchen_she_was_in(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """One active kitchen per person. Two would mean two answers to "which
+        week am I planning?", and the planner would have to pick."""
+        before = _app(repository, kitchens, caller=SOMEONE_ELSE).get("/kitchen").json()["kitchen"]["id"]
+        _, martina = _share_a_kitchen(repository, kitchens)
+
+        assert martina.get("/kitchen").json()["kitchen"]["id"] != before
+
+    def test_declining_leaves_everything_where_it_was(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        nel = _app(repository, kitchens)
+        martina = _app(repository, kitchens, caller=SOMEONE_ELSE)
+        hers = martina.get("/kitchen").json()["kitchen"]["id"]
+        nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE})
+        theirs = martina.get("/kitchen").json()["invitations"][0]["kitchen_id"]
+
+        after = martina.patch(f"/kitchen/invitations/{theirs}", json={"accept": False}).json()
+
+        assert after["kitchen"]["id"] == hers
+        assert after["invitations"] == []
+        assert nel.get("/kitchen").json()["kitchen"]["pending"] == []
+
+    def test_the_week_is_the_same_week_for_both_of_them(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """The whole point. Under sharing these were two plans and two lists."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        planned = _assign(nel)
+
+        assert martina.get("/plans", params={"day": SATURDAY.isoformat()}).json()["id"] == planned["id"]
+
+    def test_she_can_move_wednesdays_dinner(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """The single most important test in this file: it is exactly what
+        read-and-tick sharing forbade."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        plan = _assign(nel)
+        entry = _entry(plan, "Lentejas")
+
+        assert martina.delete(f"/plans/{plan['id']}/entries/{entry['id']}").status_code == 200
+        assert _assign(martina, name="Tortilla")["entries"][0]["dish_name"] == "Tortilla"
+
+    def test_she_can_add_to_the_list_tick_it_and_close_the_week(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        plan = _assign(nel)
+
+        plan = martina.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "yogur"}]}).json()
         item = _item(plan, "yogur")
 
-        guest = _app(repository, caller=SOMEONE_ELSE)
-        response = guest.patch(f"/plans/{plan['id']}/items/{item['id']}", json={"is_checked": True})
+        assert martina.patch(f"/plans/{plan['id']}/items/{item['id']}", json={"is_checked": True}).status_code == 200
+        assert martina.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"}).status_code == 200
 
-        assert response.status_code == 200
-        assert response.json()["is_checked"] is True
+    def test_her_list_line_says_it_was_hers(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """Attribution, not permission. Either of them can remove it; only one of
+        them put it there, and a shared list cannot say so without this."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        _assign(nel)
+        martina.post("/plans/items", json={"day": SATURDAY.isoformat(), "items": [{"name": "azucar"}]})
 
-    def test_a_guest_cannot_change_the_dishes(self, repository: InMemoryMealPlanRepository) -> None:
-        plan = self._shared_plan(repository)
-        entry = _entry(plan, "Lentejas")
-        guest = _app(repository, caller=SOMEONE_ELSE)
+        plan = nel.get("/plans", params={"day": SATURDAY.isoformat()}).json()
 
-        assert guest.delete(f"/plans/{plan['id']}/entries/{entry['id']}").status_code == 403
+        assert _item(plan, "azucar")["created_by_name"] == "Martina"
 
-    def test_a_guest_cannot_add_to_the_list_or_close_the_week(self, repository: InMemoryMealPlanRepository) -> None:
-        """Read *and tick*. Adding an extra and closing the week are the owner's,
-        and both would otherwise be easy to grant by accident — they run through
-        the same handlers ticking does."""
-        plan = self._shared_plan(repository)
-        guest = _app(repository, caller=SOMEONE_ELSE)
+    def test_her_dish_says_it_was_hers(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        _assign(nel, meal="lunch", name="Ensalada")
+        _assign(martina, meal="dinner", name="Lentejas")
 
-        assert guest.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "fruta"}]}).status_code == 403
-        assert guest.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"}).status_code == 403
+        plan = nel.get("/plans", params={"day": SATURDAY.isoformat()}).json()
 
-    def test_a_guest_cannot_reshare(self, repository: InMemoryMealPlanRepository) -> None:
-        """Otherwise a guest could hand the week to anyone, and the owner would
-        not be the one who decided."""
-        plan = self._shared_plan(repository)
-        guest = _app(repository, caller=SOMEONE_ELSE)
+        assert {e["dish_name"]: e["created_by_name"] for e in plan["entries"]} == {"Ensalada": "Nel", "Lentejas": "Martina"}
 
-        assert guest.post(f"/plans/{plan['id']}/shares", json={"display_name": "Nel"}).status_code == 403
+    def test_reassigning_a_slot_moves_the_attribution_too(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """The slot is the identity, so whoever set what is in it now is whose it
+        is. Keeping the first name would credit her with his dish."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        _assign(nel, name="Lentejas")
 
-    def test_a_stranger_sees_nothing(self, repository: InMemoryMealPlanRepository) -> None:
-        self._shared_plan(repository)
+        assert _assign(martina, name="Tortilla")["entries"][0]["created_by_name"] == "Martina"
+
+    def test_a_line_two_people_contributed_to_keeps_the_first_name(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """ "Who put this on the list" happened once. The merge adds a quantity,
+        not a second authorship."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        plan = _assign(nel)
+        nel.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "cebolla", "amount": 2}]})
+        plan = martina.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "cebolla", "amount": 3}]}).json()
+
+        line = _item(plan, "cebolla")
+
+        assert (line["total_amount"], line["created_by_name"]) == (5, "Nel")
+
+    def test_another_kitchen_is_still_a_wall(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """Membership widened who may write; it did not widen it to everybody."""
+        plan = _assign(_app(repository, kitchens))
         users = _users()
         users.add("user-stranger", "s@example.com", "Stranger")
-        stranger = _app(repository, caller="user-stranger", users=users)
+        stranger = _app(repository, kitchens, caller="user-stranger", users=users)
 
-        assert stranger.get("/plans/shared", params={"day": SATURDAY.isoformat()}).json() == []
+        assert stranger.get("/plans", params={"plan_id": plan["id"]}).status_code == 403
+        assert stranger.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "x"}]}).status_code == 403
 
-    def test_sharing_twice_is_a_double_tap_not_an_error(self, repository: InMemoryMealPlanRepository) -> None:
-        plan = self._shared_plan(repository)
-        owner = _app(repository)
+    def test_inviting_the_same_person_twice_is_a_double_tap(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        nel = _app(repository, kitchens)
+        nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE})
 
-        again = owner.post(f"/plans/{plan['id']}/shares", json={"display_name": "Martina"})
+        again = nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE})
 
         assert again.status_code == 201
-        assert len(again.json()["shared_with"]) == 1
+        assert len(again.json()["pending"]) == 1
 
-    def test_the_name_is_matched_the_way_people_type_it(self, repository: InMemoryMealPlanRepository) -> None:
-        """Failing to find someone you can see in the app reads as the feature
-        being broken, not as a typo."""
-        owner = _app(repository)
-        plan = _assign(owner)
-
-        response = owner.post(f"/plans/{plan['id']}/shares", json={"display_name": "  martina "})
-
-        assert response.status_code == 201
-
-    def test_an_unknown_name_says_so(self, repository: InMemoryMealPlanRepository) -> None:
-        owner = _app(repository)
-        plan = _assign(owner)
-
-        response = owner.post(f"/plans/{plan['id']}/shares", json={"display_name": "Nobody"})
+    def test_inviting_somebody_who_is_gone_says_so(self, client: TestClient) -> None:
+        """Only reachable from a picker drawn before they left, so the message
+        has to explain a list that was right a minute ago."""
+        response = client.post("/kitchen/members", json={"user_id": "user-ghost"})
 
         assert response.status_code == 404
-        assert "Nobody" in response.json()["detail"], "the message has to name who wasn't found to be actionable"
+        assert "no longer" in response.json()["detail"]
 
-    def test_sharing_with_yourself_is_rejected(self, repository: InMemoryMealPlanRepository) -> None:
-        """It would grant nothing and then render you in your own guest list."""
-        owner = _app(repository)
-        plan = _assign(owner)
+    def test_inviting_yourself_is_rejected(self, client: TestClient) -> None:
+        assert client.post("/kitchen/members", json={"user_id": OWNER}).status_code == 422
 
-        assert owner.post(f"/plans/{plan['id']}/shares", json={"display_name": "Nel"}).status_code == 422
+    def test_inviting_somebody_already_here_is_rejected(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """Absorbing it would render her as a pending invitation sitting next to
+        her own member row."""
+        nel, _ = _share_a_kitchen(repository, kitchens)
 
-    def test_unsharing_takes_the_access_away(self, repository: InMemoryMealPlanRepository) -> None:
-        plan = self._shared_plan(repository)
-        owner = _app(repository)
+        assert nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE}).status_code == 422
 
-        after = owner.delete(f"/plans/{plan['id']}/shares/{SOMEONE_ELSE}")
+    def test_an_invitation_can_be_withdrawn(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """Undoing an invitation you sent is undoing your own action, not acting
+        on somebody else — which is why this one exception to the rule below is
+        not really one."""
+        nel = _app(repository, kitchens)
+        nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE})
 
-        assert after.json()["shared_with"] == []
-        guest = _app(repository, caller=SOMEONE_ELSE)
-        assert guest.get("/plans/shared", params={"day": SATURDAY.isoformat()}).json() == []
+        after = nel.request("DELETE", f"/kitchen/members/{SOMEONE_ELSE}")
 
-    def test_a_removed_guest_can_no_longer_tick(self, repository: InMemoryMealPlanRepository) -> None:
-        """The access has to be gone for writes too, not only for the listing —
-        a guest who kept the plan id would otherwise still reach the list."""
-        plan = self._shared_plan(repository)
-        owner = _app(repository)
-        plan = owner.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "yogur"}]}).json()
-        item = _item(plan, "yogur")
-        owner.delete(f"/plans/{plan['id']}/shares/{SOMEONE_ELSE}")
+        assert after.status_code == 200
+        assert after.json()["pending"] == []
+        assert _app(repository, kitchens, caller=SOMEONE_ELSE).get("/kitchen").json()["invitations"] == []
 
-        guest = _app(repository, caller=SOMEONE_ELSE)
+    def test_nobody_can_be_removed_by_anybody_but_themselves(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """With no owner and no admin, an eject button would have to invent one —
+        and "we live together" should not have a person who can end it
+        unilaterally from inside the app."""
+        nel, _ = _share_a_kitchen(repository, kitchens)
 
-        assert guest.patch(f"/plans/{plan['id']}/items/{item['id']}", json={"is_checked": True}).status_code == 403
+        assert nel.request("DELETE", f"/kitchen/members/{SOMEONE_ELSE}").status_code == 403
 
-    def test_a_guest_cannot_tick_an_archived_week(self, repository: InMemoryMealPlanRepository) -> None:
-        """Sharing grants the TICK action, not an exemption from the state
-        machine — a closed week is closed for everyone."""
-        plan = self._shared_plan(repository)
-        owner = _app(repository)
-        plan = owner.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "yogur"}]}).json()
-        item = _item(plan, "yogur")
-        owner.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
-        owner.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed"})
+    def test_leaving_puts_you_in_a_kitchen_of_your_own(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        shared = nel.get("/kitchen").json()["kitchen"]["id"]
 
-        guest = _app(repository, caller=SOMEONE_ELSE)
+        after = martina.request("DELETE", f"/kitchen/members/{SOMEONE_ELSE}").json()
 
-        assert guest.patch(f"/plans/{plan['id']}/items/{item['id']}", json={"is_checked": True}).status_code == 409
+        assert after["id"] != shared
+        assert [m["display_name"] for m in after["members"]] == ["Martina"]
+        assert [m["display_name"] for m in nel.get("/kitchen").json()["kitchen"]["members"]] == ["Nel"]
+
+    def test_leaving_a_kitchen_you_are_alone_in_is_refused(self, client: TestClient) -> None:
+        """It would create a second empty household and move nothing. Refused
+        rather than absorbed, because the button should not be on screen and a
+        silent success would hide that it is."""
+        assert client.request("DELETE", f"/kitchen/members/{OWNER}").status_code == 422
+
+    def test_the_week_she_leaves_behind_is_no_longer_hers_to_write(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        plan = _assign(nel)
+        martina.request("DELETE", f"/kitchen/members/{SOMEONE_ELSE}")
+
+        assert martina.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "x"}]}).status_code == 403
+
+    def test_the_week_she_leaves_behind_is_still_hers_to_read(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """Moving out does not delete what you ate last August (§8.12). This is
+        the one case where reading is wider than writing."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        plan = _assign(nel)
+        martina.request("DELETE", f"/kitchen/members/{SOMEONE_ELSE}")
+
+        assert martina.get("/plans", params={"plan_id": plan["id"]}).json()["id"] == plan["id"]
+        assert [w["id"] for w in martina.get("/plans/archive", params={"year": 2026}).json()] == [plan["id"]]
+
+    def test_she_can_be_invited_back(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """Rejoining reuses the row she left behind rather than stacking a second
+        one — which is what keeps "was she ever here?" a single-row question."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        shared = nel.get("/kitchen").json()["kitchen"]["id"]
+        martina.request("DELETE", f"/kitchen/members/{SOMEONE_ELSE}")
+
+        nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE})
+        martina.patch(f"/kitchen/invitations/{shared}", json={"accept": True})
+
+        assert martina.get("/kitchen").json()["kitchen"]["id"] == shared
+
+    def test_an_invitation_addressed_to_somebody_else_cannot_be_accepted(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        nel = _app(repository, kitchens)
+        nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE})
+        theirs = nel.get("/kitchen").json()["kitchen"]["id"]
+
+        users = _users()
+        users.add("user-stranger", "s@example.com", "Stranger")
+        stranger = _app(repository, kitchens, caller="user-stranger", users=users)
+
+        assert stranger.patch(f"/kitchen/invitations/{theirs}", json={"accept": True}).status_code == 404
+
+
+class TestWhoYouCanInvite:
+    """The list the invite picker draws (§8.12).
+
+    Inviting used to mean typing a display name exactly, which made "Martina"
+    and "martina" and "Marina" three different outcomes. This list is what
+    replaced that, so what matters is that it is *already correct* — everybody
+    on it can be invited, and tapping any row works.
+    """
+
+    def _people(self, client: TestClient) -> list[str]:
+        response = client.get("/kitchen/people")
+        assert response.status_code == 200
+        return [person["display_name"] for person in response.json()]
+
+    def test_it_offers_the_others(self, client: TestClient) -> None:
+        assert self._people(client) == ["Martina"]
+
+    def test_it_never_offers_you(self, client: TestClient) -> None:
+        """Inviting yourself is the one row that could only ever error."""
+        assert "Nel" not in self._people(client)
+
+    def test_it_drops_somebody_already_asked(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        nel = _app(repository, kitchens)
+        nel.post("/kitchen/members", json={"user_id": SOMEONE_ELSE})
+
+        assert self._people(nel) == []
+
+    def test_it_drops_somebody_already_here(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        nel, _ = _share_a_kitchen(repository, kitchens)
+
+        assert self._people(nel) == []
+
+    def test_it_leaves_out_people_who_have_not_chosen_a_name(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """NULL means "still signing up". A blank row cannot be picked, and
+        rendering their id instead would be worse than leaving them out."""
+        users = _users()
+        users.ensure_user("user-nameless", "nameless@example.com")
+
+        assert self._people(_app(repository, kitchens, users=users)) == ["Martina"]
+
+    def test_it_is_in_name_order(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """A list you scan for a name has to be scannable by name."""
+        users = _users()
+        users.add("user-ana", "ana@example.com", "ana")
+        users.add("user-zoe", "zoe@example.com", "Zoe")
+
+        assert self._people(_app(repository, kitchens, users=users)) == ["ana", "Martina", "Zoe"]
+
+    def test_it_hands_out_no_email_addresses(self, client: TestClient) -> None:
+        """The only place this app shows somebody else's account. A name and an
+        id are what the picker needs; an address is not."""
+        assert set(client.get("/kitchen/people").json()[0]) == {"id", "display_name"}
+
+    def test_every_row_it_offers_can_actually_be_invited(self, client: TestClient) -> None:
+        """The point of the list: no row on it is a dead end."""
+        for person in client.get("/kitchen/people").json():
+            assert client.post("/kitchen/members", json={"user_id": person["id"]}).status_code == 201
 
 
 class TestTheArchive:
@@ -628,7 +863,6 @@ class TestTheArchive:
         archive = client.get("/plans/archive", params={"year": 2026}).json()
 
         assert [w["week_start"] for w in archive] == [SATURDAY.isoformat()]
-        assert archive[0]["is_mine"] is True
 
     def test_weeks_come_back_newest_first(self, client: TestClient) -> None:
         """The archive is read backwards from now, not forwards from January."""
@@ -688,36 +922,32 @@ class TestTheArchive:
         assert len(client.get("/plans/archive", params={"year": 2025}).json()) == 1
         assert client.get("/plans/archive", params={"year": 2026}).json() == []
 
-    def test_a_shared_week_appears_but_is_not_mine(self, repository: InMemoryMealPlanRepository) -> None:
-        owner = _app(repository)
-        plan = _assign(owner)
-        owner.post(f"/plans/{plan['id']}/shares", json={"display_name": "Martina"})
+    def test_the_kitchens_weeks_are_both_peoples_archive(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """No `is_mine` flag any more, and nothing to put one on: a week planned
+        in your kitchen is your week, whichever of you filled it in."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        _assign(nel, day=SATURDAY)
 
-        guest = _app(repository, caller=SOMEONE_ELSE)
-        archive = guest.get("/plans/archive", params={"year": 2026}).json()
+        assert [w["week_start"] for w in martina.get("/plans/archive", params={"year": 2026}).json()] == [SATURDAY.isoformat()]
 
-        assert len(archive) == 1
-        assert archive[0]["is_mine"] is False
-        assert archive[0]["owner_name"] == "Nel", "a shared week has to say whose it is"
+    def test_weeks_from_a_kitchen_she_left_stay_in_her_archive(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """Both halves of §8.12's promise in one place: the old week keeps its
+        place in the record, and the new kitchen's week arrives alongside it."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        together = _assign(nel, day=SATURDAY)
+        martina.request("DELETE", f"/kitchen/members/{SOMEONE_ELSE}")
+        alone = _assign(martina, day=date(2026, 9, 14))
 
-    def test_your_own_and_a_shared_week_both_appear(self, repository: InMemoryMealPlanRepository) -> None:
-        owner = _app(repository)
-        theirs = _assign(owner, day=SATURDAY)
-        owner.post(f"/plans/{theirs['id']}/shares", json={"display_name": "Martina"})
+        archive = martina.get("/plans/archive", params={"year": 2026}).json()
 
-        guest = _app(repository, caller=SOMEONE_ELSE)
-        _assign(guest, day=date(2026, 9, 14))
+        assert [w["id"] for w in archive] == [alone["id"], together["id"]], "newest first, across both kitchens"
 
-        archive = guest.get("/plans/archive", params={"year": 2026}).json()
-
-        assert [w["is_mine"] for w in archive] == [True, False], "newest first, and each flagged correctly"
-
-    def test_a_strangers_week_is_invisible(self, repository: InMemoryMealPlanRepository) -> None:
-        _assign(_app(repository))
+    def test_a_strangers_week_is_invisible(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        _assign(_app(repository, kitchens))
         users = _users()
         users.add("user-stranger", "s@example.com", "Stranger")
 
-        stranger = _app(repository, caller="user-stranger", users=users)
+        stranger = _app(repository, kitchens, caller="user-stranger", users=users)
 
         assert stranger.get("/plans/archive", params={"year": 2026}).json() == []
 
