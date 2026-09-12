@@ -8,15 +8,14 @@ from src.app.use_cases import (
     AdvancePlan,
     AssignDish,
     DropEntryFromList,
+    GetPlan,
     GetPlanArchive,
     GetPlanForWeek,
-    GetSharedPlans,
     RemoveDish,
     RemoveListItem,
-    SharePlan,
     TickItem,
-    UnsharePlan,
 )
+from src.app.use_cases.kitchen_access import current_kitchen
 from src.domain.entities import (
     ListItemSource,
     Meal,
@@ -27,24 +26,29 @@ from src.domain.entities import (
     PlanSummary,
     ShoppingListItem,
 )
-from src.domain.ports import MealPlanRepository, UserRepository
+from src.domain.ports import KitchenRepository, MealPlanRepository
 from src.infra.controllers.schemas import (
     AddToListRequest,
     AddToWeekListRequest,
     AdvancePlanRequest,
     AssignDishRequest,
-    SharePlanRequest,
     TickItemRequest,
 )
 from src.infra.security import TokenPayload, get_current_user
 
 
 class MealPlanController:
-    def __init__(self, meal_plan_repository: MealPlanRepository, user_repository: UserRepository, router: APIRouter) -> None:
+    """Eight paths. Every write is scoped to the caller's kitchen (§8.12).
+
+    The kitchen is resolved once per request here rather than inside each use
+    case, so the planner's use cases stay about plans and take a kitchen id the
+    way they used to take an owner id. Resolving it also *creates* it on first
+    use, which is why no route has to handle "you have no kitchen yet".
+    """
+
+    def __init__(self, meal_plan_repository: MealPlanRepository, kitchen_repository: KitchenRepository, router: APIRouter) -> None:
         self.meal_plan_repository = meal_plan_repository
-        # Sharing resolves a display name to a user, which is the only reason
-        # this controller needs the user repository at all.
-        self.user_repository = user_repository
+        self.kitchen_repository = kitchen_repository
         self.router = router
         self._register_routes()
 
@@ -56,8 +60,12 @@ class MealPlanController:
             self.get_week,
             methods=["GET"],
             response_model=MealPlan | None,
-            summary="Get the plan for a week",
-            description="Returns the caller's plan for the week containing `day`, or null if they haven't planned it. Null is a normal answer — most weeks have no plan.",
+            summary="Get a week, by date or by id",
+            description=(
+                "With `day`: the caller's kitchen's plan for that week, or null if nobody has planned it — null is a normal answer. "
+                "With `plan_id`: that exact week, which is how the archive links to weeks from a kitchen the caller has since left. "
+                "Exactly one of the two."
+            ),
             **common,
         )
         self.router.add_api_route(
@@ -116,39 +124,12 @@ class MealPlanController:
             **common,
         )
         self.router.add_api_route(
-            "/plans/shared",
-            self.get_shared,
-            methods=["GET"],
-            response_model=list[MealPlan],
-            summary="Weeks other people have shared with you",
-            description="A list, not one plan: you can have your own week and be a guest on someone else's, and picking between them would be a guess.",
-            **common,
-        )
-        self.router.add_api_route(
             "/plans/archive",
             self.get_archive,
             methods=["GET"],
             response_model=list[PlanSummary],
             summary="Weeks planned in a year",
-            description="Summaries, newest first — enough to list a week, not enough to render it. Includes weeks shared with the caller, flagged by `is_mine`.",
-            **common,
-        )
-        self.router.add_api_route(
-            "/plans/{plan_id}/shares",
-            self.share,
-            methods=["POST"],
-            response_model=MealPlan,
-            status_code=status.HTTP_201_CREATED,
-            summary="Share a week with someone",
-            description="Read and tick only (§4.3). Idempotent — sharing twice with the same person is a double tap, not an error.",
-            **common,
-        )
-        self.router.add_api_route(
-            "/plans/{plan_id}/shares/{guest_id}",
-            self.unshare,
-            methods=["DELETE"],
-            response_model=MealPlan,
-            summary="Stop sharing a week",
+            description="Summaries, newest first — enough to list a week, not enough to render it. Covers every kitchen the caller has ever been in.",
             **common,
         )
         self.router.add_api_route(
@@ -177,6 +158,9 @@ class MealPlanController:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
         raise error
 
+    def _kitchen_id(self, user_id: str) -> str:
+        return current_kitchen(self.kitchen_repository, user_id).id
+
     def _reload(self, plan_id: str) -> MealPlan:
         """Re-read the whole plan after a write.
 
@@ -184,7 +168,8 @@ class MealPlanController:
         one write can move several parts — removing a dish can delete list lines,
         and adding one can merge into an existing line. A client patching its own
         copy from a partial response would drift; re-reading is one round trip
-        and cannot.
+        and cannot. In a shared kitchen it does a second job: the response also
+        carries whatever the other person changed in the meantime.
         """
         plan = self.meal_plan_repository.get_plan(plan_id)
         if plan is None:
@@ -195,43 +180,30 @@ class MealPlanController:
 
     def get_week(
         self,
-        day: date = Query(description="Any day in the week you want; the plan is keyed to that week's Saturday (weeks run Sat→Fri)"),
+        day: date | None = Query(default=None, description="Any day in the week you want; the plan is keyed to that week's Saturday (weeks run Sat→Fri)"),
+        plan_id: str | None = Query(default=None, description="A specific week by id, for archive links to kitchens you have left"),
         current_user: TokenPayload = Depends(get_current_user),
     ) -> MealPlan | None:
-        return GetPlanForWeek(self.meal_plan_repository).execute(current_user.sub, day)
-
-    def get_shared(
-        self,
-        day: date = Query(description="Any day in the week you want"),
-        current_user: TokenPayload = Depends(get_current_user),
-    ) -> list[MealPlan]:
-        return GetSharedPlans(self.meal_plan_repository).execute(current_user.sub, day)
+        if (day is None) == (plan_id is None):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Pass exactly one of day or plan_id")
+        if plan_id is not None:
+            # By id reads wider than by date: a kitchen you have left still owes
+            # you its archive (§8.12), so this asks every kitchen you have been in.
+            try:
+                return GetPlan(self.meal_plan_repository).execute(self.kitchen_repository.kitchen_ids_for(current_user.sub), plan_id)
+            except (PermissionError, KeyError) as e:
+                self._raise(e)
+        return GetPlanForWeek(self.meal_plan_repository).execute(self._kitchen_id(current_user.sub), day)
 
     def get_archive(
         self,
         year: int = Query(ge=2000, le=2200, description="A week belongs to the year its Saturday falls in"),
         current_user: TokenPayload = Depends(get_current_user),
     ) -> list[PlanSummary]:
-        return GetPlanArchive(self.meal_plan_repository).execute(current_user.sub, year)
-
-    def share(self, plan_id: str, request: SharePlanRequest, current_user: TokenPayload = Depends(get_current_user)) -> MealPlan:
-        try:
-            return SharePlan(self.meal_plan_repository, self.user_repository).execute(current_user.sub, plan_id, request.display_name)
-        except LookupError as e:
-            # 404 on the *person*, distinct from a 404 on the plan. The message
-            # is the whole value here: "nobody here is called X" is actionable,
-            # "not found" sends someone looking at the wrong thing.
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-        except (PermissionError, PlanStateError, KeyError, ValueError) as e:
-            self._raise(e)
-            raise  # pragma: no cover — _raise always raises
-
-    def unshare(self, plan_id: str, guest_id: str, current_user: TokenPayload = Depends(get_current_user)) -> MealPlan:
-        try:
-            return UnsharePlan(self.meal_plan_repository).execute(current_user.sub, plan_id, guest_id)
-        except (PermissionError, PlanStateError, KeyError, ValueError) as e:
-            self._raise(e)
-            raise  # pragma: no cover — _raise always raises
+        # Resolved first so somebody opening the archive before the planner still
+        # has a kitchen; every id they have ever been in then follows.
+        self._kitchen_id(current_user.sub)
+        return GetPlanArchive(self.meal_plan_repository).execute(self.kitchen_repository.kitchen_ids_for(current_user.sub), year)
 
     def assign_dish(self, request: AssignDishRequest, current_user: TokenPayload = Depends(get_current_user)) -> MealPlan:
         entry = PlanEntry(
@@ -240,9 +212,10 @@ class MealPlanController:
             recipe_id=request.recipe_id,
             dish_name=request.dish_name,
             servings=request.servings,
+            created_by=current_user.sub,
         )
         try:
-            plan, _ = AssignDish(self.meal_plan_repository).execute(current_user.sub, entry)
+            plan, _ = AssignDish(self.meal_plan_repository).execute(self._kitchen_id(current_user.sub), entry)
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
         return self._reload(plan.id)
@@ -257,13 +230,14 @@ class MealPlanController:
         ),
         current_user: TokenPayload = Depends(get_current_user),
     ) -> MealPlan:
+        kitchen_id = self._kitchen_id(current_user.sub)
         try:
             # Order matters: the sources have to be unpicked while the entry
             # still exists, because deleting it sets their entry_id to NULL and
             # they become indistinguishable from manual extras.
             if drop_from_list:
-                DropEntryFromList(self.meal_plan_repository).execute(current_user.sub, plan_id, entry_id)
-            RemoveDish(self.meal_plan_repository).execute(current_user.sub, plan_id, entry_id)
+                DropEntryFromList(self.meal_plan_repository).execute(kitchen_id, plan_id, entry_id)
+            RemoveDish(self.meal_plan_repository).execute(kitchen_id, plan_id, entry_id)
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
         return self._reload(plan_id)
@@ -277,12 +251,13 @@ class MealPlanController:
                 unit=line.unit,
                 total_amount=line.amount,
                 is_manual=request.entry_id is None,
+                created_by=current_user.sub,
                 sources=[ListItemSource(entry_id=request.entry_id, dish_name=source_name, amount=line.amount)] if source_name else [],
             )
             for line in request.items
         ]
         try:
-            AddToList(self.meal_plan_repository).execute(current_user.sub, plan_id, items)
+            AddToList(self.meal_plan_repository).execute(self._kitchen_id(current_user.sub), plan_id, items)
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
         return self._reload(plan_id)
@@ -298,32 +273,35 @@ class MealPlanController:
                 # the whole reason this route exists separately from the one that
                 # takes a plan id.
                 is_manual=True,
+                created_by=current_user.sub,
             )
             for line in request.items
         ]
         try:
-            plan = AddToWeekList(self.meal_plan_repository).execute(current_user.sub, request.day, items)
+            plan = AddToWeekList(self.meal_plan_repository).execute(self._kitchen_id(current_user.sub), current_user.sub, request.day, items)
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
         return self._reload(plan.id)
 
     def tick_item(self, plan_id: str, item_id: str, request: TickItemRequest, current_user: TokenPayload = Depends(get_current_user)) -> ShoppingListItem:
         try:
-            return TickItem(self.meal_plan_repository).execute(current_user.sub, plan_id, item_id, request.is_checked)
+            return TickItem(self.meal_plan_repository).execute(self._kitchen_id(current_user.sub), plan_id, item_id, request.is_checked)
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
             raise  # pragma: no cover — _raise always raises
 
     def remove_item(self, plan_id: str, item_id: str, current_user: TokenPayload = Depends(get_current_user)) -> Response:
         try:
-            RemoveListItem(self.meal_plan_repository).execute(current_user.sub, plan_id, item_id)
+            RemoveListItem(self.meal_plan_repository).execute(self._kitchen_id(current_user.sub), plan_id, item_id)
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     def advance(self, plan_id: str, request: AdvancePlanRequest, current_user: TokenPayload = Depends(get_current_user)) -> MealPlan:
         try:
-            return AdvancePlan(self.meal_plan_repository).execute(current_user.sub, plan_id, PlanStatus(request.from_status), request.carry_over)
+            return AdvancePlan(self.meal_plan_repository).execute(
+                self._kitchen_id(current_user.sub), current_user.sub, plan_id, PlanStatus(request.from_status), request.carry_over
+            )
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
             raise  # pragma: no cover — _raise always raises
