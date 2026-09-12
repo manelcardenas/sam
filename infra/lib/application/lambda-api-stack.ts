@@ -239,11 +239,12 @@ export class LambdaApiStack extends Stack {
 
     // ── Meal planner (docs/plans/meal-planner-plan.md §8) ──────────────────
     //
-    // Seven routes, and the shape is driven partly by this file: HTTP API
+    // Eight routes, and the shape is driven partly by this file: HTTP API
     // matches exactly, so every path costs an entry here. That is why the slot
-    // upsert is one PUT rather than a create/update pair, and why closing the
+    // upsert is one PUT rather than a create/update pair, why closing the
     // calendar and closing the list share one endpoint that takes the status it
-    // is leaving.
+    // is leaving, and why reading one week by id is a query parameter on /plans
+    // rather than a /plans/{plan_id} that would sit next to /plans/archive.
     httpApi.addRoutes({
       path: "/plans",
       methods: [HttpMethod.GET],
@@ -291,18 +292,11 @@ export class LambdaApiStack extends Stack {
       authorizer,
     });
 
-    // Sharing (§4.3). `/plans/shared` is a literal path and there is no
-    // `/plans/{plan_id}` route for it to collide with — HTTP API matches
-    // exactly, so a literal and a greedy sibling would be a real hazard if one
-    // were ever added.
-    httpApi.addRoutes({
-      path: "/plans/shared",
-      methods: [HttpMethod.GET],
-      integration,
-      authorizer,
-    });
-
-    // The year view (§5.3). Literal, like /plans/shared.
+    // The year view (§5.3). A literal path, and there is deliberately no
+    // `/plans/{plan_id}` route for it to sit beside — HTTP API matches exactly,
+    // so a literal and a greedy sibling would be a real hazard. Reading one week
+    // by id is `GET /plans?plan_id=`, on the route already declared above, for
+    // exactly that reason.
     httpApi.addRoutes({
       path: "/plans/archive",
       methods: [HttpMethod.GET],
@@ -311,22 +305,54 @@ export class LambdaApiStack extends Stack {
     });
 
     httpApi.addRoutes({
-      path: "/plans/{plan_id}/shares",
+      path: "/plans/{plan_id}/status",
+      methods: [HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
+    // ── The kitchen (docs/plans/meal-planner-plan.md §8.12) ────────────────
+    //
+    // Five routes, four of them replacing three that had a direction (share,
+    // unshare, and "weeks shared with me"). A week now belongs to a household
+    // rather than to a person, so there is nothing to grant and nothing to
+    // revoke — only invitations, and answers to them. The fifth, /kitchen/people,
+    // is the list the invite picker chooses from; it is a literal path beside
+    // the literal /kitchen/members, so there is no greedy sibling to collide with.
+    httpApi.addRoutes({
+      path: "/kitchen",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/kitchen/members",
       methods: [HttpMethod.POST],
       integration,
       authorizer,
     });
 
     httpApi.addRoutes({
-      path: "/plans/{plan_id}/shares/{guest_id}",
+      path: "/kitchen/people",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    // Leaving, or withdrawing an invitation you sent. The two permitted targets
+    // share one route because they are the same shape; which one you meant is
+    // decided by whether the id is your own.
+    httpApi.addRoutes({
+      path: "/kitchen/members/{user_id}",
       methods: [HttpMethod.DELETE],
       integration,
       authorizer,
     });
 
     httpApi.addRoutes({
-      path: "/plans/{plan_id}/status",
-      methods: [HttpMethod.POST],
+      path: "/kitchen/invitations/{kitchen_id}",
+      methods: [HttpMethod.PATCH],
       integration,
       authorizer,
     });
