@@ -866,6 +866,24 @@ Cost of the whole run: 19 recipes ≈ **$0.015**.
 > resolves to a vocabulary key, which is a dictionary lookup and therefore free. `400g espaguetis`
 > cannot resolve — the amount is inside the name — which is exactly the condition being fixed.
 
+> **Two things the production run taught it, 2026-09-19.**
+>
+> **Partially-structured lines were losing their quantity.** The script sent only `name` to the
+> parser, so `{"name": "azúcar", "amount": 250, "unit": "Gr"}` — one of the two lines in the whole
+> database with the structured fields actually filled — came back as `Azúcar` with no amount. The
+> shorter-output guard is blind to it: the line is still there, just emptier. `as_text()` now
+> reassembles the sentence, using the stored fields **only when the name carries no digit of its
+> own**, because `{"name": "6 huevos", "amount": 6}` is one six written twice.
+>
+> **The dry run is a sample, not a plan.** `--apply` makes a second, independent set of API calls,
+> so what it writes is not what the preview showed. Measured across the two runs twenty seconds
+> apart: `1 sobre` of levadura became `1` in three recipes, Hummus's `1 pot` came back after being
+> dropped, and *Pastel de manzana y vainilla* was rewritten by one run and SKIPPED by the other.
+> None of it was harmful, and all of it was different. The honest fix is for the dry run to persist
+> its parse and `--apply` to replay that file rather than re-ask — **not built**, because this
+> script is near end-of-life: recipes are parsed at capture time now, so it only ever sees the
+> occasional import. Worth an hour the day it runs over a real backlog again.
+
 **Existing shopping lists need no migration at all**, and that falls out of §6.1 rather than being a
 separate decision. The aisle join is on `COALESCE(grocery_key, normalised_name)` — and
 `normalised_name` is *already stored in the vocabulary's key format*, because both come from the same
