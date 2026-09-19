@@ -394,6 +394,11 @@
     "aisle-label": "Aisle",
     "amount": "Amount",
     "back-to-text": "Back to the text",
+    "chars-full": "That's the {{max}}-character limit — anything past it was cut.",
+    "chars-left": {
+      "one": "{{count}} character left",
+      "other": "{{count}} characters left"
+    },
     "did-you-mean": "{{name}}?",
     "from-home": "at home",
     "how-much": "how much?",
@@ -410,6 +415,11 @@
     "invalid-servings": "Servings must be a whole number of 1 or more.",
     "invalid-url": "The source link doesn't look like a valid URL.",
     "invalid-url-inline": "That doesn't look like a valid URL.",
+    "missing-amounts": {
+      "one": "{{count}} ingredient has no amount.",
+      "other": "{{count}} ingredients have no amount."
+    },
+    "missing-amounts-why": "It still saves — but without an amount the recipe can't be scaled, so it says the same thing for 2 people as for 12.",
     "need-an-ingredient": "Add at least one ingredient.",
     "new-item": "new",
     "parse-failed": "We couldn't structure that. Fix it by hand — it still saves.",

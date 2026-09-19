@@ -394,6 +394,11 @@
     "aisle-label": "Pasillo",
     "amount": "Cantidad",
     "back-to-text": "Volver al texto",
+    "chars-full": "Has llegado al límite de {{max}} caracteres — lo que pasara de ahí se ha cortado.",
+    "chars-left": {
+      "one": "Queda {{count}} carácter",
+      "other": "Quedan {{count}} caracteres"
+    },
     "did-you-mean": "¿{{name}}?",
     "from-home": "de casa",
     "how-much": "¿cuánto?",
@@ -410,6 +415,11 @@
     "invalid-servings": "Las raciones deben ser un número entero de 1 o más.",
     "invalid-url": "El enlace de origen no parece una URL válida.",
     "invalid-url-inline": "Eso no parece un URL válido.",
+    "missing-amounts": {
+      "one": "Falta la cantidad en {{count}} ingrediente.",
+      "other": "Falta la cantidad en {{count}} ingredientes."
+    },
+    "missing-amounts-why": "Se guarda igual — pero sin cantidad la receta no se puede escalar, así que dirá lo mismo para 2 personas que para 12.",
     "need-an-ingredient": "Añade al menos un ingrediente.",
     "new-item": "nuevo",
     "parse-failed": "No hemos podido estructurarlo. Revísalo a mano — se guarda igual.",
