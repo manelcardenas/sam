@@ -42,13 +42,22 @@ export function WeekGrid({
 }) {
   const { locale, t } = useI18n();
 
-  const entryAt = (date: string, meal: Meal): PlanEntry | undefined =>
-    plan?.entries.find((e) => e.date === date && e.meal === meal);
+  const entriesAt = (date: string, meal: Meal): PlanEntry[] =>
+    plan?.entries.filter((e) => e.date === date && e.meal === meal) ?? [];
 
-  /** Whether this slot's ingredients ever reached the list — the answer to
-   *  "did I already add this?", which is otherwise invisible until you open it. */
-  const isOnList = (entry: PlanEntry | undefined): boolean =>
-    Boolean(entry && linesFromEntry(plan?.items ?? [], entry).length > 0);
+  /**
+   * How much of this slot has reached the shopping list — the answer to "did I
+   * already add this?", which is otherwise invisible until you open it.
+   *
+   * **Three states, not two.** With one dish per slot this was a boolean. Now a
+   * slot can be half done, and showing "some" as "all" is the version that sends
+   * you home without the rice.
+   */
+  const listState = (entries: PlanEntry[]): "none" | "some" | "all" => {
+    const added = entries.filter((entry) => linesFromEntry(plan?.items ?? [], entry).length > 0).length;
+    if (added === 0) return "none";
+    return added === entries.length ? "all" : "some";
+  };
 
   return (
     // Seven across from lg, not a ragged wrap. A calendar that breaks 4 + 3
@@ -76,12 +85,12 @@ export function WeekGrid({
 
             <div className="space-y-2">
               {MEALS.map((meal) => {
-                const entry = entryAt(date, meal);
+                const entries = entriesAt(date, meal);
                 return (
                   <Slot
                     key={meal}
-                    entry={entry}
-                    onList={isOnList(entry)}
+                    entries={entries}
+                    onList={listState(entries)}
                     editable={editable}
                     onClick={() => onOpenSlot(date, meal)}
                     mealLabel={t(`plan.${meal}`)}
@@ -98,15 +107,16 @@ export function WeekGrid({
 }
 
 function Slot({
-  entry,
+  entries,
   onList,
   editable,
   onClick,
   mealLabel,
   currentUserId,
 }: {
-  entry: PlanEntry | undefined;
-  onList: boolean;
+  /** Everything planned for this meal, oldest first. Empty is the normal case. */
+  entries: PlanEntry[];
+  onList: "none" | "some" | "all";
   editable: boolean;
   onClick: () => void;
   mealLabel: string;
@@ -116,7 +126,7 @@ function Slot({
 
   // An empty slot is normal, not an error (§6) — so it reads as an invitation
   // rather than as something missing.
-  if (!entry) {
+  if (entries.length === 0) {
     return (
       <button
         type="button"
@@ -138,38 +148,58 @@ function Slot({
     <button
       type="button"
       onClick={onClick}
-      aria-label={`${mealLabel}: ${entry.dish_name}`}
+      aria-label={`${mealLabel}: ${entries.map((entry) => entry.dish_name).join(", ")}`}
       className="flex min-h-[4.25rem] w-full cursor-pointer flex-col items-start gap-1 rounded-2xl border border-line bg-surface-2 px-3 py-2.5 text-left transition-colors hover:border-tomato/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
     >
       <span className="flex w-full items-center justify-between gap-2">
         <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted">{mealLabel}</span>
-        {/* Whether the shopping list already knows about this recipe. A tick is
-            not decoration here: skipping the ingredient step is allowed, and
-            without this the only way to find out is to open every slot. */}
+        {/* Whether the shopping list already knows about this slot. Not
+            decoration: skipping the ingredient step is allowed, and without this
+            the only way to find out is to open every slot. A half-done slot gets
+            its own look — reading "some" as "all" is what sends you home without
+            the rice. */}
         <span
-          className={`flex shrink-0 items-center gap-1 text-[0.65rem] font-semibold ${onList ? "text-leaf-700 dark:text-leaf" : "text-muted"}`}
-          title={onList ? t("plan.on-the-list") : t("plan.not-on-the-list")}
+          className={`flex shrink-0 items-center gap-1 text-[0.65rem] font-semibold ${
+            onList === "all" ? "text-leaf-700 dark:text-leaf" : onList === "some" ? "text-amber-600 dark:text-amber" : "text-muted"
+          }`}
+          title={t(`plan.list-state-${onList}`)}
         >
-          {onList ? <Check className="h-3 w-3" aria-hidden /> : <ShoppingBasket className="h-3 w-3" aria-hidden />}
-          <span className="sr-only">{onList ? t("plan.on-the-list") : t("plan.not-on-the-list")}</span>
+          {onList === "all" ? <Check className="h-3 w-3" aria-hidden /> : <ShoppingBasket className="h-3 w-3" aria-hidden />}
+          <span className="sr-only">{t(`plan.list-state-${onList}`)}</span>
         </span>
       </span>
-      <span className="line-clamp-2 w-full text-sm font-semibold leading-snug text-fg [overflow-wrap:anywhere]">
-        {entry.dish_name}
+
+      {/* Up to three names, one line each. Past that the card would grow taller
+          than the day it sits in, and the count is the useful part anyway. */}
+      <span className="w-full space-y-0.5">
+        {entries.slice(0, 3).map((entry) => (
+          <span key={entry.id} className="line-clamp-1 block w-full text-sm font-semibold leading-snug text-fg [overflow-wrap:anywhere]">
+            {entry.dish_name}
+          </span>
+        ))}
+        {entries.length > 3 && <span className="block text-[0.7rem] text-muted">{t("plan.more-dishes", { count: String(entries.length - 3) })}</span>}
       </span>
+
       <span className="flex w-full items-center gap-1 text-[0.7rem] text-muted">
         <Users className="h-3 w-3" aria-hidden />
-        {tp("plan.for-people", entry.servings)}
+        {/* One headcount for the slot. The schema keeps it per dish so an
+            override stays possible without a migration, but "Carne ×2, Arroz ×4"
+            reads as a bug to almost everybody, so the card shows the largest —
+            the number of people actually eating. */}
+        {tp("plan.for-people", Math.max(...entries.map((entry) => entry.servings)))}
         {/* Pushed to the end of the footer rather than sitting under the dish
-            name: at 138px wide the name already wraps to two lines, and a badge
-            beside it would take a third. */}
-        <span className="ml-auto">
-          <PersonMark
-            userId={entry.created_by}
-            name={entry.created_by_name}
-            currentUserId={currentUserId}
-            label={(name) => t("kitchen.planned-by", { name })}
-          />
+            names: at 138px wide they already wrap, and a badge beside one would
+            take another line. */}
+        <span className="ml-auto flex items-center gap-0.5">
+          {[...new Map(entries.map((entry) => [entry.created_by, entry])).values()].map((entry) => (
+            <PersonMark
+              key={entry.id}
+              userId={entry.created_by}
+              name={entry.created_by_name}
+              currentUserId={currentUserId}
+              label={(name) => t("kitchen.planned-by", { name })}
+            />
+          ))}
         </span>
       </span>
     </button>

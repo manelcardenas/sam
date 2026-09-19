@@ -22,6 +22,7 @@ function line(id: string, name: string, extra: Partial<ShoppingListItem> = {}): 
     id,
     display_name: name,
     normalised_name: name.toLowerCase(),
+    grocery_key: null,
     unit: null,
     total_amount: null,
     is_checked: false,
