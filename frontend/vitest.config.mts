@@ -38,7 +38,12 @@ export default defineConfig({
     //
     // Asia/Tokyo (UTC+9, no DST) rather than somewhere closer: a whole-day
     // offset shows up at any hour of the test's clock, not only near midnight.
-    env: { TZ: "Asia/Tokyo" },
+    //
+    // NEXT_PUBLIC_API_URL because `lib/api-client.ts` throws at *import* when it
+    // is unset — deliberately, so a misconfigured deploy fails at the door
+    // rather than on the first fetch. That makes it unimportable in tests
+    // otherwise. The value is never dialled: every spec stubs the client.
+    env: { TZ: "Asia/Tokyo", NEXT_PUBLIC_API_URL: "http://api.test" },
     // Colocated: `thing.spec.ts` sits beside `thing.ts`. A test next to its
     // subject gets updated with it; one in a parallel tree gets forgotten.
     include: ["**/*.spec.{ts,tsx}"],
