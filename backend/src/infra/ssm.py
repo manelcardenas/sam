@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 # Every SecureString the app reads at startup. Listing them here is what makes
 # a single batched call possible: the first caller cannot know who comes next.
-_PARAMETER_NAME_ENV_VARS = ("POSTGRES_DSN_PARAM", "GEOAPIFY_API_KEY_PARAM")
+_PARAMETER_NAME_ENV_VARS = ("POSTGRES_DSN_PARAM", "GEOAPIFY_API_KEY_PARAM", "LLM_PRIMARY_API_KEY_PARAM", "LLM_FALLBACK_API_KEY_PARAM")
 
 
 class SsmClient(Protocol):
