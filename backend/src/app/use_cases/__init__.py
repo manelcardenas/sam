@@ -20,14 +20,17 @@ from src.app.use_cases.get_review import GetReview
 from src.app.use_cases.get_user_stats import GetUserStats
 from src.app.use_cases.invite_to_kitchen import InviteToKitchen
 from src.app.use_cases.list_cuisines import ListCuisines
+from src.app.use_cases.list_grocery_items import ListGroceryItems
 from src.app.use_cases.list_invitable_people import ListInvitablePeople
 from src.app.use_cases.list_recipes import ListRecipes
 from src.app.use_cases.list_reviews import ListReviews
 from src.app.use_cases.list_user_reviews import ListUserReviews
 from src.app.use_cases.nearby_places import NearbyPlaces
+from src.app.use_cases.parse_ingredients import ParseIngredients
 from src.app.use_cases.remove_dish import RemoveDish
 from src.app.use_cases.remove_from_kitchen import RemoveFromKitchen
 from src.app.use_cases.remove_list_item import RemoveListItem
+from src.app.use_cases.resync_entry_list import ResyncEntryList
 from src.app.use_cases.reverse_geocode import ReverseGeocode
 from src.app.use_cases.search_areas import SearchAreas
 from src.app.use_cases.search_places import SearchPlaces
@@ -61,14 +64,17 @@ __all__ = [
     "GetUserStats",
     "InviteToKitchen",
     "ListCuisines",
+    "ListGroceryItems",
     "ListInvitablePeople",
     "ListRecipes",
     "ListReviews",
     "ListUserReviews",
     "NearbyPlaces",
+    "ParseIngredients",
     "RemoveDish",
     "RemoveFromKitchen",
     "RemoveListItem",
+    "ResyncEntryList",
     "ReverseGeocode",
     "SearchAreas",
     "SearchPlaces",
