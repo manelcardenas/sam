@@ -1,3 +1,5 @@
+import type { FoodType } from "@/lib/constants";
+
 import { fetchAuthSession } from "aws-amplify/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -18,7 +20,7 @@ export interface Recipe {
   /** Optional: a recipe you already know how to make is still plannable and shoppable. */
   instructions: string | null;
   ingredients: IngredientsData;
-  food_type: "bebida" | "postre" | "comida" | "aperitivo";
+  food_type: FoodType;
   source_url: string | null;
   prep_time_minutes: number | null;
   cook_time_minutes: number | null;
@@ -42,10 +44,67 @@ export interface ListItemSource {
   amount: number | null;
 }
 
+export type Aisle =
+  | "produce"
+  | "bakery"
+  | "meat_fish"
+  | "dairy_eggs"
+  | "frozen"
+  | "canned"
+  | "dry_goods"
+  | "condiments"
+  | "drinks"
+  | "household"
+  | "other";
+
+/**
+ * One buyable thing in the shared vocabulary
+ * (docs/plans/ingredient-capture-plan.md §3).
+ *
+ * Three names rather than one is about **merging**, not translation: without
+ * them `huevos` and `eggs` are two lines on one shopping list, and this is the
+ * only place that can know they are the same thing.
+ *
+ * It carries no quantity. How much belongs to a recipe; this says what shelf.
+ */
+export interface GroceryItem {
+  key: string;
+  name_es: string;
+  name_ca: string;
+  name_en: string;
+  aisle: Aisle;
+  /** Normally already at home. Starts its line unticked — never hides it. */
+  is_pantry: boolean;
+  default_unit: string | null;
+}
+
+/** One ingredient line as the parser understood it (plan §4.3). */
+export interface ParsedIngredientLine {
+  /** The user's own words for this line — how you tell a misread from a mistype. */
+  raw: string;
+  item: GroceryItem;
+  amount: number | null;
+  unit: string | null;
+  /** This call created the vocabulary row. Doubles as the typo detector. */
+  is_new: boolean;
+  /** Existing names it might be a misspelling of. A question, never a decision. */
+  did_you_mean: string[];
+}
+
+export interface ParsedIngredients {
+  lines: ParsedIngredientLine[];
+}
+
 export interface ShoppingListItem {
   id: string;
   display_name: string;
   normalised_name: string;
+  /**
+   * The `grocery_items` row this line means, resolved server-side on write.
+   * `null` for anything the vocabulary does not know — the line still works,
+   * it just has no aisle and merges on its own name.
+   */
+  grocery_key: string | null;
   unit: string | null;
   /** `null` for things with no quantity — "sal" is a real ingredient, not a zero. */
   total_amount: number | null;
@@ -322,7 +381,7 @@ export interface CreateRecipeInput {
   /** Omit or send empty to create a dish rather than a recipe — docs/adr/0007. */
   instructions: string | null;
   ingredients: IngredientsInput;
-  food_type: "bebida" | "postre" | "comida" | "aperitivo";
+  food_type: FoodType;
   source_url?: string;
   prep_time_minutes?: number | null;
   cook_time_minutes?: number | null;
@@ -471,6 +530,19 @@ export class RecipeAPIClient {
     });
   }
 
+  /**
+   * Replace one dish's contribution to the list after its headcount changed.
+   *
+   * A PUT, not another POST to `/items`: this is idempotent and total for the
+   * dish, where adding is additive. Calling it twice leaves the same list.
+   */
+  async resyncEntryList(planId: string, entryId: string, dishName: string, items: ListLineInput[]): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/entries/${entryId}/items`, {
+      method: "PUT",
+      body: JSON.stringify({ dish_name: dishName, items }),
+    });
+  }
+
   async addToList(planId: string, items: ListLineInput[], entryId: string | null = null, dishName: string | null = null): Promise<MealPlan> {
     return this.request<MealPlan>(`/plans/${planId}/items`, {
       method: "POST",
@@ -508,6 +580,31 @@ export class RecipeAPIClient {
    * kitchen and keeping a copy of the rule here would give it two places to be
    * wrong.
    */
+  /**
+   * The whole grocery vocabulary, in one call.
+   *
+   * Deliberately unfiltered and unpaginated — a few hundred rows the client
+   * holds for the session, serving both the shopping list's aisle grouping and
+   * the manual-add autocomplete. Filtering server-side would put the network in
+   * front of every keystroke.
+   */
+  async listGroceryItems(): Promise<GroceryItem[]> {
+    return this.request<GroceryItem[]>("/grocery-items");
+  }
+
+  /**
+   * Structure a block of free-typed ingredients.
+   *
+   * Throws `ApiError` with status 503 when every provider is unreachable — the
+   * caller's answer to that is the manual fallback, not a retry.
+   */
+  async parseIngredients(text: string, servings: number): Promise<ParsedIngredients> {
+    return this.request<ParsedIngredients>("/ingredients/parse", {
+      method: "POST",
+      body: JSON.stringify({ text, servings }),
+    });
+  }
+
   async listInvitablePeople(): Promise<Person[]> {
     return this.request<Person[]>("/kitchen/people");
   }
