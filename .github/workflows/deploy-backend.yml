@@ -62,7 +62,17 @@ jobs:
       # and MUST use Neon's DIRECT endpoint — PgBouncer transaction pooling
       # breaks Alembic's DDL / advisory locks. We strip "-pooler" from the host
       # of the runtime DSN to derive the direct endpoint.
-      - name: Run database migrations (Neon)
+      #
+      # The grocery vocabulary is seeded in the same step, right after. It is
+      # **reference data every environment needs**, like `cuisines` — not dev
+      # fixtures — and without it the shopping list has no aisles to sort by and
+      # nothing to merge `huevos` and `eggs` on. `cuisines` is seeded inside its
+      # own migration; this is not, because the vocabulary is designed to grow by
+      # re-running the seed after editing `grocery_seed_data.py`, and a migration
+      # would freeze it at 274 rows and need a second one for every addition.
+      # The script upserts on `key` and never overwrites `confirmed_at`, so
+      # running it on every deploy is a no-op once the rows exist.
+      - name: Run database migrations and seed the grocery vocabulary (Neon)
         working-directory: backend
         run: |
           POOLED_DSN=$(aws ssm get-parameter \
@@ -74,6 +84,8 @@ jobs:
           DIRECT_DSN="${POOLED_DSN/-pooler/}"
           echo "Running alembic upgrade head against the direct Neon endpoint…"
           POSTGRES_DSN="$DIRECT_DSN" uv run alembic upgrade head
+          echo "Seeding the grocery vocabulary (idempotent)…"
+          POSTGRES_DSN="$DIRECT_DSN" uv run python -m scripts.seed_grocery
 
       - name: Install CDK dependencies
         run: npm ci -w infra --include-workspace-root
