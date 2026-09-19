@@ -1,8 +1,9 @@
 from datetime import date
 
+from src.app.use_cases.add_to_list import resolve_keys
 from src.app.use_cases.plan_access import plan_for_week
 from src.domain.entities import MealPlan, PlanAction, ShoppingListItem, require, week_start_for
-from src.domain.ports import MealPlanRepository
+from src.domain.ports import GroceryRepository, MealPlanRepository
 
 
 class AddToWeekList:
@@ -20,11 +21,15 @@ class AddToWeekList:
     shop.
     """
 
-    def __init__(self, repository: MealPlanRepository) -> None:
+    def __init__(self, repository: MealPlanRepository, groceries: GroceryRepository) -> None:
         self.repository = repository
+        self.groceries = groceries
 
     def execute(self, kitchen_id: str, user_id: str, day: date, items: list[ShoppingListItem]) -> MealPlan:
         plan = plan_for_week(self.repository, kitchen_id, week_start_for(day), user_id)
         require(plan.status, PlanAction.EDIT_LIST)
-        self.repository.add_items(plan.id, items)
+        # Same resolution as the dish path, deliberately shared rather than
+        # reimplemented: a hand-typed `cebolla` has to merge with the one a
+        # recipe put there, and two spellings of "resolve" is how that breaks.
+        self.repository.add_items(plan.id, resolve_keys(self.groceries, items))
         return plan
