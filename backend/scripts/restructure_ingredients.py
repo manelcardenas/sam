@@ -161,6 +161,28 @@ def as_item(line: ResolvedLine) -> dict:
     return item
 
 
+def as_text(item: dict) -> str:
+    """One stored line, back as the sentence a cook would have typed.
+
+    **Sending only `name` lost data.** Production's `Magdalenas de anís` held
+    `{"name": "azúcar", "amount": 250, "unit": "Gr"}` — one of the two lines the
+    2026-09-06 count found with the structured fields actually filled — and it
+    came back as `Azúcar` with no quantity, because the parser was never shown
+    the 250. The "fewer lines out than in" guard cannot see it: the line is still
+    there, just emptier.
+
+    **The name wins when it carries a digit.** `{"name": "6 huevos", "amount": 6}`
+    is the same six written twice; prepending would send `6 6 huevos`. So the
+    stored fields are used only when the name has no number of its own, which is
+    exactly the case where they are the only copy.
+    """
+    name = str(item.get("name") or "").strip()
+    amount = item.get("amount")
+    if amount is None or any(character.isdigit() for character in name):
+        return name
+    return " ".join(part for part in (f"{amount:g}", str(item.get("unit") or "").strip(), name) if part)
+
+
 def describe(before: list[dict], after: list[dict]) -> list[str]:
     """The change, as a reviewer needs to read it.
 
@@ -206,7 +228,7 @@ def run(apply: bool, only: str | None) -> int:
                 report.already_fine += 1
                 continue
 
-            text = "\n".join(str(item.get("name") or "").strip() for item in items if item.get("name"))
+            text = "\n".join(line for item in items if (line := as_text(item)))
             before = len(groceries.refused)
             try:
                 resolved = ParseIngredients(parser, groceries).execute(text, ingredients.get("servings") or 1)
