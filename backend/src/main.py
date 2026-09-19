@@ -6,9 +6,11 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
 from mangum import Mangum
 
+from src.infra.adapters.parsing import build_ingredient_parser
 from src.infra.adapters.places import GeoapifyPlacesProvider, resolve_geoapify_api_key
 from src.infra.adapters.repos import (
     PostgresCuisineRepository,
+    PostgresGroceryRepository,
     PostgresKitchenRepository,
     PostgresMealPlanRepository,
     PostgresRecipeRepository,
@@ -16,7 +18,7 @@ from src.infra.adapters.repos import (
     PostgresReviewRepository,
     PostgresUserRepository,
 )
-from src.infra.controllers import KitchenController, MealPlanController, PlacesController, RecipeController, RestaurantController, UserController
+from src.infra.controllers import GroceryController, KitchenController, MealPlanController, PlacesController, RecipeController, RestaurantController, UserController
 from src.infra.db import DatabaseConnectionPool, build_dsn
 from src.infra.middleware import (
     CORSMiddlewareConfigurator,
@@ -64,6 +66,7 @@ def create_app() -> FastAPI:
     cuisine_repository = PostgresCuisineRepository(session_factory=db.session_factory)
     meal_plan_repository = PostgresMealPlanRepository(session_factory=db.session_factory)
     kitchen_repository = PostgresKitchenRepository(session_factory=db.session_factory)
+    grocery_repository = PostgresGroceryRepository(session_factory=db.session_factory)
     configure_user_repository(user_repository)
 
     # Key resolved once per cold start (SSM on Lambda, .env locally). A missing
@@ -75,8 +78,9 @@ def create_app() -> FastAPI:
     UserController(user_repository, review_repository, router)
     RestaurantController(restaurant_repository, review_repository, cuisine_repository, router)
     PlacesController(places_provider, router)
-    MealPlanController(meal_plan_repository, kitchen_repository, router)
+    MealPlanController(meal_plan_repository, kitchen_repository, grocery_repository, router)
     KitchenController(kitchen_repository, user_repository, router)
+    GroceryController(grocery_repository, build_ingredient_parser(), router)
     app.include_router(router)
 
     return app
@@ -91,7 +95,9 @@ handler = Mangum(app)
 def seed() -> None:
     """Local dev entrypoint (`uv run seed`): (re)seed the local DB. Idempotent."""
     from scripts.seed import run
+    from scripts.seed_grocery import run as run_grocery
 
+    run_grocery()  # reference data — the vocabulary the shopping list sorts by
     run()
 
 
@@ -112,9 +118,14 @@ def serve() -> None:
     from alembic.config import Config
 
     from scripts.seed import run
+    from scripts.seed_grocery import run as run_grocery
 
     command.upgrade(Config("alembic.ini"), "head")  # apply pending migrations
-    run()  # idempotent — loads the demo recipes, the dine fixture, and both seed users
+    # Both idempotent. Grocery first: it is *reference* data every environment
+    # needs, where `run()` below is a local dev fixture — and a recipe seeded
+    # before the vocabulary exists would have nothing to resolve against.
+    run_grocery()
+    run()  # loads the demo recipes, the dine fixture, and both seed users
 
     uvicorn.run(
         "src.main:app",
