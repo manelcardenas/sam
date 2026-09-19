@@ -17,6 +17,8 @@ import pytest
 from fastapi import APIRouter, FastAPI
 from starlette.testclient import TestClient
 
+from src.domain.entities import Aisle, GroceryItem
+from src.infra.adapters.repos.in_memory_grocery_repo import InMemoryGroceryRepository
 from src.infra.adapters.repos.in_memory_kitchen_repo import InMemoryKitchenRepository
 from src.infra.adapters.repos.in_memory_meal_plan_repo import InMemoryMealPlanRepository
 from src.infra.adapters.repos.in_memory_user_repo import InMemoryUserRepository
@@ -61,14 +63,24 @@ def _users() -> InMemoryUserRepository:
     return users
 
 
+# A vocabulary small enough to read, holding the one thing the list has to get
+# right across languages: `cebolla` / `ceba` / `onion` are one row, so lines
+# typed in any of the three merge (ingredient-capture-plan §6.1).
+VOCABULARY = [
+    GroceryItem(key="cebolla", name_es="Cebolla", name_ca="Ceba", name_en="Onion", aisle=Aisle.PRODUCE),
+    GroceryItem(key="huevos", name_es="Huevos", name_ca="Ous", name_en="Eggs", aisle=Aisle.DAIRY_EGGS),
+]
+
+
 def _app(
     repository: InMemoryMealPlanRepository,
     kitchens: InMemoryKitchenRepository,
     caller: str = OWNER,
     users: InMemoryUserRepository | None = None,
+    groceries: InMemoryGroceryRepository | None = None,
 ) -> TestClient:
     router = APIRouter()
-    MealPlanController(repository, kitchens, router)
+    MealPlanController(repository, kitchens, groceries or InMemoryGroceryRepository(VOCABULARY), router)
     KitchenController(kitchens, users or _users(), router)
     app = FastAPI()
     app.include_router(router)
@@ -167,13 +179,30 @@ class TestAskingForAWeek:
 
 
 class TestAssigningDishes:
-    def test_the_slot_is_the_identity_so_reassigning_replaces(self, client: TestClient) -> None:
-        """One dish per slot in v1 (§6). Assigning Wednesday dinner twice means
-        changing your mind, not creating a second Wednesday dinner."""
-        _assign(client, name="Lentejas")
-        plan = _assign(client, name="Tortilla")
+    def test_a_slot_holds_more_than_one_dish(self, client: TestClient) -> None:
+        """The change ingredient-capture-plan §5 exists for: "carne en salsa con
+        arroz" is two dishes in one slot, and used to be unplannable."""
+        _assign(client, name="Carne en salsa")
+        plan = _assign(client, name="Arroz blanco")
 
-        assert [e["dish_name"] for e in plan["entries"]] == ["Tortilla"]
+        assert sorted(e["dish_name"] for e in plan["entries"]) == ["Arroz blanco", "Carne en salsa"]
+
+    def test_assigning_the_same_dish_again_changes_it_rather_than_duplicating(self, client: TestClient) -> None:
+        """The dish within the slot is the identity. Changing your mind about the
+        headcount must not leave you cooking for ten."""
+        _assign(client, name="Lentejas", servings=4)
+        plan = _assign(client, name="Lentejas", servings=6)
+
+        assert [(e["dish_name"], e["servings"]) for e in plan["entries"]] == [("Lentejas", 6)]
+
+    def test_a_one_off_typed_twice_does_not_leave_two(self, client: TestClient) -> None:
+        """`uq_plan_entries_slot_dish` is partial on `recipe_id IS NOT NULL`, so
+        the database cannot stop this — the name is the identity when there is no
+        recipe behind it, and both adapters have to agree on that."""
+        _assign(client, name="Sobras")
+        plan = _assign(client, name="Sobras")
+
+        assert [e["dish_name"] for e in plan["entries"]] == ["Sobras"]
 
     def test_lunch_and_dinner_are_different_slots(self, client: TestClient) -> None:
         _assign(client, meal="lunch", name="Ensalada")
@@ -358,6 +387,118 @@ class TestTheShoppingList:
         assert response.status_code == 403
 
 
+class TestTheVocabularyMerge:
+    """§6.1 — two lines meaning one grocery row are one line, in any language.
+
+    The bug this closes: `grocery_items` carries three names per row precisely so
+    `huevos` and `eggs` are one thing, and the list merged on the line's own
+    normalised name — so they were two. Measured on the 274 seeded rows, 87% of
+    Catalan names and 92% of English names normalise differently from their own
+    key, which made the whole vocabulary unusable for anyone not typing Spanish.
+    """
+
+    def test_the_same_thing_in_two_languages_is_one_line(self, client: TestClient) -> None:
+        plan = _assign(client, day=SATURDAY, name="Truita")
+        entry = _entry(plan, "Truita")
+
+        client.post(f"/plans/{plan['id']}/items", json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "Ceba", "amount": 1}]})
+        response = client.post(f"/plans/{plan['id']}/items", json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "Onion", "amount": 2}]})
+
+        items = response.json()["items"]
+        assert len(items) == 1
+        assert items[0]["total_amount"] == 3
+
+    def test_the_line_records_which_row_it_means(self, client: TestClient) -> None:
+        """Without this the client cannot find the aisle: it would be back to
+        matching the display name, which is the failure being fixed."""
+        plan = _assign(client, day=SATURDAY, name="Truita")
+        entry = _entry(plan, "Truita")
+
+        response = client.post(f"/plans/{plan['id']}/items", json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "Ous", "amount": 3}]})
+
+        assert response.json()["items"][0]["grocery_key"] == "huevos"
+
+    def test_the_first_spelling_still_wins_the_display_name(self, client: TestClient) -> None:
+        """The list reads in the words somebody actually used. The key decides
+        what merges; it does not get to rename anything."""
+        plan = _assign(client, day=SATURDAY, name="Truita")
+        entry = _entry(plan, "Truita")
+
+        client.post(f"/plans/{plan['id']}/items", json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "Ceba", "amount": 1}]})
+        response = client.post(f"/plans/{plan['id']}/items", json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "Cebolla", "amount": 1}]})
+
+        assert response.json()["items"][0]["display_name"] == "Ceba"
+
+    def test_something_the_vocabulary_does_not_know_still_works(self, client: TestClient) -> None:
+        """`bolsas de basura` has no row and must behave exactly as before —
+        no key, merging on its own name. That fallback is why no existing line
+        needed migrating."""
+        plan = _assign(client, day=SATURDAY, name="Truita")
+        entry = _entry(plan, "Truita")
+
+        client.post(f"/plans/{plan['id']}/items", json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "bolsas de basura", "amount": 1}]})
+        response = client.post(f"/plans/{plan['id']}/items", json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "Bolsas de basura", "amount": 2}]})
+
+        items = response.json()["items"]
+        assert len(items) == 1
+        assert items[0]["grocery_key"] is None
+        assert items[0]["total_amount"] == 3
+
+    def test_two_different_rows_stay_two_lines(self, client: TestClient) -> None:
+        plan = _assign(client, day=SATURDAY, name="Truita")
+        entry = _entry(plan, "Truita")
+
+        response = client.post(
+            f"/plans/{plan['id']}/items",
+            json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "Ceba", "amount": 1}, {"name": "Ous", "amount": 3}]},
+        )
+
+        assert len({i["grocery_key"] for i in response.json()["items"]}) == 2
+
+    def test_a_hand_added_extra_merges_with_a_dish_across_languages(self, client: TestClient) -> None:
+        """Both write paths resolve the key the same way. If only one did, a
+        typed `cebolla` and a recipe's `Ceba` would be two lines again."""
+        plan = _assign(client, day=SATURDAY, name="Truita")
+        entry = _entry(plan, "Truita")
+        client.post(f"/plans/{plan['id']}/items", json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "Ceba", "amount": 1}]})
+
+        response = client.post("/plans/items", json={"day": SATURDAY.isoformat(), "items": [{"name": "Onion", "amount": 1}]})
+
+        onions = [i for i in response.json()["items"] if i["grocery_key"] == "cebolla"]
+        assert len(onions) == 1
+        assert onions[0]["total_amount"] == 2
+
+    def test_the_line_still_records_what_was_typed(self, client: TestClient) -> None:
+        """`normalised_name` stays the normalised *display name*, not the key.
+
+        It is the fallback identity and it is on the wire, so overwriting it with
+        the key would make a matched line and an unmatched one describe
+        themselves differently — and the in-memory fake happily did exactly that
+        until this pinned it.
+        """
+        plan = _assign(client, day=SATURDAY, name="Truita")
+        entry = _entry(plan, "Truita")
+
+        response = client.post(f"/plans/{plan['id']}/items", json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "Ceba", "amount": 1}]})
+
+        line = response.json()["items"][0]
+        assert line["normalised_name"] == "ceba"
+        assert line["grocery_key"] == "cebolla"
+
+    def test_the_unit_still_separates_lines(self, client: TestClient) -> None:
+        """Adding a key must not accidentally merge across units — §3 refuses
+        unit conversion, so `2 cebollas` and `200 g` stay two lines."""
+        plan = _assign(client, day=SATURDAY, name="Truita")
+        entry = _entry(plan, "Truita")
+
+        response = client.post(
+            f"/plans/{plan['id']}/items",
+            json={"entry_id": entry["id"], "dish_name": "Truita", "items": [{"name": "Ceba", "amount": 2}, {"name": "Cebolla", "amount": 200, "unit": "g"}]},
+        )
+
+        assert len(response.json()["items"]) == 2
+
+
 class TestDrift:
     """§4.5 — a list that rewrites itself while you are holding it in the shop is
     worse than one that asks."""
@@ -419,6 +560,112 @@ class TestDrift:
         response = client.delete(f"/plans/{plan['id']}/entries/{entry['id']}", params={"drop_from_list": "true"})
 
         assert [i["display_name"] for i in response.json()["items"]] == ["yogur"]
+
+
+class TestResyncingAfterAHeadcountChange:
+    """Plan spaghetti for 2, add it to the list, change the slot to 7.
+
+    The list used to keep the 2-person amounts forever: it is a snapshot taken
+    when you pressed "add to the list", and nothing went back to it. That is the
+    right rule for everything else the list holds — it is hand-edited — but the
+    headcount is the one input whose entire job is to change the amounts.
+    """
+
+    def _dish_on_the_list(self, client: TestClient) -> tuple[dict, dict]:
+        plan = _assign(client, day=SATURDAY, name="Bolonesa", servings=2)
+        entry = _entry(plan, "Bolonesa")
+        plan = client.post(
+            f"/plans/{plan['id']}/items",
+            json={"entry_id": entry["id"], "dish_name": "Bolonesa", "items": [{"name": "cebolla", "amount": 2}]},
+        ).json()
+        return plan, entry
+
+    def test_the_lines_take_the_new_amounts(self, client: TestClient) -> None:
+        plan, entry = self._dish_on_the_list(client)
+
+        response = client.put(
+            f"/plans/{plan['id']}/entries/{entry['id']}/items",
+            json={"dish_name": "Bolonesa", "items": [{"name": "cebolla", "amount": 7}]},
+        )
+
+        assert response.status_code == 200, response.text
+        items = response.json()["items"]
+        assert len(items) == 1
+        assert items[0]["total_amount"] == 7
+
+    def test_another_dishs_share_of_the_same_line_survives(self, client: TestClient) -> None:
+        """The reason this subtracts rather than overwrites. Two dishes needing
+        onions are one line; re-syncing one of them must not take the other's
+        onions away."""
+        plan, entry = self._dish_on_the_list(client)
+        other = _entry(_assign(client, day=WEDNESDAY, name="Sofrito"), "Sofrito")
+        client.post(f"/plans/{plan['id']}/items", json={"entry_id": other["id"], "dish_name": "Sofrito", "items": [{"name": "cebolla", "amount": 3}]})
+
+        response = client.put(
+            f"/plans/{plan['id']}/entries/{entry['id']}/items",
+            json={"dish_name": "Bolonesa", "items": [{"name": "cebolla", "amount": 7}]},
+        )
+
+        items = response.json()["items"]
+        assert len(items) == 1
+        assert items[0]["total_amount"] == 10  # 3 from the sofrito + 7 from the new headcount
+
+    def test_a_hand_added_extra_is_never_touched(self, client: TestClient) -> None:
+        plan, entry = self._dish_on_the_list(client)
+        client.post("/plans/items", json={"day": SATURDAY.isoformat(), "items": [{"name": "papel de cocina", "amount": 1}]})
+
+        response = client.put(
+            f"/plans/{plan['id']}/entries/{entry['id']}/items",
+            json={"dish_name": "Bolonesa", "items": [{"name": "cebolla", "amount": 7}]},
+        )
+
+        assert any(i["display_name"] == "papel de cocina" for i in response.json()["items"])
+
+    def test_a_line_the_dish_no_longer_needs_goes(self, client: TestClient) -> None:
+        """Unticking everything on the re-confirm is a real answer, and it has to
+        leave the list clean rather than stranding orphan lines."""
+        plan, entry = self._dish_on_the_list(client)
+
+        response = client.put(f"/plans/{plan['id']}/entries/{entry['id']}/items", json={"dish_name": "Bolonesa", "items": []})
+
+        assert response.json()["items"] == []
+
+    def test_the_breakdown_is_replaced_rather_than_doubled(self, client: TestClient) -> None:
+        """Appending would leave the line claiming the dish contributed twice,
+        which is what the "why is this on my list?" panel reads from."""
+        plan, entry = self._dish_on_the_list(client)
+
+        response = client.put(
+            f"/plans/{plan['id']}/entries/{entry['id']}/items",
+            json={"dish_name": "Bolonesa", "items": [{"name": "cebolla", "amount": 7}]},
+        )
+
+        sources = response.json()["items"][0]["sources"]
+        assert len(sources) == 1
+        assert sources[0]["amount"] == 7
+
+    def test_a_dish_from_another_plan_is_refused(self, client: TestClient) -> None:
+        plan, _ = self._dish_on_the_list(client)
+        elsewhere = _entry(_assign(client, day=date(2026, 9, 19), name="Otra"), "Otra")
+
+        response = client.put(
+            f"/plans/{plan['id']}/entries/{elsewhere['id']}/items",
+            json={"dish_name": "Otra", "items": [{"name": "cebolla", "amount": 1}]},
+        )
+
+        assert response.status_code == 404
+
+    def test_an_archived_week_refuses(self, client: TestClient) -> None:
+        plan, entry = self._dish_on_the_list(client)
+        assert client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"}).status_code == 200
+        assert client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed"}).status_code == 200
+
+        response = client.put(
+            f"/plans/{plan['id']}/entries/{entry['id']}/items",
+            json={"dish_name": "Bolonesa", "items": [{"name": "cebolla", "amount": 7}]},
+        )
+
+        assert response.status_code == 409
 
 
 class TestTheStateMachineOverHttp:
@@ -647,13 +894,26 @@ class TestTheKitchen:
 
         assert {e["dish_name"]: e["created_by_name"] for e in plan["entries"]} == {"Ensalada": "Nel", "Lentejas": "Martina"}
 
-    def test_reassigning_a_slot_moves_the_attribution_too(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
-        """The slot is the identity, so whoever set what is in it now is whose it
-        is. Keeping the first name would credit her with his dish."""
+    def test_changing_a_dish_moves_the_attribution_too(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """Whoever set what is in the slot now is whose it is. Keeping the first
+        name would credit her with his change."""
         nel, martina = _share_a_kitchen(repository, kitchens)
-        _assign(nel, name="Lentejas")
+        _assign(nel, name="Lentejas", servings=2)
 
-        assert _assign(martina, name="Tortilla")["entries"][0]["created_by_name"] == "Martina"
+        plan = _assign(martina, name="Lentejas", servings=6)
+
+        assert _entry(plan, "Lentejas")["created_by_name"] == "Martina"
+
+    def test_two_people_can_each_add_a_dish_to_one_slot(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """The kitchen's point, applied to the new slot shape: he puts the meat
+        on Tuesday, she adds the rice, and both keep their own name."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        _assign(nel, name="Carne en salsa")
+
+        plan = _assign(martina, name="Arroz blanco")
+
+        assert _entry(plan, "Carne en salsa")["created_by_name"] == "Nel"
+        assert _entry(plan, "Arroz blanco")["created_by_name"] == "Martina"
 
     def test_a_line_two_people_contributed_to_keeps_the_first_name(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
         """ "Who put this on the list" happened once. The merge adds a quantity,
