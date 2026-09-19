@@ -50,6 +50,33 @@ describe("the box", () => {
     await waitFor(() => expect(parse).toHaveBeenCalledWith("2 cebollas", 4));
   });
 
+  it("says nothing about length until the text is nearly at the cap", () => {
+    setup([]);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /ingredients/i }), { target: { value: "x".repeat(3599) } });
+
+    expect(screen.queryByText(/characters? left/)).not.toBeInTheDocument();
+    expect(screen.getByText(/however you like/)).toBeInTheDocument();
+  });
+
+  it("counts down over the last tenth", () => {
+    setup([]);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /ingredients/i }), { target: { value: "x".repeat(3700) } });
+
+    expect(screen.getByText("300 characters left")).toBeInTheDocument();
+  });
+
+  it("says the text was cut once the cap is reached", () => {
+    // `maxLength` truncates a long paste silently — without this line you are
+    // never told the tail of what you pasted is gone.
+    setup([]);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /ingredients/i }), { target: { value: "x".repeat(4000) } });
+
+    expect(screen.getByText(/was cut/)).toBeInTheDocument();
+  });
+
   it("will not call out for an empty box", () => {
     const parse = vi.spyOn(apiClient, "parseIngredients");
     setup([]);
@@ -100,7 +127,7 @@ describe("the review table", () => {
     { id: 0, name: "Cebolla", amount: "2", unit: "", aisle: "produce" },
     { id: 1, name: "Aceite de oliva", amount: "", unit: "", aisle: "condiments", isPantry: true },
     { id: 2, name: "Huveos", amount: "", unit: "", aisle: "dairy_eggs", isNew: true, didYouMean: ["Huevos"] },
-    { id: 3, name: "Queso parmesano", amount: "", unit: "", aisle: "dairy_eggs", expectsAmount: true },
+    { id: 3, name: "Queso parmesano", amount: "", unit: "", aisle: "dairy_eggs", defaultUnit: "g" },
   ];
 
   it("opens straight into the table when there is something to review", () => {
@@ -136,6 +163,66 @@ describe("the review table", () => {
     // `Queso parmesano` is weighed, so it gets asked. `Aceite de oliva` has no
     // amount either and is not asked, because a nudge on everything is noise.
     expect(screen.getAllByText(/how much/)).toHaveLength(1);
+  });
+
+  it("says what a missing amount costs, not just that one is missing", () => {
+    setup(rows);
+
+    expect(screen.getByText("1 ingredient has no amount.")).toBeInTheDocument();
+    expect(screen.getByText(/can't be scaled/)).toBeInTheDocument();
+  });
+
+  it("stays quiet when every measured row has its amount", () => {
+    setup([{ id: 0, name: "Queso parmesano", amount: "50", unit: "g", aisle: "dairy_eggs", defaultUnit: "g" }]);
+
+    expect(screen.queryByText(/has no amount/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/how much/)).not.toBeInTheDocument();
+  });
+
+  it("offers the expected unit as ghost text without putting it in the row", () => {
+    const { onRowsChange } = setup(rows);
+
+    // Visible as a hint on the empty unit box...
+    expect(screen.getAllByPlaceholderText("g")).toHaveLength(1);
+    // ...and absent from the data until an amount exists.
+    expect(onRowsChange).not.toHaveBeenCalled();
+  });
+
+  it("fills the unit the moment an amount is typed", () => {
+    const { onRowsChange } = setup(rows);
+
+    fireEvent.change(screen.getAllByLabelText(/amount/i)[3], { target: { value: "50" } });
+
+    expect(onRowsChange.mock.calls[0][0][3]).toEqual(expect.objectContaining({ amount: "50", unit: "g" }));
+  });
+
+  it("holds the unit back until there is an amount to attach it to", () => {
+    // Editing anything else on a measured row must not smuggle the unit in. A
+    // `g` with no number beside it makes `Queso parmesano` two lines on the
+    // shopping list — one keyed on `g`, one on nothing — for one block of cheese.
+    const { onRowsChange } = setup(rows);
+
+    fireEvent.change(screen.getAllByLabelText(/ingredient name/i)[3], { target: { value: "Queso grana padano" } });
+
+    expect(onRowsChange.mock.calls[0][0][3]).toEqual(expect.objectContaining({ unit: "" }));
+  });
+
+  it("never overwrites a unit the cook already typed", () => {
+    const typed: CaptureRow[] = [{ id: 0, name: "Queso parmesano", amount: "", unit: "lonchas", aisle: "dairy_eggs", defaultUnit: "g" }];
+    const { onRowsChange } = setup(typed);
+
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "4" } });
+
+    expect(onRowsChange.mock.calls[0][0][0]).toEqual(expect.objectContaining({ amount: "4", unit: "lonchas" }));
+  });
+
+  it("leaves a counted row's unit alone — a unit with no amount splits the shopping list", () => {
+    const counted: CaptureRow[] = [{ id: 0, name: "Cebolla", amount: "", unit: "", aisle: "produce" }];
+    const { onRowsChange } = setup(counted);
+
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "2" } });
+
+    expect(onRowsChange.mock.calls[0][0][0]).toEqual(expect.objectContaining({ amount: "2", unit: "" }));
   });
 
   it("offers a near miss as a question, and taking it clears the badge", () => {
