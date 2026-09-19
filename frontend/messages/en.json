@@ -12,6 +12,7 @@
     "close": "Close",
     "created-by": "Created by",
     "delete": "Delete",
+    "done": "Done",
     "edit": "Edit",
     "no-people-match": "No one matches that.",
     "optional": "(optional)",
@@ -155,6 +156,10 @@
       "label": "Mains",
       "description": "Main courses and stews"
     },
+    "guarnicion": {
+      "label": "Side",
+      "description": "What goes alongside: rice, potatoes, salad"
+    },
     "postre": {
       "label": "Desserts",
       "description": "Sweets and puddings"
@@ -222,12 +227,14 @@
   },
   "plan": {
     "add": "Add",
+    "add-dish": "Add a dish",
     "add-extra": "Add something else",
     "add-extra-placeholder": "yoghurt, fruit, bin bags…",
     "add-recipe": "Add a recipe",
     "add-to-list": "Add to the list",
     "added-by-hand": "Added by hand",
     "already-added": "already on the list: {{amount}}",
+    "amounts-for": "These amounts are for",
     "archived-note": "This week is archived. Nothing here can be changed.",
     "assign": "Add to the week",
     "back-to-this-week": "Back to this week",
@@ -237,13 +244,19 @@
       "one": "{{count}} thing you didn't get",
       "other": "{{count}} things you didn't get"
     },
-    "change-recipe": "Change the recipe",
     "choose-dish": "What are you eating?",
     "close-list": "Done shopping",
     "close-list-body": "This archives the week. You'll be able to look back at it, but not change it.",
     "close-list-title": "Put this week away?",
     "conflict": "This week has moved on — reload to see where it is now.",
+    "create-and-add": "Create and add",
+    "create-dish": "New dish",
+    "create-named": "Create “{{name}}”",
+    "create-title-placeholder": "e.g. White rice",
     "dinner": "Dinner",
+    "dish-not-on-list": "Not added yet",
+    "dish-on-list": "On the list",
+    "dishes-in-slot": "In this meal",
     "empty-slot": "Nothing planned",
     "finish-week": "Finish the week",
     "finish-week-body": "The recipes are fixed after this. You can still add things to the shopping list and tick them off — that's what you'll be doing in the shop.",
@@ -256,23 +269,30 @@
     "how-many": "How many people?",
     "ingredients-body": "Everything is ticked. Untick what you already have.",
     "ingredients-title": "What to buy for this",
+    "leave-list": "Leave them",
     "list-count": {
       "one": "{{count}} thing to buy",
       "other": "{{count}} things to buy"
     },
     "list-empty-body": "Plan a recipe and its ingredients land here. You can add anything else by hand.",
     "list-empty-title": "Nothing on the list yet",
+    "list-stale": {
+      "one": "The shopping list still has the amounts for {{count}} person.",
+      "other": "The shopping list still has the amounts for {{count}} people."
+    },
+    "list-state-all": "On the list",
+    "list-state-none": "Not added yet",
+    "list-state-some": "Only some dishes on the list",
     "load-failed": "Couldn't load the plan.",
     "lunch": "Lunch",
+    "more-dishes": "+{{count}} more",
     "next-shop": "Next shop",
     "next-week": "Next week",
     "no-ingredients": "This one has no ingredients written down yet.",
     "no-matches": "Nothing matches that.",
     "no-recipes-at-all": "You have no recipes yet. Add one in Cook first.",
-    "not-on-the-list": "Not added yet",
     "nothing-planned-body": "Pick a slot and choose what you're eating. The shopping list builds itself as you go.",
     "nothing-planned-title": "Nothing planned this week",
-    "on-the-list": "On the list",
     "previous-week": "Previous week",
     "remove-and-drop": {
       "one": "Remove and take its {{count}} ingredient off the list",
@@ -283,14 +303,24 @@
     "remove-recipe": "Remove from the week",
     "remove-recipe-confirm": "Remove {{recipe}} from {{day}}?",
     "save-failed": "That didn't save.",
+    "scales-to": {
+      "one": "Scaled up for the {{count}} person eating this meal",
+      "other": "Scaled up for the {{count}} people eating this meal"
+    },
     "search-recipes": "Search your recipes",
     "search-recipes-placeholder": "Search…",
     "skip-for-now": "Not now",
+    "slot-servings": "People",
     "status-calendar-closed": "Shopping",
     "status-list-closed": "Archived",
     "status-planning": "Planning",
+    "structure-first": "Tidy the ingredients up and you can create it.",
     "this-week": "This week",
     "title": "The week",
+    "update-list": {
+      "one": "Update {{count}} line",
+      "other": "Update {{count}} lines"
+    },
     "view-calendar": "The week",
     "view-list": "Shopping list"
   },
@@ -361,12 +391,19 @@
   },
   "recipe-form": {
     "add-ingredient": "Add ingredient",
+    "aisle-label": "Aisle",
     "amount": "Amount",
+    "back-to-text": "Back to the text",
+    "did-you-mean": "{{name}}?",
+    "from-home": "at home",
+    "how-much": "how much?",
     "ingredient-name": "Ingredient name",
     "ingredient-placeholder": "e.g. flour",
     "ingredient-placeholder-first": "e.g. flour",
     "ingredient-placeholder-rest": "ingredient",
     "ingredients": "Ingredients",
+    "ingredients-hint": "Write it however you like — one per line, or all together.",
+    "ingredients-placeholder": "400g spaghetti\n500 g minced beef\n2 onions\noil, salt, pepper",
     "instructions": "Instructions",
     "instructions-hint": "Optional. Leave it empty for something you already know how to make and only want on the shopping list — you can write the method in later.",
     "instructions-placeholder": "Recipe steps…",
@@ -374,14 +411,19 @@
     "invalid-url": "The source link doesn't look like a valid URL.",
     "invalid-url-inline": "That doesn't look like a valid URL.",
     "need-an-ingredient": "Add at least one ingredient.",
+    "new-item": "new",
+    "parse-failed": "We couldn't structure that. Fix it by hand — it still saves.",
     "preview": "Preview:",
     "remove-ingredient": "Remove ingredient",
+    "review-heading": "Check the ingredients",
     "servings": "Servings",
     "servings-hint": "The number of people these amounts feed — lets anyone viewing the recipe scale it up or down later.",
     "servings-placeholder": "4",
     "source": "Source",
     "source-hint": "Where the recipe comes from. We'll show just the site, not the full link.",
     "source-placeholder": "recipes.example.com/…",
+    "structure": "Tidy up",
+    "structuring": "Tidying up…",
     "submit-add": "Add recipe",
     "title": "Title",
     "title-placeholder": "e.g. Vegetable lasagne",
@@ -498,5 +540,22 @@
     "plan": {
       "label": "Plan"
     }
+  },
+  "aisle": {
+    "bakery": "Bakery",
+    "canned": "Tinned",
+    "condiments": "Oils, spices and sauces",
+    "dairy_eggs": "Dairy and eggs",
+    "drinks": "Drinks",
+    "dry_goods": "Pasta, rice and flour",
+    "frozen": "Frozen",
+    "household": "Household",
+    "meat_fish": "Meat and fish",
+    "other": "Other",
+    "produce": "Fruit and veg"
+  },
+  "grocery": {
+    "pantry": "at home",
+    "suggestions": "Suggestions"
   }
 }

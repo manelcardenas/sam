@@ -12,6 +12,7 @@
     "close": "Cerrar",
     "created-by": "Añadida por",
     "delete": "Eliminar",
+    "done": "Listo",
     "edit": "Editar",
     "no-people-match": "No hay nadie que coincida.",
     "optional": "(opcional)",
@@ -155,6 +156,10 @@
       "label": "Comida",
       "description": "Platos principales y guisos"
     },
+    "guarnicion": {
+      "label": "Guarnición",
+      "description": "Lo que acompaña al plato: arroz, patatas, ensalada"
+    },
     "postre": {
       "label": "Postre",
       "description": "Dulces y postres"
@@ -222,12 +227,14 @@
   },
   "plan": {
     "add": "Añadir",
+    "add-dish": "Añadir plato",
     "add-extra": "Añadir otra cosa",
     "add-extra-placeholder": "yogures, fruta, bolsas de basura…",
     "add-recipe": "Añadir una receta",
     "add-to-list": "Añadir a la lista",
     "added-by-hand": "Añadido a mano",
     "already-added": "ya en la lista: {{amount}}",
+    "amounts-for": "Estas cantidades son para",
     "archived-note": "Esta semana está archivada. Aquí ya no se puede cambiar nada.",
     "assign": "Añadir a la semana",
     "back-to-this-week": "Volver a esta semana",
@@ -237,13 +244,19 @@
       "one": "{{count}} cosa que no encontraste",
       "other": "{{count}} cosas que no encontraste"
     },
-    "change-recipe": "Cambiar la receta",
     "choose-dish": "¿Qué vais a comer?",
     "close-list": "Compra hecha",
     "close-list-body": "Esto archiva la semana. Podrás consultarla, pero ya no cambiarla.",
     "close-list-title": "¿Guardar esta semana?",
     "conflict": "Esta semana ha cambiado — recarga para ver cómo está ahora.",
+    "create-and-add": "Crear y añadir",
+    "create-dish": "Plato nuevo",
+    "create-named": "Crear «{{name}}»",
+    "create-title-placeholder": "p. ej. Arroz blanco",
     "dinner": "Cena",
+    "dish-not-on-list": "Sin añadir a la lista",
+    "dish-on-list": "En la lista",
+    "dishes-in-slot": "En esta comida",
     "empty-slot": "Sin planificar",
     "finish-week": "Cerrar la semana",
     "finish-week-body": "Después de esto las recetas ya no se tocan. Podrás seguir añadiendo cosas a la lista y marcándolas — que es lo que harás en el súper.",
@@ -256,23 +269,30 @@
     "how-many": "¿Cuántas personas?",
     "ingredients-body": "Está todo marcado. Desmarca lo que ya tengas.",
     "ingredients-title": "Qué comprar para esto",
+    "leave-list": "Dejarlas",
     "list-count": {
       "one": "{{count}} cosa que comprar",
       "other": "{{count}} cosas que comprar"
     },
     "list-empty-body": "Planifica una receta y sus ingredientes aparecen aquí. Lo demás lo puedes añadir a mano.",
     "list-empty-title": "Todavía no hay nada en la lista",
+    "list-stale": {
+      "one": "La lista de la compra sigue con las cantidades de {{count}} persona.",
+      "other": "La lista de la compra sigue con las cantidades de {{count}} personas."
+    },
+    "list-state-all": "En la lista",
+    "list-state-none": "Sin añadir a la lista",
+    "list-state-some": "Solo algunos platos en la lista",
     "load-failed": "No se ha podido cargar el plan.",
     "lunch": "Comida",
+    "more-dishes": "+{{count}} más",
     "next-shop": "Próxima compra",
     "next-week": "Semana siguiente",
     "no-ingredients": "Este todavía no tiene ingredientes apuntados.",
     "no-matches": "No hay nada que coincida.",
     "no-recipes-at-all": "Todavía no tienes recetas. Añade una en Cocina primero.",
-    "not-on-the-list": "Aún sin añadir",
     "nothing-planned-body": "Elige un hueco y decide qué comes. La lista de la compra se va montando sola.",
     "nothing-planned-title": "Esta semana no hay nada planificado",
-    "on-the-list": "En la lista",
     "previous-week": "Semana anterior",
     "remove-and-drop": {
       "one": "Quitar y borrar su {{count}} ingrediente de la lista",
@@ -283,14 +303,24 @@
     "remove-recipe": "Quitar de la semana",
     "remove-recipe-confirm": "¿Quitar {{recipe}} del {{day}}?",
     "save-failed": "No se ha guardado.",
+    "scales-to": {
+      "one": "Se ajustarán a la {{count}} persona de esta comida",
+      "other": "Se ajustarán a las {{count}} personas de esta comida"
+    },
     "search-recipes": "Buscar en tus recetas",
     "search-recipes-placeholder": "Buscar…",
     "skip-for-now": "Ahora no",
+    "slot-servings": "Personas",
     "status-calendar-closed": "De compra",
     "status-list-closed": "Archivada",
     "status-planning": "Planificando",
+    "structure-first": "Estructura los ingredientes y ya puedes crearlo.",
     "this-week": "Esta semana",
     "title": "La semana",
+    "update-list": {
+      "one": "Actualizar {{count}} línea",
+      "other": "Actualizar {{count}} líneas"
+    },
     "view-calendar": "La semana",
     "view-list": "Lista de la compra"
   },
@@ -361,12 +391,19 @@
   },
   "recipe-form": {
     "add-ingredient": "Añadir ingrediente",
+    "aisle-label": "Pasillo",
     "amount": "Cantidad",
+    "back-to-text": "Volver al texto",
+    "did-you-mean": "¿{{name}}?",
+    "from-home": "de casa",
+    "how-much": "¿cuánto?",
     "ingredient-name": "Nombre del ingrediente",
     "ingredient-placeholder": "p. ej. harina",
     "ingredient-placeholder-first": "p. ej. harina",
     "ingredient-placeholder-rest": "ingrediente",
     "ingredients": "Ingredientes",
+    "ingredients-hint": "Escribe como quieras — una línea por ingrediente, o todos seguidos.",
+    "ingredients-placeholder": "400g espaguetis\n500 g carne picada\n2 cebollas\naceite, sal, pimienta",
     "instructions": "Preparación",
     "instructions-hint": "Opcional. Déjalo vacío si ya sabes cocinarlo y solo lo quieres en la lista de la compra — puedes escribir el método más adelante.",
     "instructions-placeholder": "Pasos de la receta…",
@@ -374,14 +411,19 @@
     "invalid-url": "El enlace de origen no parece una URL válida.",
     "invalid-url-inline": "Eso no parece un URL válido.",
     "need-an-ingredient": "Añade al menos un ingrediente.",
+    "new-item": "nuevo",
+    "parse-failed": "No hemos podido estructurarlo. Revísalo a mano — se guarda igual.",
     "preview": "Vista previa:",
     "remove-ingredient": "Quitar ingrediente",
+    "review-heading": "Revisa los ingredientes",
     "servings": "Raciones",
     "servings-hint": "El número de personas para las que dan estas cantidades — así cualquiera que vea la receta puede escalarla después.",
     "servings-placeholder": "4",
     "source": "Origen",
     "source-hint": "De dónde viene la receta. Mostraremos solo el sitio, no el enlace completo.",
     "source-placeholder": "recetas.ejemplo.com/…",
+    "structure": "Estructurar",
+    "structuring": "Estructurando…",
     "submit-add": "Añadir receta",
     "title": "Título",
     "title-placeholder": "p. ej. Lasaña de verduras",
@@ -498,5 +540,22 @@
     "plan": {
       "label": "Plan"
     }
+  },
+  "aisle": {
+    "bakery": "Panadería",
+    "canned": "Conservas",
+    "condiments": "Aceites, especias y salsas",
+    "dairy_eggs": "Lácteos y huevos",
+    "drinks": "Bebidas",
+    "dry_goods": "Pasta, arroz y harinas",
+    "frozen": "Congelados",
+    "household": "Droguería y limpieza",
+    "meat_fish": "Carnicería y pescadería",
+    "other": "Otros",
+    "produce": "Fruta y verdura"
+  },
+  "grocery": {
+    "pantry": "de casa",
+    "suggestions": "Sugerencias"
   }
 }

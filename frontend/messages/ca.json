@@ -12,6 +12,7 @@
     "close": "Tanca",
     "created-by": "Afegida per",
     "delete": "Elimina",
+    "done": "Llest",
     "edit": "Edita",
     "no-people-match": "No hi ha ningú que hi coincideixi.",
     "optional": "(opcional)",
@@ -155,6 +156,10 @@
       "label": "Menjar",
       "description": "Plats principals i guisats"
     },
+    "guarnicion": {
+      "label": "Guarnició",
+      "description": "El que acompanya el plat: arròs, patates, amanida"
+    },
     "postre": {
       "label": "Postres",
       "description": "Dolços i postres"
@@ -222,12 +227,14 @@
   },
   "plan": {
     "add": "Afegir",
+    "add-dish": "Afegir plat",
     "add-extra": "Afegir una altra cosa",
     "add-extra-placeholder": "iogurts, fruita, bosses d'escombraries…",
     "add-recipe": "Afegir una recepta",
     "add-to-list": "Afegir a la llista",
     "added-by-hand": "Afegit a mà",
     "already-added": "ja a la llista: {{amount}}",
+    "amounts-for": "Aquestes quantitats són per a",
     "archived-note": "Aquesta setmana està arxivada. Aquí ja no es pot canviar res.",
     "assign": "Afegir a la setmana",
     "back-to-this-week": "Tornar a aquesta setmana",
@@ -237,13 +244,19 @@
       "one": "{{count}} cosa que no vas trobar",
       "other": "{{count}} coses que no vas trobar"
     },
-    "change-recipe": "Canviar la recepta",
     "choose-dish": "Què menjareu?",
     "close-list": "Compra feta",
     "close-list-body": "Això arxiva la setmana. La podràs consultar, però ja no canviar.",
     "close-list-title": "Vols desar aquesta setmana?",
     "conflict": "Aquesta setmana ha canviat — torna a carregar per veure com està ara.",
+    "create-and-add": "Crear i afegir",
+    "create-dish": "Plat nou",
+    "create-named": "Crear «{{name}}»",
+    "create-title-placeholder": "p. ex. Arròs blanc",
     "dinner": "Sopar",
+    "dish-not-on-list": "Sense afegir a la llista",
+    "dish-on-list": "A la llista",
+    "dishes-in-slot": "En aquest àpat",
     "empty-slot": "Sense planificar",
     "finish-week": "Tancar la setmana",
     "finish-week-body": "Després d'això les receptes ja no es toquen. Podràs seguir afegint coses a la llista i marcant-les — que és el que faràs al súper.",
@@ -256,23 +269,30 @@
     "how-many": "Quantes persones?",
     "ingredients-body": "Està tot marcat. Desmarca el que ja tinguis.",
     "ingredients-title": "Què comprar per a això",
+    "leave-list": "Deixar-les",
     "list-count": {
       "one": "{{count}} cosa per comprar",
       "other": "{{count}} coses per comprar"
     },
     "list-empty-body": "Planifica una recepta i els seus ingredients apareixen aquí. La resta la pots afegir a mà.",
     "list-empty-title": "Encara no hi ha res a la llista",
+    "list-stale": {
+      "one": "La llista de la compra encara té les quantitats per a {{count}} persona.",
+      "other": "La llista de la compra encara té les quantitats per a {{count}} persones."
+    },
+    "list-state-all": "A la llista",
+    "list-state-none": "Sense afegir a la llista",
+    "list-state-some": "Només alguns plats a la llista",
     "load-failed": "No s'ha pogut carregar el pla.",
     "lunch": "Dinar",
+    "more-dishes": "+{{count}} més",
     "next-shop": "Propera compra",
     "next-week": "Setmana següent",
     "no-ingredients": "Aquest encara no té ingredients apuntats.",
     "no-matches": "No hi ha res que hi coincideixi.",
     "no-recipes-at-all": "Encara no tens receptes. Afegeix-ne una a Cuina primer.",
-    "not-on-the-list": "Encara no afegit",
     "nothing-planned-body": "Tria un forat i decideix què mengeu. La llista de la compra es va fent sola.",
     "nothing-planned-title": "Aquesta setmana no hi ha res planificat",
-    "on-the-list": "A la llista",
     "previous-week": "Setmana anterior",
     "remove-and-drop": {
       "one": "Treure i esborrar el seu {{count}} ingredient de la llista",
@@ -283,14 +303,24 @@
     "remove-recipe": "Treure de la setmana",
     "remove-recipe-confirm": "Vols treure {{recipe}} del {{day}}?",
     "save-failed": "No s'ha desat.",
+    "scales-to": {
+      "one": "S'ajustaran a la {{count}} persona d'aquest àpat",
+      "other": "S'ajustaran a les {{count}} persones d'aquest àpat"
+    },
     "search-recipes": "Cercar a les teves receptes",
     "search-recipes-placeholder": "Cercar…",
     "skip-for-now": "Ara no",
+    "slot-servings": "Persones",
     "status-calendar-closed": "De compra",
     "status-list-closed": "Arxivada",
     "status-planning": "Planificant",
+    "structure-first": "Estructura els ingredients i ja el pots crear.",
     "this-week": "Aquesta setmana",
     "title": "La setmana",
+    "update-list": {
+      "one": "Actualitzar {{count}} línia",
+      "other": "Actualitzar {{count}} línies"
+    },
     "view-calendar": "La setmana",
     "view-list": "Llista de la compra"
   },
@@ -361,12 +391,19 @@
   },
   "recipe-form": {
     "add-ingredient": "Afegeix un ingredient",
+    "aisle-label": "Passadís",
     "amount": "Quantitat",
+    "back-to-text": "Tornar al text",
+    "did-you-mean": "{{name}}?",
+    "from-home": "de casa",
+    "how-much": "quant?",
     "ingredient-name": "Nom de l'ingredient",
     "ingredient-placeholder": "p. ex. farina",
     "ingredient-placeholder-first": "p. ex. farina",
     "ingredient-placeholder-rest": "ingredient",
     "ingredients": "Ingredients",
+    "ingredients-hint": "Escriu com vulguis — una línia per ingredient, o tots seguits.",
+    "ingredients-placeholder": "400g espaguetis\n500 g carn picada\n2 cebes\noli, sal, pebre",
     "instructions": "Preparació",
     "instructions-hint": "Opcional. Deixa-ho buit si ja saps cuinar-ho i només ho vols a la llista de la compra — pots escriure el mètode més endavant.",
     "instructions-placeholder": "Passos de la recepta…",
@@ -374,14 +411,19 @@
     "invalid-url": "L'enllaç d'origen no sembla un URL vàlid.",
     "invalid-url-inline": "Això no sembla un URL vàlid.",
     "need-an-ingredient": "Afegeix com a mínim un ingredient.",
+    "new-item": "nou",
+    "parse-failed": "No hem pogut estructurar-ho. Revisa-ho a mà — es desa igualment.",
     "preview": "Vista prèvia:",
     "remove-ingredient": "Treu l'ingredient",
+    "review-heading": "Revisa els ingredients",
     "servings": "Racions",
     "servings-hint": "El nombre de persones per a les quals donen aquestes quantitats — així qualsevol que vegi la recepta pot escalar-la després.",
     "servings-placeholder": "4",
     "source": "Origen",
     "source-hint": "D'on ve la recepta. Mostrarem només el lloc, no l'enllaç sencer.",
     "source-placeholder": "receptes.exemple.com/…",
+    "structure": "Estructurar",
+    "structuring": "Estructurant…",
     "submit-add": "Afegeix la recepta",
     "title": "Títol",
     "title-placeholder": "p. ex. Lasanya de verdures",
@@ -498,5 +540,22 @@
     "plan": {
       "label": "Pla"
     }
+  },
+  "aisle": {
+    "bakery": "Fleca",
+    "canned": "Conserves",
+    "condiments": "Olis, espècies i salses",
+    "dairy_eggs": "Làctics i ous",
+    "drinks": "Begudes",
+    "dry_goods": "Pasta, arròs i farines",
+    "frozen": "Congelats",
+    "household": "Drogueria i neteja",
+    "meat_fish": "Carnisseria i peixateria",
+    "other": "Altres",
+    "produce": "Fruita i verdura"
+  },
+  "grocery": {
+    "pantry": "de casa",
+    "suggestions": "Suggeriments"
   }
 }
