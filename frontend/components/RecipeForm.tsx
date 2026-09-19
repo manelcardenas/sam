@@ -86,6 +86,10 @@ export default function RecipeForm({
   const [error, setError] = useState("");
 
   const source = normalizeUrl(sourceUrl);
+  // Matches the filter `handleSubmit` applies, so the button is disabled in
+  // exactly the case the submit would have rejected — a row typed and then
+  // cleared leaves an empty name and still counts as nothing.
+  const hasIngredient = rows.some((row) => row.name.trim().length > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,10 +259,21 @@ export default function RecipeForm({
         )}
       </div>
 
+      {/* A disabled button that will not say why is half an error message, so
+          the reason sits next to it and is announced. It is deliberately the
+          *only* thing that blocks: a missing amount never does, because that is
+          the friction that emptied these fields in the first place. */}
+      {!hasIngredient && (
+        <p id="submit-blocked" aria-live="polite" className="pt-2 text-xs text-muted">
+          {t("recipe-form.need-an-ingredient")}
+        </p>
+      )}
+
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || !hasIngredient}
+          aria-describedby={hasIngredient ? undefined : "submit-blocked"}
           className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
         >
           <Save className="h-4 w-4" />

@@ -394,6 +394,11 @@
     "aisle-label": "Passadís",
     "amount": "Quantitat",
     "back-to-text": "Tornar al text",
+    "chars-full": "Has arribat al límit de {{max}} caràcters — el que passés d'aquí s'ha tallat.",
+    "chars-left": {
+      "one": "Queda {{count}} caràcter",
+      "other": "Queden {{count}} caràcters"
+    },
     "did-you-mean": "{{name}}?",
     "from-home": "de casa",
     "how-much": "quant?",
@@ -410,6 +415,11 @@
     "invalid-servings": "Les racions han de ser un nombre enter d'1 o més.",
     "invalid-url": "L'enllaç d'origen no sembla un URL vàlid.",
     "invalid-url-inline": "Això no sembla un URL vàlid.",
+    "missing-amounts": {
+      "one": "Falta la quantitat en {{count}} ingredient.",
+      "other": "Falta la quantitat en {{count}} ingredients."
+    },
+    "missing-amounts-why": "Es desa igualment — però sense quantitat la recepta no es pot escalar, així que dirà el mateix per a 2 persones que per a 12.",
     "need-an-ingredient": "Afegeix com a mínim un ingredient.",
     "new-item": "nou",
     "parse-failed": "No hem pogut estructurar-ho. Revisa-ho a mà — es desa igualment.",

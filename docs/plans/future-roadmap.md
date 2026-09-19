@@ -262,6 +262,45 @@ every week. All three are answerable with one query when the question comes up.
 
 ---
 
+## 14. One ingredient, used twice in the same recipe
+
+Found on the Phase F backfill's first run against production (2026-09-19), in *Coca de llanda de
+limón*:
+
+```
+Ralladura de 3 limones   →   Limón  3
+Zumo de 3 limones        →   Limón  3
+```
+
+Both lines are correct on their own. Together they are wrong: those are **the same three lemons**,
+zested and then juiced. The shopping list merges on `(grocery_key, unit)`, so it adds them and asks
+you to buy **six**.
+
+**Why the parser cannot fix this.** It reads one ingredient list and has no way to know whether two
+mentions of the same item are one purchase or two — `2 huevos para la masa` plus `1 huevo para
+pincelar` really is three eggs. Distinguishing them needs the *method*, which the parser is never
+shown, and guessing wrong in the other direction (silently halving) is worse: too much food is a
+waste, too little is a recipe you cannot finish.
+
+**Three candidate answers, none obviously right:**
+
+| | What it does | What it costs |
+| --- | --- | --- |
+| **A line can carry a note** | `Limón 3 · "ralladura"` / `· "zumo"` — shown on the recipe, dropped when merging to the list | A fourth field on every line, for a case that appeared once in 19 recipes |
+| **Merge duplicates inside one recipe** | Same key + same unit in one recipe collapses to one line, keeping the larger amount | Silently wrong for the egg case above, and it is silent that makes it dangerous |
+| **Flag it, let the cook decide** | The review table marks the second occurrence: *"¿los mismos 3 limones?"* | Only works at capture time; does nothing for rows already stored |
+
+The third fits how everything else in this feature behaves — `near_duplicates` suggests and never
+decides — and it is the one to build if this comes up again.
+
+**Fixed by hand for now:** nothing. The recipe is left as two lines; whoever shops for that cake
+buys three lemons and ignores the sixth.
+
+**Trigger:** a second recipe hitting it. One occurrence in 19 recipes is not a pattern, and a fourth
+field on every ingredient line is a real cost to pay for it.
+
+---
+
 ## Queue as of 2026-09-07
 
 Agreed order, replacing "pick whichever item looks interesting":
@@ -276,7 +315,7 @@ Agreed order, replacing "pick whichever item looks interesting":
 | **5** | Build the meal planner | ✅ **done 2026-09-11** — [`./meal-planner-plan.md`](./meal-planner-plan.md) §8. Phases A–D shipped, v1 complete: data fix, backend, week view, shopping list, sharing and the year archive. Post-v1: the week moved to Sat→Fri (§8.9), the filter row is now shared with `/dashboard` with a new by-author axis (§8.10), the list stopped being downstream of the calendar (§8.11), and sharing became a **kitchen** — a week belongs to a household rather than to a person, with no owner and no guest (§8.12) |
 | **6** | AI ingredient capture + the grocery vocabulary | ✅ **done 2026-09-18** — [`./ingredient-capture-plan.md`](./ingredient-capture-plan.md). Phases A–F shipped, plus §6.1's cross-language merge. G and `Frecuentes` deferred to 13 |
 | later | Prices (10), page-file split (11) | 11 becomes urgent if the planner copies the page-orchestration pattern a fourth time |
-| parked | Search (4), Redis (5), toasts (12), history-ranked suggestions (13) | 13 has a real trigger — ten closed weeks of plans; the others have none, and 12 may simply be deleted |
+| parked | Search (4), Redis (5), toasts (12), history-ranked suggestions (13), one ingredient used twice (14) | 13 and 14 have real triggers — ten closed weeks of plans, and a second recipe hitting the duplicate-line case. The others have none, and 12 may simply be deleted |
 
 **Reconciliation note (2026-09-11).** [`./improvement-plan.md`](./improvement-plan.md) was closed
 on this date and its Phase 4 status table reconciled against the code — it had been stale since

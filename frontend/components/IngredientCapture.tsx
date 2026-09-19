@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { CircleAlert, Plus, Trash2 } from "lucide-react";
 import { apiClient, type Aisle, type ParsedIngredientLine } from "@/lib/api-client";
 import { DeepSeekMark } from "@/components/brand/DeepSeekMark";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
@@ -40,8 +40,26 @@ export interface CaptureRow {
   isPantry?: boolean;
   isNew?: boolean;
   didYouMean?: string[];
-  /** Whether the vocabulary expects a quantity here — drives the `¿cuánto?` nudge. */
-  expectsAmount?: boolean;
+  /**
+   * What the vocabulary says this is normally measured in — `g`, `ml`, or absent
+   * for something counted.
+   *
+   * It does two jobs and **neither one writes data behind your back**. Its
+   * presence is what makes the row ask `¿cuánto?`, because only a measured thing
+   * has a missing quantity worth chasing — nobody needs to be asked how much
+   * salt. And it fills the unit box the moment you type an amount, where you can
+   * see it and change it.
+   *
+   * That is the opposite of the rule deleted on 2026-09-18, which applied this
+   * server-side to any amount arriving without a unit and turned `1 patata` into
+   * `1 g`. The difference is not the value, it is who can see it.
+   */
+  defaultUnit?: string;
+}
+
+/** A measured row with nothing in the amount box — what the nudge counts. */
+export function needsAmount(row: CaptureRow): boolean {
+  return Boolean(row.defaultUnit) && !row.amount.trim();
 }
 
 export function rowsFromParsed(lines: ParsedIngredientLine[], locale: string, nextId: () => number): CaptureRow[] {
@@ -54,7 +72,7 @@ export function rowsFromParsed(lines: ParsedIngredientLine[], locale: string, ne
     isPantry: line.item.is_pantry,
     isNew: line.is_new,
     didYouMean: line.did_you_mean,
-    expectsAmount: line.item.default_unit != null,
+    defaultUnit: line.item.default_unit ?? undefined,
   }));
 }
 
@@ -70,6 +88,20 @@ export function rowsFromRawText(text: string, nextId: () => number): CaptureRow[
 const fieldClass =
   "rounded-xl border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted/60 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
 
+/** Matches the server's cap, so a runaway paste is refused where it is pasted. */
+const MAX_CHARS = 4000;
+
+/**
+ * Where the counter appears — the last 10%.
+ *
+ * `maxLength` alone truncates a long paste **silently**: you paste 5,000
+ * characters, 4,000 arrive, and nothing on screen says the rest is gone. That is
+ * the failure this exists for, so the counter has to be visible *before* the
+ * limit as well as at it. Showing it from character one would just be noise on
+ * the seven-line recipes that are the normal case.
+ */
+const COUNT_FROM = MAX_CHARS * 0.9;
+
 export function IngredientCapture({
   rows,
   onRowsChange,
@@ -82,7 +114,7 @@ export function IngredientCapture({
   servings: number;
   nextId: () => number;
 }) {
-  const { t, locale } = useI18n();
+  const { t, tp, locale } = useI18n();
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -111,26 +143,57 @@ export function IngredientCapture({
     }
   };
 
-  const update = (id: number, patch: Partial<CaptureRow>) => onRowsChange(rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  /**
+   * Patch one row, filling the unit the first time an amount appears.
+   *
+   * **A unit with no amount is worse than neither.** The shopping list merges on
+   * `(identity, unit)`, so an `Aceite` line carrying `ml` and no number would sit
+   * beside `Aceite 150 ml` as a second row for the same bottle. So the unit
+   * arrives with the number, never before it — and only into an empty box, so it
+   * can never overwrite what you typed.
+   */
+  const update = (id: number, patch: Partial<CaptureRow>) =>
+    onRowsChange(
+      rows.map((row) => {
+        if (row.id !== id) return row;
+        const next = { ...row, ...patch };
+        if (patch.amount?.trim() && !next.unit.trim() && next.defaultUnit) next.unit = next.defaultUnit;
+        return next;
+      }),
+    );
   const remove = (id: number) => onRowsChange(rows.filter((row) => row.id !== id));
   const add = () => onRowsChange([...rows, { id: nextId(), name: "", amount: "", unit: "" }]);
 
   if (!reviewing) {
+    const remaining = MAX_CHARS - draft.length;
+    // The hint is spent by the time you are 3,600 characters in — you plainly
+    // know you can write however you like — so the counter takes its place
+    // rather than crowding the row on a phone.
+    const counting = draft.length >= COUNT_FROM;
     return (
       <div className="space-y-2">
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={5}
-          // 4,000 matches the server's cap, so a runaway paste is refused where
-          // it is pasted rather than after a round trip.
-          maxLength={4000}
+          maxLength={MAX_CHARS}
           aria-label={t("recipe-form.ingredients")}
           placeholder={t("recipe-form.ingredients-placeholder")}
           className={`${fieldClass} w-full resize-y leading-relaxed`}
         />
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-muted">{t("recipe-form.ingredients-hint")}</p>
+          <p
+            // Polite rather than assertive: it should be announced when you
+            // pause, not interrupt you mid-word.
+            aria-live="polite"
+            className={`text-xs ${remaining === 0 ? "font-semibold text-tomato" : "text-muted"}`}
+          >
+            {!counting
+              ? t("recipe-form.ingredients-hint")
+              : remaining === 0
+                ? t("recipe-form.chars-full", { max: MAX_CHARS })
+                : tp("recipe-form.chars-left", remaining)}
+          </p>
           <button
             type="button"
             onClick={structure}
@@ -144,6 +207,8 @@ export function IngredientCapture({
       </div>
     );
   }
+
+  const missing = rows.filter(needsAmount).length;
 
   return (
     <div className="space-y-2.5">
@@ -166,13 +231,17 @@ export function IngredientCapture({
               onChange={(e) => update(row.id, { amount: e.target.value })}
               placeholder="—"
               aria-label={t("recipe-form.amount")}
-              className={`${fieldClass} w-20 text-center`}
+              // The box itself carries the ask, so the row reads as incomplete
+              // at a glance without having to find the words underneath.
+              className={`${fieldClass} w-20 text-center ${needsAmount(row) ? "border-amber bg-amber/5" : ""}`}
             />
             <input
               type="text"
               value={row.unit}
               onChange={(e) => update(row.id, { unit: e.target.value })}
-              placeholder="—"
+              // The vocabulary's unit as ghost text, not as a value: it shows
+              // what is expected without putting anything in the row.
+              placeholder={row.defaultUnit ?? "—"}
               aria-label={t("recipe-form.unit")}
               className={`${fieldClass} w-20`}
             />
@@ -197,7 +266,19 @@ export function IngredientCapture({
               {row.aisle && <span>{t(`aisle.${row.aisle}`)}</span>}
               {row.isNew && <span className="font-semibold text-tomato">✦ {t("recipe-form.new-item")}</span>}
               {row.isPantry && <span>· {t("recipe-form.from-home")}</span>}
-              {row.expectsAmount && !row.amount.trim() && <span>· {t("recipe-form.how-much")}</span>}
+              {/* Amber rather than tomato, and this is the one place the two are
+                  easy to confuse. Tomato is the brand accent: it is the submit
+                  button and it is `✦ nuevo` on this very row, so a second tomato
+                  thing here would read as the same kind of thing. Amber is also
+                  the honest severity — this is unfinished, not broken, and the
+                  save goes through either way. Icon *and* colour *and* words,
+                  because colour alone carries nothing to a colourblind reader. */}
+              {needsAmount(row) && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber/15 px-2 py-0.5 font-semibold text-amber-700 dark:text-amber">
+                  <CircleAlert className="h-3 w-3 shrink-0" />
+                  {t("recipe-form.how-much")}
+                </span>
+              )}
               {row.didYouMean?.map((name) => (
                 <button
                   key={name}
@@ -212,6 +293,21 @@ export function IngredientCapture({
           )}
         </div>
       ))}
+
+      {/* The consequence, once, rather than a dialog per row. A badge tells you
+          something is missing; this tells you what it costs, which is the part
+          that actually changes behaviour. It is also the literal truth of
+          ADR-0001: scaling multiplies the amounts, so a line without one passes
+          through unchanged at every headcount. */}
+      {missing > 0 && (
+        <p aria-live="polite" className="flex items-start gap-2 rounded-xl bg-amber/10 px-3 py-2 text-xs text-fg">
+          <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber" />
+          <span>
+            <span className="font-semibold">{tp("recipe-form.missing-amounts", missing)}</span>{" "}
+            <span className="text-muted">{t("recipe-form.missing-amounts-why")}</span>
+          </span>
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <button
