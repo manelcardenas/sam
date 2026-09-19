@@ -136,6 +136,13 @@ hand.
 
 ## 9. AI ingredient capture — natural text, voice, photo, links
 
+> **Scoped 2026-09-12 into [`./ingredient-capture-plan.md`](./ingredient-capture-plan.md).** That
+> plan is wider than this item: the interview found that natural capture is useless without an
+> **identity** for an ingredient, so it introduces a shared `grocery_items` vocabulary — which then
+> also delivers a shopping list sorted by supermarket aisle, pantry staples that stop cluttering it,
+> and the "básicos" quick-add. Voice, photo and link import stay deferred *there*, with triggers.
+> The cost warning below is confirmed and quantified: **~5 cents a month**.
+
 Scoped out of [`./meal-planner-plan.md`](./meal-planner-plan.md) §3, where the underlying problem
 was measured: across 19 recipes and **111 ingredient lines**, `amount` is filled on **2** and
 `unit` on **1**, while **56% of names start with a digit** — people write `"3 huevos"` into the
@@ -223,6 +230,36 @@ serve**, and if there isn't one, delete this item. The strongest candidate is an
 result arrives after the user has navigated away — which the app does not currently have, but the
 meal planner's shared-list ticking might.
 
+## 13. The two features that need a shopping history — `Frecuentes` and pairing memory
+
+**Both deferred to v2 on 2026-09-18.** They are the last two unbuilt pieces of
+[`./ingredient-capture-plan.md`](./ingredient-capture-plan.md) — §6.2 (Phase B's second half) and
+§5.5 (Phase G) — and they are **one item rather than two** because they are the same query over the
+same data, blocked on the same thing, with the same trigger. When it fires, you build both.
+
+| | What it offers | Reads |
+| --- | --- | --- |
+| **`Frecuentes`** | A chip row over the manual-add box: the things this kitchen buys most, one tap instead of typing `yogures` for the fortieth time | past plans' `shopping_list_items` |
+| **Pairing memory** | *"¿con Arroz blanco?"* when you add carne en salsa, because those two have shared a slot five times | past plans' `plan_entries`, grouped by slot |
+
+Both are **free**: a query over data the app already stores, no schema, no model, and — for pairing
+— more accurate than anything an LLM would guess about this particular household. Pairing reads
+through the same archive-wide path as the year view (`kitchen_ids_for`, which spans kitchens you have
+left), so it survives moving house.
+
+**Why they wait: the ranking *is* the feature, and it is computed from history there isn't yet.**
+With one or two weeks of plans, the chips are close to arbitrary and the pairing has nothing to
+remember. That is worse than shipping neither — a suggestion row you learn to ignore in week one
+does not get a second look in week ten, and the first wrong pairing teaches you the feature is noise.
+Shipping them early spends the one chance they have to feel uncanny.
+
+Nothing is missing in the meantime. The manual-add box already autocompletes against the whole
+vocabulary (that half of Phase B shipped), and adding a second dish to a slot is two taps.
+
+**Trigger:** roughly **ten closed weeks** of plans in the kitchen. Or, sooner, either of these
+becoming a felt annoyance — retyping the same extras every week, or re-finding the same guarnición
+every week. All three are answerable with one query when the question comes up.
+
 ---
 
 ## Queue as of 2026-09-07
@@ -237,8 +274,9 @@ Agreed order, replacing "pick whichever item looks interesting":
 | **3** | English / Spanish / Catalan switch, and all copy out of the code | ✅ done 2026-09-07 — [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §4 |
 | **4** | mise.cooking pattern research | [`./ux-refresh-plan.md`](./ux-refresh-plan.md) §7 — a week of phone use, not a design task. **Did not block the planner**: PLAN became a third world in the existing bottom bar, which is where §7's own bottom-nav candidate would put it anyway |
 | **5** | Build the meal planner | ✅ **done 2026-09-11** — [`./meal-planner-plan.md`](./meal-planner-plan.md) §8. Phases A–D shipped, v1 complete: data fix, backend, week view, shopping list, sharing and the year archive. Post-v1: the week moved to Sat→Fri (§8.9), the filter row is now shared with `/dashboard` with a new by-author axis (§8.10), the list stopped being downstream of the calendar (§8.11), and sharing became a **kitchen** — a week belongs to a household rather than to a person, with no owner and no guest (§8.12) |
-| later | AI ingredient capture (9), prices (10), page-file split (11) | 11 becomes urgent if the planner copies the page-orchestration pattern a fourth time |
-| parked | Search (4), Redis (5), toasts (12) | None has a trigger; 12 may simply be deleted |
+| **6** | AI ingredient capture + the grocery vocabulary | ✅ **done 2026-09-18** — [`./ingredient-capture-plan.md`](./ingredient-capture-plan.md). Phases A–F shipped, plus §6.1's cross-language merge. G and `Frecuentes` deferred to 13 |
+| later | Prices (10), page-file split (11) | 11 becomes urgent if the planner copies the page-orchestration pattern a fourth time |
+| parked | Search (4), Redis (5), toasts (12), history-ranked suggestions (13) | 13 has a real trigger — ten closed weeks of plans; the others have none, and 12 may simply be deleted |
 
 **Reconciliation note (2026-09-11).** [`./improvement-plan.md`](./improvement-plan.md) was closed
 on this date and its Phase 4 status table reconciled against the code — it had been stale since
