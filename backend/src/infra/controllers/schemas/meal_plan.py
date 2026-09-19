@@ -5,7 +5,13 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class AssignDishRequest(BaseModel):
-    """Put a dish in a slot.
+    """Put a dish in a slot, alongside whatever is already there.
+
+    **There is no entry id.** The dish *within* the slot is the identity — the
+    recipe when there is one, the name when there is not — so sending the same
+    dish again changes its headcount and sending a different one adds it. That
+    keeps the client from having to track ids for rows it just created, and it
+    makes the call idempotent in the way people actually repeat it.
 
     `dish_name` travels with `recipe_id` rather than being looked up, because the
     plan stores a snapshot (§8.3a) — deleting a recipe must not rewrite what you
@@ -20,7 +26,7 @@ class AssignDishRequest(BaseModel):
     meal: Literal["lunch", "dinner"]
     recipe_id: str | None = Field(default=None, description="Null for a dish typed straight into the planner")
     dish_name: str = Field(min_length=1, max_length=255)
-    servings: int = Field(ge=1, le=99, description="Headcount for this slot, which may differ from the recipe's own")
+    servings: int = Field(ge=1, le=99, description="Headcount for this dish, which may differ from the recipe's own")
 
 
 class ListLineRequest(BaseModel):
@@ -50,6 +56,19 @@ class AddToListRequest(BaseModel):
         if self.entry_id and not self.dish_name:
             raise ValueError("dish_name is required when entry_id is given")
         return self
+
+
+class ResyncEntryListRequest(BaseModel):
+    """This dish's list lines, as they should be after a headcount change.
+
+    `items` may be **empty**, which is the honest way to say "this dish now
+    contributes nothing" — you unticked everything on the re-confirm. That is
+    why there is no `min_length` here, unlike `AddToListRequest` where an empty
+    body could only ever be a client bug.
+    """
+
+    dish_name: str = Field(max_length=255, description="Shown in the per-line breakdown, snapshotted like every other write")
+    items: list[ListLineRequest] = Field(default_factory=list)
 
 
 class AddToWeekListRequest(BaseModel):

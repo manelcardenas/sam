@@ -1,4 +1,5 @@
 from src.domain.entities.cuisine import Cuisine
+from src.domain.entities.grocery import Aisle, GroceryItem, GrocerySource, aisle_order, key_for, name_index, near_duplicates, resolve_grocery_key
 from src.domain.entities.kitchen import Kitchen, KitchenInvite, KitchenMember, KitchenView, is_member
 from src.domain.entities.meal_plan import (
     Meal,
@@ -7,6 +8,7 @@ from src.domain.entities.meal_plan import (
     PlanSummary,
     sort_entries,
 )
+from src.domain.entities.parsed_ingredient import IngredientParserError, ParsedIngredients, ParsedLine, ProposedGroceryItem
 from src.domain.entities.place import Area, Place
 from src.domain.entities.plan_lifecycle import (
     PlanAction,
@@ -31,10 +33,14 @@ from src.domain.entities.week import DAYS_IN_WEEK, week_start_for
 
 __all__ = [
     "DAYS_IN_WEEK",
+    "Aisle",
     "Area",
     "Cuisine",
     "FoodType",
+    "GroceryItem",
+    "GrocerySource",
     "Ingredient",
+    "IngredientParserError",
     "Ingredients",
     "Kitchen",
     "KitchenInvite",
@@ -43,6 +49,8 @@ __all__ = [
     "ListItemSource",
     "Meal",
     "MealPlan",
+    "ParsedIngredients",
+    "ParsedLine",
     "Person",
     "Place",
     "PlanAction",
@@ -50,6 +58,7 @@ __all__ = [
     "PlanStateError",
     "PlanStatus",
     "PlanSummary",
+    "ProposedGroceryItem",
     "Recipe",
     "Restaurant",
     "RestaurantDetail",
@@ -61,12 +70,17 @@ __all__ = [
     "User",
     "UserReview",
     "UserStats",
+    "aisle_order",
     "is_member",
+    "key_for",
     "merge_key",
+    "name_index",
+    "near_duplicates",
     "next_status",
     "normalise_ingredient_name",
     "permits",
     "require",
+    "resolve_grocery_key",
     "sort_entries",
     "sort_items",
     "week_start_for",

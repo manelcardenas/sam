@@ -100,6 +100,12 @@ So v1 includes a data fix:
 > recurring cost. See [`./future-roadmap.md`](./future-roadmap.md) item 9. Sequencing bonus: build
 > that and the backfill is free — point it at the 111 existing lines once and this script never
 > needs writing.
+>
+> **Scoped 2026-09-12 — [`./ingredient-capture-plan.md`](./ingredient-capture-plan.md).** It
+> takes the sequencing bonus above, and **collected 2026-09-18**: `backfill_ingredients.py` was
+> deleted unfinished and replaced by `scripts/restructure_ingredients.py`, which runs the same 111
+> lines through the model instead of through a regex. The regex was the part the parser made
+> unnecessary.
 
 ## 4. Decisions taken, and why
 
@@ -377,8 +383,10 @@ holding it in the shop.
   made `?mine=true` a param).
 - `RecipeForm` treats instructions as optional and says what leaving it empty *means*, rather
   than just dropping the asterisk.
-- The 111-line backfill ships as `backend/scripts/backfill_ingredients.py` — **a script with a
-  dry run, not ad-hoc SQL**, so it is in git, re-runnable, and reviewable before it writes.
+- The 111-line backfill ships as a **script with a dry run, not ad-hoc SQL**, so it is in git,
+  re-runnable, and reviewable before it writes. (It is now
+  `backend/scripts/restructure_ingredients.py`; the regex-based original never finished its job and
+  was deleted rather than extended — see ingredient-capture-plan §9.1.)
 
 ### 8.5 What Phase B actually shipped
 

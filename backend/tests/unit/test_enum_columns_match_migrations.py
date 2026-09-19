@@ -27,16 +27,45 @@ from src.infra.db import Base
 
 VERSIONS = Path(__file__).resolve().parents[2] / "alembic" / "versions"
 
-# `sa.Enum("a", "b", name="x")` — the labels, then the type's name.
-DECLARATION = re.compile(r"sa\.Enum\(\s*((?:\"[^\"]+\"\s*,\s*)+)name=\"(?P<name>\w+)\"")
+# `sa.Enum("a", "b", name="x")` or `postgresql.ENUM("a", "b", name="x")` — the
+# labels, then the type's name.
+#
+# **Both spellings, because a migration that needs `create_type=False` has to use
+# the dialect one.** Knowing only `sa.Enum` meant an enum could be introduced in
+# the spelling this file does not recognise and go completely unguarded — which
+# is the precise failure the module docstring above describes.
+DECLARATION = re.compile(r"(?:sa\.Enum|postgresql\.ENUM)\(\s*((?:\"[^\"]+\"\s*,\s*)+)name=\"(?P<name>\w+)\"")
+
+
+# `ALTER TYPE food_type_enum ADD VALUE 'GUARNICION'` — extending a type that
+# already exists. The third spelling this file has to know, and the one that is
+# easiest to miss: a value added this way never appears in any `sa.Enum(...)`
+# call, so without this an extended type looks frozen at whatever it was created
+# with and the new member goes entirely unguarded.
+#
+# Deliberately **not** matching raw `CREATE TYPE` SQL. Declarations come from the
+# two Python spellings above; a downgrade that rebuilds a type by hand would
+# otherwise be read as the truth and silently undo an extension.
+ADDITION = re.compile(r"ALTER TYPE (?P<name>\w+) ADD VALUE (?:IF NOT EXISTS )?'(?P<label>[^']+)'")
 
 
 def _migration_enums() -> dict[str, list[str]]:
     """Every enum type the migrations create, as {type name: [labels]}."""
     found: dict[str, list[str]] = {}
-    for migration in VERSIONS.glob("*.py"):
-        for match in DECLARATION.finditer(migration.read_text(encoding="utf-8")):
+    sources = [migration.read_text(encoding="utf-8") for migration in sorted(VERSIONS.glob("*.py"))]
+
+    for source in sources:
+        for match in DECLARATION.finditer(source):
             found[match.group("name")] = re.findall(r"\"([^\"]+)\"", match.group(1))
+
+    # Applied in a second pass so an addition is never wiped out by a declaration
+    # parsed later — filename order is not migration order.
+    for source in sources:
+        for match in ADDITION.finditer(source):
+            labels = found.setdefault(match.group("name"), [])
+            if match.group("label") not in labels:
+                labels.append(match.group("label"))
+
     return found
 
 

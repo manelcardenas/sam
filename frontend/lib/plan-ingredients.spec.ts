@@ -88,6 +88,7 @@ const item = (over: Partial<ShoppingListItem>): ShoppingListItem => ({
   id: "i1",
   display_name: "Cebolla",
   normalised_name: "cebolla",
+  grocery_key: null,
   unit: null,
   total_amount: 3,
   is_checked: false,

@@ -21,16 +21,27 @@ def normalise_ingredient_name(name: str) -> str:
     return " ".join(without_marks.split())
 
 
-def merge_key(name: str, unit: str | None) -> tuple[str, str]:
-    """`(normalised name, unit)` with the unit's absence made explicit.
+def merge_key(name: str, unit: str | None, grocery_key: str | None = None) -> tuple[str, str]:
+    """`(identity, unit)` — what makes two lines the same line.
 
-    The empty string rather than None is not cosmetic: Postgres treats NULLs as
-    distinct in a unique constraint, so a key holding None would let two `huevos`
-    rows exist side by side — and most household ingredients have no unit, which
-    makes that the common case rather than the edge one (§8.3b). The SQL index
-    uses `COALESCE(unit, '')` for exactly this reason and this mirrors it.
+    **The identity is the vocabulary key when there is one**, and the normalised
+    name otherwise (ingredient-capture-plan §6.1). That fallback is what lets a
+    hand-typed `bolsas de basura` behave exactly as it did before this existed,
+    and it is why no shopping-list row ever needed migrating: a line whose name
+    already normalises to its own key coalesces to the same string either way.
+
+    Without the key, the three names per `grocery_items` row are decorative —
+    `huevos` and `eggs` are one thing in the vocabulary and two lines on the
+    list, which is the exact failure §3.5 exists to prevent.
+
+    The empty string rather than None for the unit is not cosmetic: Postgres
+    treats NULLs as distinct in a unique constraint, so a key holding None would
+    let two `huevos` rows exist side by side — and most household ingredients
+    have no unit, which makes that the common case rather than the edge one
+    (§8.3b). The SQL index uses `COALESCE(unit, '')` for exactly this reason and
+    this mirrors it.
     """
-    return normalise_ingredient_name(name), (unit or "").strip().lower()
+    return (grocery_key or normalise_ingredient_name(name)), (unit or "").strip().lower()
 
 
 class ListItemSource(BaseModel):
@@ -49,6 +60,10 @@ class ShoppingListItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     display_name: str  # as first typed — the list reads in the user's own words
     normalised_name: str
+    # The vocabulary row this line means, when one could be found. NULL is the
+    # normal state for anything hand-typed that the vocabulary does not know, and
+    # it costs only the aisle — the line still merges, on its name.
+    grocery_key: str | None = None
     unit: str | None = None
     total_amount: float | None = None
     is_checked: bool = False

@@ -66,6 +66,17 @@ export class LambdaApiStack extends Stack {
       { parameterName: "/recipe-manager/geoapify/api-key" },
     );
 
+    // Ingredient parser keys — same SSM-SecureString-by-name pattern as the DSN
+    // and the Geoapify key. The *fallback* provider is chosen separately (see
+    // docs/plans/ingredient-capture-plan.md §7.2): every candidate speaks the
+    // OpenAI API, so swapping it is these two values plus an SSM write, with no
+    // code change.
+    const llmPrimaryKeyParam = StringParameter.fromSecureStringParameterAttributes(
+      this,
+      "LlmPrimaryApiKey",
+      { parameterName: "/recipe-manager/llm/primary/api-key" },
+    );
+
     const recipeApi = new PythonFunction(this, "RecipeAPI", {
       entry: "../backend",
       runtime: Runtime.PYTHON_3_13,
@@ -84,6 +95,9 @@ export class LambdaApiStack extends Stack {
       environment: {
         POSTGRES_DSN_PARAM: dsnParam.parameterName,
         GEOAPIFY_API_KEY_PARAM: geoapifyKeyParam.parameterName,
+        LLM_PRIMARY_API_KEY_PARAM: llmPrimaryKeyParam.parameterName,
+        LLM_PRIMARY_BASE_URL: "https://api.deepseek.com",
+        LLM_PRIMARY_MODEL: "deepseek-chat",
         COGNITO_USER_POOL_ID: cognitoStack.userPool.userPoolId,
         COGNITO_CLIENT_ID: cognitoStack.userPoolClient.userPoolClientId,
       },
@@ -107,6 +121,7 @@ export class LambdaApiStack extends Stack {
     // Allow Lambda to read the Neon DSN and Geoapify key SecureString parameters
     dsnParam.grantRead(recipeApi);
     geoapifyKeyParam.grantRead(recipeApi);
+    llmPrimaryKeyParam.grantRead(recipeApi);
 
     const httpApi = new HttpApi(this, "RecipeHttpApi", {
       apiName: constants.RECIPE_API_GATEWAY_NAME,
@@ -188,6 +203,26 @@ export class LambdaApiStack extends Stack {
       authorizer,
     });
 
+    // The shared grocery vocabulary (docs/plans/ingredient-capture-plan.md §3).
+    // Read-only and read whole: the client caches it for the session and uses it
+    // for both the shopping list's aisle grouping and the manual-add autocomplete.
+    httpApi.addRoutes({
+      path: "/grocery-items",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
+    // Free ingredient text in, structured reviewable lines out. The slowest
+    // route the API has — it calls an external model with an 8s budget and
+    // fails over once, so ~17s worst case against the gateway's hard 30s.
+    httpApi.addRoutes({
+      path: "/ingredients/parse",
+      methods: [HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
     httpApi.addRoutes({
       path: "/cuisines",
       methods: [HttpMethod.GET],
@@ -264,6 +299,15 @@ export class LambdaApiStack extends Stack {
     httpApi.addRoutes({
       path: "/plans/{plan_id}/entries/{entry_id}",
       methods: [HttpMethod.DELETE],
+      integration,
+      authorizer,
+    });
+
+    // Re-syncs one dish's lines after its headcount changed. Four segments, so
+    // it is unambiguous against /plans/{plan_id}/entries/{entry_id} above.
+    httpApi.addRoutes({
+      path: "/plans/{plan_id}/entries/{entry_id}/items",
+      methods: [HttpMethod.PUT],
       integration,
       authorizer,
     });

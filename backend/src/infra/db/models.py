@@ -5,7 +5,7 @@ from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, Enum, F
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.domain.entities import FoodType, Meal, PlanStatus
+from src.domain.entities import Aisle, FoodType, GrocerySource, Meal, PlanStatus
 from src.infra.db.base import Base
 
 
@@ -244,8 +244,24 @@ class PlanEntryModel(Base):
 
     __table_args__ = (
         CheckConstraint("servings >= 1", name="ck_plan_entries_servings_positive"),
-        # One dish per slot in v1 (§6). Starter-plus-main later is dropping this.
-        Index("uq_plan_entries_slot", "plan_id", "date", "meal", unique=True),
+        # **A slot holds a flat list of dishes** (ingredient-capture-plan §5).
+        # This replaced `uq_plan_entries_slot`, which made `(plan, date, meal)`
+        # unique and so made "carne en salsa con arroz" unplannable.
+        #
+        # Partial on `recipe_id IS NOT NULL` for two reasons at once: it stops the
+        # same recipe being added to one slot twice, and it leaves NULLs
+        # unconstrained — Postgres treats them as distinct anyway — so several
+        # one-off text entries can share a slot. Those are the right answer for a
+        # Tuesday you are not cooking, and they carry no recipe.
+        Index(
+            "uq_plan_entries_slot_dish",
+            "plan_id",
+            "date",
+            "meal",
+            "recipe_id",
+            unique=True,
+            postgresql_where=text("recipe_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
@@ -284,13 +300,33 @@ class ShoppingListItemModel(Base):
         # unique constraint, and most household ingredients have no unit — so
         # indexing `unit` directly fails to merge the *common* case. The upsert
         # in postgres_meal_plan_repo.py uses the same expression.
-        Index("uq_shopping_list_items_merge_key", "plan_id", "normalised_name", text("COALESCE(unit, '')"), unique=True),
+        # `COALESCE(grocery_key, normalised_name)`, not a bare name: two lines
+        # meaning one vocabulary row are one line, whichever language each was
+        # typed in (ingredient-capture-plan §6.1). `merge_key()` in
+        # shopping_list.py is the same expression and the two must stay
+        # identical — a fake that disagrees with the database is a suite that
+        # passes while production merges wrong.
+        Index(
+            "uq_shopping_list_items_merge_key",
+            "plan_id",
+            text("COALESCE(grocery_key, normalised_name)"),
+            text("COALESCE(unit, '')"),
+            unique=True,
+        ),
     )
 
     id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     plan_id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("meal_plans.id", ondelete="CASCADE"), nullable=False, index=True)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False, comment="As first typed — the list reads in the user's own words")
     normalised_name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Merge key: lowercased, whitespace-collapsed, diacritics stripped")
+    # Deliberately **not** a foreign key into `grocery_items`. The vocabulary is
+    # curated reference data with no ownership; a FK would mean a line could
+    # block a row being corrected, and `ON DELETE SET NULL` would silently
+    # unsort somebody's list. Resolved on write, re-resolved on read by name —
+    # so a row renamed in the vocabulary keeps working.
+    grocery_key: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True, comment="The grocery_items row this line means; NULL when the vocabulary does not know it"
+    )
     unit: Mapped[str | None] = mapped_column(String(50), nullable=True)
     total_amount: Mapped[float | None] = mapped_column(Numeric(10, 3), nullable=True, comment="NULL for things with no quantity — 'sal' is a real ingredient")
     is_checked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
@@ -325,3 +361,67 @@ class ListItemSourceModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     item: Mapped["ShoppingListItemModel"] = relationship(back_populates="sources")
+
+
+class GroceryItemModel(Base):
+    """The shared vocabulary of buyable things (docs/plans/ingredient-capture-plan.md §3).
+
+    **A table with no owner and no foreign keys into it.** Like `cuisines`, it is
+    a curated vocabulary rather than user data: rows are seeded, occasionally
+    proposed by the parser, and never deleted by a user action. Recipes point at
+    it by *name*, not by FK (see below), so nothing cascades and nothing here can
+    be orphaned.
+
+    It holds **no quantities**. `4 huevos` and `12 huevos` are two recipe lines
+    resolving to this one row — how much belongs to a recipe, what shelf belongs
+    to the ingredient. Keeping amounts out is what stops a wrong amount in one
+    recipe from reaching any other.
+
+    It holds detergent, which is why it is not called `ingredients`. Almost
+    everything a household buys appears both inside recipes and on the list by
+    hand, so splitting food from non-food would put `huevos` in two tables with
+    two aisles that can disagree.
+    """
+
+    __tablename__ = "grocery_items"
+
+    # The key IS the primary key, not a surrogate id. It is
+    # `normalise_ingredient_name(name)` — the same function the shopping list
+    # already merges on — so a line and its vocabulary row cannot normalise
+    # differently, which is the one way this could silently fail to match.
+    key: Mapped[str] = mapped_column(String(255), primary_key=True, comment="normalise_ingredient_name(): lowercased, whitespace-collapsed, diacritics stripped")
+
+    # Three names rather than one, for **merging** rather than for translation:
+    # without them `huevos` and `eggs` are two lines on one shopping list, and
+    # the vocabulary is the only place that can know they are the same thing.
+    # Capped at the app's three languages, not "whatever the user speaks".
+    name_es: Mapped[str] = mapped_column(String(255), nullable=False)
+    name_ca: Mapped[str] = mapped_column(String(255), nullable=False)
+    name_en: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # values_callable so the stored value is the lowercase one — same reason as
+    # MealPlanModel.status, whose comment explains what goes wrong without it.
+    aisle: Mapped[Aisle] = mapped_column(
+        Enum(Aisle, name="aisle_enum", values_callable=lambda enum: [member.value for member in enum]),
+        nullable=False,
+        comment="Where in the shop. Declaration order is the sort order — see domain/entities/grocery.py",
+    )
+    is_pantry: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default=text("false"),
+        comment="Starts the line UNTICKED in the ingredient popup. Never hides it — 1kg of sugar for a cake is still shopping",
+    )
+    default_unit: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, comment="Hint to the parser so it writes 'g' not 'gramos'. NULL means counted, not measured"
+    )
+    source: Mapped[GrocerySource] = mapped_column(
+        Enum(GrocerySource, name="grocery_source_enum", values_callable=lambda enum: [member.value for member in enum]),
+        nullable=False,
+        server_default="ai",
+        comment="seed | ai | human — exists so every unvouched guess is findable",
+    )
+    confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, comment="When a person last vouched for this row; NULL means nobody has checked"
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

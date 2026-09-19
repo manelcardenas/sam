@@ -38,7 +38,17 @@ const DICTIONARIES: Record<Locale, typeof en> = {
 /** A value that carries plural forms rather than one string. `other` is required. */
 type PluralForms = { other: string } & Partial<Record<Intl.LDMLPluralRule, string>>;
 
-type IsPlural<T> = T extends { other: string } ? true : false;
+/**
+ * Whether a node is a plural form rather than a namespace of keys.
+ *
+ * **Both `one` and `other`, not `other` alone.** The looser test was fine until
+ * a namespace legitimately contained a key called `other` — `aisle.other`, the
+ * shelf where unrecognised things land — at which point the whole group was
+ * typed as a plural and none of its eleven keys existed as a `MessageKey`.
+ * Every plural in this app carries both forms, so requiring both costs nothing
+ * and stops an ordinary English word from being reserved.
+ */
+type IsPlural<T> = T extends { one: string; other: string } ? true : false;
 
 /** Dotted paths to plain string leaves. */
 type StringPaths<T> = {

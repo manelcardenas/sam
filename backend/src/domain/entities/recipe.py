@@ -6,10 +6,22 @@ from pydantic import BaseModel, Field
 
 
 class FoodType(str, enum.Enum):
+    """What kind of thing this is, as a person would say it.
+
+    `GUARNICION` was added for the planner (ingredient-capture-plan §5.3): rice,
+    potatoes, a green salad — things you plate *alongside* something else. It is
+    a category here rather than a separate entity or a second collection,
+    because a `postre` is equally "not a meal, a component of one" and the schema
+    accepted that framing four values ago. A guarnición graduates into an
+    ordinary recipe the moment somebody writes the method down, exactly as
+    ADR-0007 describes.
+    """
+
     BEBIDA = "bebida"
     POSTRE = "postre"
     COMIDA = "comida"
     APERITIVO = "aperitivo"
+    GUARNICION = "guarnicion"
 
 
 class Ingredient(BaseModel):

@@ -84,9 +84,19 @@ export function scaleIngredients(ingredients: IngredientsData, wanted: number): 
  * `?? ""` on both sides is the `COALESCE(unit, '')` from the SQL index: a line
  * with no unit and a line with an empty unit are the same line, and most
  * household ingredients have no unit at all.
+ *
+ * `groceryKey` is the identity half of that same COALESCE, and passing the
+ * vocabulary in is what keeps this honest across languages: without it, an
+ * `Onion` line already on the list would not be found for a recipe's `cebolla`,
+ * and the popup would say "new" about something it is about to merge into.
  */
-export function findExistingLine(items: ShoppingListItem[], line: Pick<ScaledLine, "key" | "unit">): ShoppingListItem | undefined {
-  return items.find((item) => item.normalised_name === line.key && (item.unit ?? "") === (line.unit ?? ""));
+export function findExistingLine(
+  items: ShoppingListItem[],
+  line: Pick<ScaledLine, "key" | "unit">,
+  groceryKey?: string | null,
+): ShoppingListItem | undefined {
+  const identity = groceryKey ?? line.key;
+  return items.find((item) => (item.grocery_key ?? item.normalised_name) === identity && (item.unit ?? "") === (line.unit ?? ""));
 }
 
 /** How the list shows a quantity, or null when there isn't one. */

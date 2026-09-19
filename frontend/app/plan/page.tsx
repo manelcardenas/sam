@@ -6,8 +6,10 @@ import { useAuthGate } from "@/components/auth/useAuthGate";
 import {
   ApiError,
   apiClient,
+  type GroceryItem,
   type KitchenMember,
   type KitchenView,
+  type CreateRecipeInput,
   type Meal,
   type MealPlan,
   type Person,
@@ -18,6 +20,7 @@ import {
 import { currentParams, useBrowserNavigation, useHistoryDepth, writeUrl } from "@/lib/url-state";
 import { DAYS_IN_WEEK, fromQuery, homeWeekOf, shiftDate, toQuery, weekDays, weekStartOf, type PlanView } from "@/lib/plan-url";
 import type { ScaledLine } from "@/lib/plan-ingredients";
+import { entryForDish } from "@/lib/plan-entries";
 import { AppShell } from "@/components/shell/AppShell";
 import { PlanSkeleton } from "@/components/ui/PageSkeleton";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
@@ -59,6 +62,12 @@ export default function PlanPage() {
   const [plan, setPlan] = useState<MealPlan | null>(null);
   const [kitchen, setKitchen] = useState<KitchenView | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  // The shared grocery vocabulary, for the shopping list's aisle grouping and
+  // the manual-add suggestions. Fetched once and never refetched: it changes a
+  // handful of times a year. **Empty is a valid state** — the list renders flat
+  // and unsuggested rather than waiting or erroring, so a vocabulary that never
+  // arrives costs a feature and not the page.
+  const [vocabulary, setVocabulary] = useState<GroceryItem[]>([]);
   const [error, setError] = useState("");
 
   const [view, setView] = useState<PlanView>("calendar");
@@ -129,13 +138,17 @@ export default function PlanPage() {
     void (async () => {
       // Every recipe is plannable, method or not, so the picker asks
       // for both. The ADR-0007 lens is left unset on purpose.
-      const [mine, loaded] = await Promise.all([
+      const [mine, loaded, groceries] = await Promise.all([
         loadPlan(weekStart, currentParams().get("plan")),
         apiClient.listRecipes().catch(() => [] as Recipe[]),
+        // Swallowed on purpose, like the recipes above: this is decoration on a
+        // page whose job is the week and the list.
+        apiClient.listGroceryItems().catch(() => [] as GroceryItem[]),
         loadKitchen(),
       ]);
       if (cancelled) return;
       setRecipes(loaded);
+      setVocabulary(groceries);
 
       // **The home week is the one you are shopping for next**, not the one the
       // calendar happens to be in. Once this week's list is closed the shopping
@@ -224,7 +237,9 @@ export default function PlanPage() {
   // since left, reached from the archive. The server refuses the writes; this
   // keeps the controls from offering them.
   const readOnly = Boolean(kitchen && plan && plan.kitchen_id !== kitchen.kitchen.id);
-  const openEntry = slot ? plan?.entries.find((e) => e.date === slot.date && e.meal === slot.meal) : undefined;
+  // Every dish in the open slot, not one. Derived from `plan` rather than held
+  // in state so removing a dish inside the sheet updates the sheet's own list.
+  const openEntries = slot ? (plan?.entries.filter((e) => e.date === slot.date && e.meal === slot.meal) ?? []) : [];
   const days = weekDays(weekStart);
   // What the shop did not have. Offered to next week when the list closes.
   const unbought = plan?.items.filter((item) => !item.is_checked) ?? [];
@@ -325,7 +340,30 @@ export default function PlanPage() {
         servings,
       });
       applyUpdatedPlan(updated);
-      return updated.entries.find((e) => e.date === slot.date && e.meal === slot.meal) ?? null;
+      // The dish that was just written, not whichever one is first in the slot
+      // — see `entryForDish`. With several dishes to a slot the difference is
+      // the sheet opening the wrong one's ingredients.
+      return entryForDish(updated.entries, slot, recipe?.id ?? null, name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("plan.save-failed"));
+      return null;
+    }
+  };
+
+  /**
+   * Save a dish invented inside the slot sheet (§5.3).
+   *
+   * It joins `recipes` immediately rather than waiting for a refetch: the sheet
+   * assigns it in the same breath and then reads its ingredients back out of
+   * that list, and a round trip in between is a visible flicker on the one
+   * screen this feature exists to keep unbroken.
+   */
+  const createRecipe = async (input: CreateRecipeInput): Promise<Recipe | null> => {
+    try {
+      setError("");
+      const created = await apiClient.createRecipe(input);
+      setRecipes((prev) => [...prev, created]);
+      return created;
     } catch (err) {
       setError(err instanceof Error ? err.message : t("plan.save-failed"));
       return null;
@@ -340,6 +378,24 @@ export default function PlanPage() {
         lines.map((l) => ({ name: l.name, amount: l.amount, unit: l.unit })),
         entry.id,
         entry.dish_name,
+      ),
+    );
+  };
+
+  /**
+   * Rebuild one dish's shopping-list lines at its current headcount.
+   *
+   * Only ever after the user agrees — the list never rewrites itself (§4.5), and
+   * the sheet asks before calling this.
+   */
+  const resyncList = async (entry: PlanEntry, lines: ScaledLine[]) => {
+    if (!plan) return;
+    await withPlan(() =>
+      apiClient.resyncEntryList(
+        plan.id,
+        entry.id,
+        entry.dish_name,
+        lines.map((l) => ({ name: l.name, amount: l.amount, unit: l.unit })),
       ),
     );
   };
@@ -526,6 +582,7 @@ export default function PlanPage() {
         </>
       ) : (
         <ShoppingList
+          vocabulary={vocabulary}
           // Rendered whether or not the week has been planned: adding the first
           // line is what creates the week, so an empty-state panel here instead
           // would be a dead end with the one control you came for missing.
@@ -563,14 +620,17 @@ export default function PlanPage() {
       {slot && (
         <SlotSheet
           plan={plan}
-          entry={openEntry}
+          entries={openEntries}
           dayLabel={formatWeekday(slot.date, locale)}
           mealLabel={t(`plan.${slot.meal}`)}
           recipes={recipes}
+          vocabulary={vocabulary}
           editable={calendarEditable && !readOnly}
           listEditable={listEditable && !readOnly}
           onAssign={assign}
+          onCreateRecipe={createRecipe}
           onAddToList={addToList}
+          onResyncList={resyncList}
           onRemove={removeEntry}
           onClose={() => setSlot(null)}
           currentUserId={me?.id ?? null}

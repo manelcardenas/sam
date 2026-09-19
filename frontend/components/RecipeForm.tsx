@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Save, X, Link2, Plus, Trash2, Users } from "lucide-react";
-import { FOOD_TYPES, type FoodType } from "@/lib/constants";
+import { Save, X, Link2, Users } from "lucide-react";
+import type { FoodType } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
-import type { MessageKey } from "@/lib/i18n/dictionary";
 import type { CreateRecipeInput, IngredientsData } from "@/lib/api-client";
+import { IngredientCapture, type CaptureRow } from "@/components/IngredientCapture";
+import { FoodTypePicker } from "@/components/FoodTypePicker";
 import SourceLink from "@/components/SourceLink";
 
 /** Add https:// if the user typed a bare host, then validate. Returns the
@@ -40,17 +41,16 @@ interface RecipeFormProps {
   submitLabel: string;
 }
 
-interface IngredientRow {
-  id: number;
-  name: string;
-  amount: string;
-  unit: string;
-}
-
-function rowsFromIngredients(ingredients?: IngredientsData): IngredientRow[] {
-  const items = ingredients?.items ?? [];
-  if (items.length === 0) return [{ id: 0, name: "", amount: "", unit: "" }];
-  return items.map((item, idx) => ({
+/**
+ * Existing ingredients, as review rows.
+ *
+ * **Empty for a new recipe**, which is what puts `IngredientCapture` into its
+ * text box; editing a saved recipe opens straight into the table with no parse
+ * and no API call. The old version seeded one blank row here, back when a blank
+ * row *was* the entry point.
+ */
+function rowsFromIngredients(ingredients?: IngredientsData): CaptureRow[] {
+  return (ingredients?.items ?? []).map((item, idx) => ({
     id: idx,
     name: item.name,
     amount: item.amount != null ? String(item.amount) : "",
@@ -60,10 +60,6 @@ function rowsFromIngredients(ingredients?: IngredientsData): IngredientRow[] {
 
 const fieldClass =
   "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
-
-/** Denser variant for repeated ingredient-row inputs, sized via flex/width utilities instead of `w-full`. */
-const rowFieldClass =
-  "rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
 
 const labelClass = "mb-1.5 block text-sm font-semibold text-fg";
 
@@ -82,22 +78,14 @@ export default function RecipeForm({
   const [servings, setServings] = useState(
     initialData?.ingredients.servings != null ? String(initialData.ingredients.servings) : "",
   );
-  const [rows, setRows] = useState<IngredientRow[]>(() => rowsFromIngredients(initialData?.ingredients));
+  const [rows, setRows] = useState<CaptureRow[]>(() => rowsFromIngredients(initialData?.ingredients));
   const nextRowId = useRef(rows.length);
+  const nextId = () => nextRowId.current++;
   const [sourceUrl, setSourceUrl] = useState(initialData?.source_url ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const source = normalizeUrl(sourceUrl);
-
-  const updateRow = (id: number, patch: Partial<IngredientRow>) =>
-    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
-
-  const addRow = () =>
-    setRows((prev) => [...prev, { id: nextRowId.current++, name: "", amount: "", unit: "" }]);
-
-  const removeRow = (id: number) =>
-    setRows((prev) => (prev.length > 1 ? prev.filter((row) => row.id !== id) : prev));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,37 +157,7 @@ export default function RecipeForm({
         <label className={labelClass}>
           {t("recipe-form.type")} {t("common.required-marker")}
         </label>
-        <div className="grid grid-cols-4 gap-2">
-          {FOOD_TYPES.map(({ value, icon: Icon, accent }) => {
-            const selected = formData.food_type === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setFormData({ ...formData, food_type: value as FoodType })}
-                style={
-                  selected
-                    ? { borderColor: accent, backgroundColor: `${accent}1f` }
-                    : undefined
-                }
-                className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 py-3 text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 ${
-                  selected
-                    ? "scale-105 text-fg shadow-pop"
-                    : "border-line text-muted hover:border-tomato/40 hover:text-fg"
-                }`}
-              >
-                <Icon
-                  className="h-6 w-6"
-                  // The glyph takes the category's colour once selected, so the
-                  // choice reads from the icon as well as from the border.
-                  style={selected ? { color: accent } : undefined}
-                  aria-hidden
-                />
-                <span>{t(`food-types.${value}.label` as MessageKey)}</span>
-              </button>
-            );
-          })}
-        </div>
+        <FoodTypePicker value={formData.food_type} onChange={(food_type) => setFormData({ ...formData, food_type })} />
       </div>
 
       {/* Optional, and the hint below says why rather than leaving the marker
@@ -254,55 +212,7 @@ export default function RecipeForm({
           {t("recipe-form.servings-hint")}
         </p>
 
-        <div className="space-y-2">
-          {rows.map((row, idx) => (
-            <div key={row.id} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={row.name}
-                onChange={(e) => updateRow(row.id, { name: e.target.value })}
-                placeholder={t(idx === 0 ? "recipe-form.ingredient-placeholder-first" : "recipe-form.ingredient-placeholder-rest")}
-                aria-label={t("recipe-form.ingredient-name")}
-                className={`${rowFieldClass} min-w-0 flex-1`}
-              />
-              <input
-                type="number"
-                step="any"
-                value={row.amount}
-                onChange={(e) => updateRow(row.id, { amount: e.target.value })}
-                placeholder="amount"
-                aria-label={t("recipe-form.amount")}
-                className={`${rowFieldClass} w-20 text-center`}
-              />
-              <input
-                type="text"
-                value={row.unit}
-                onChange={(e) => updateRow(row.id, { unit: e.target.value })}
-                placeholder="unit"
-                aria-label={t("recipe-form.unit")}
-                className={`${rowFieldClass} w-20`}
-              />
-              <button
-                type="button"
-                onClick={() => removeRow(row.id)}
-                disabled={rows.length === 1}
-                aria-label={t("recipe-form.remove-ingredient")}
-                className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato disabled:cursor-not-allowed disabled:opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          onClick={addRow}
-          className="mt-2.5 flex cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-line px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          {t("recipe-form.add-ingredient")}
-        </button>
+        <IngredientCapture rows={rows} onRowsChange={setRows} servings={Math.max(1, Math.round(Number(servings)) || 1)} nextId={nextId} />
       </div>
 
       {/* Source — optional. Stored as a clean link, shown as the site's name. */}
