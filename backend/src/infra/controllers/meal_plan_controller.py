@@ -13,6 +13,7 @@ from src.app.use_cases import (
     GetPlanForWeek,
     RemoveDish,
     RemoveListItem,
+    ResyncEntryList,
     TickItem,
 )
 from src.app.use_cases.kitchen_access import current_kitchen
@@ -26,12 +27,13 @@ from src.domain.entities import (
     PlanSummary,
     ShoppingListItem,
 )
-from src.domain.ports import KitchenRepository, MealPlanRepository
+from src.domain.ports import GroceryRepository, KitchenRepository, MealPlanRepository
 from src.infra.controllers.schemas import (
     AddToListRequest,
     AddToWeekListRequest,
     AdvancePlanRequest,
     AssignDishRequest,
+    ResyncEntryListRequest,
     TickItemRequest,
 )
 from src.infra.security import TokenPayload, get_current_user
@@ -46,9 +48,19 @@ class MealPlanController:
     use, which is why no route has to handle "you have no kitchen yet".
     """
 
-    def __init__(self, meal_plan_repository: MealPlanRepository, kitchen_repository: KitchenRepository, router: APIRouter) -> None:
+    def __init__(
+        self,
+        meal_plan_repository: MealPlanRepository,
+        kitchen_repository: KitchenRepository,
+        # The shopping list resolves every line against the vocabulary as it is
+        # written, so lines meaning one thing merge whichever language each was
+        # typed in (ingredient-capture-plan §6.1).
+        grocery_repository: GroceryRepository,
+        router: APIRouter,
+    ) -> None:
         self.meal_plan_repository = meal_plan_repository
         self.kitchen_repository = kitchen_repository
+        self.grocery_repository = grocery_repository
         self.router = router
         self._register_routes()
 
@@ -74,7 +86,7 @@ class MealPlanController:
             methods=["PUT"],
             response_model=MealPlan,
             summary="Assign a dish to a slot",
-            description="Upserts one slot, creating the week's plan on first use. The slot is the identity: assigning twice changes the dish.",
+            description="Adds a dish to a slot, creating the week's plan on first use. A slot holds several; assigning the same dish again changes it rather than duplicating it.",
             **common,
         )
         self.router.add_api_route(
@@ -84,6 +96,18 @@ class MealPlanController:
             response_model=MealPlan,
             summary="Clear a slot",
             description="Removes the dish. Its shopping-list lines are left alone unless `drop_from_list=true` — see the drift rule in §4.5.",
+            **common,
+        )
+        self.router.add_api_route(
+            "/plans/{plan_id}/entries/{entry_id}/items",
+            self.resync_entry_list,
+            methods=["PUT"],
+            response_model=MealPlan,
+            summary="Re-sync one dish's shopping-list lines",
+            description=(
+                "Replaces exactly this dish's contribution, leaving other dishes' shares and hand-added extras alone. "
+                "Called after a headcount change, and only once the user has agreed — the list never rewrites itself (§4.5)."
+            ),
             **common,
         )
         self.router.add_api_route(
@@ -257,7 +281,26 @@ class MealPlanController:
             for line in request.items
         ]
         try:
-            AddToList(self.meal_plan_repository).execute(self._kitchen_id(current_user.sub), plan_id, items)
+            AddToList(self.meal_plan_repository, self.grocery_repository).execute(self._kitchen_id(current_user.sub), plan_id, items)
+        except (PermissionError, PlanStateError, KeyError, ValueError) as e:
+            self._raise(e)
+        return self._reload(plan_id)
+
+    def resync_entry_list(self, plan_id: str, entry_id: str, request: ResyncEntryListRequest, current_user: TokenPayload = Depends(get_current_user)) -> MealPlan:
+        items = [
+            ShoppingListItem(
+                display_name=line.name,
+                normalised_name="",  # the repository derives this; see merge_key
+                unit=line.unit,
+                total_amount=line.amount,
+                is_manual=False,
+                created_by=current_user.sub,
+                sources=[ListItemSource(entry_id=entry_id, dish_name=request.dish_name, amount=line.amount)],
+            )
+            for line in request.items
+        ]
+        try:
+            ResyncEntryList(self.meal_plan_repository, self.grocery_repository).execute(self._kitchen_id(current_user.sub), plan_id, entry_id, items)
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
         return self._reload(plan_id)
@@ -278,7 +321,7 @@ class MealPlanController:
             for line in request.items
         ]
         try:
-            plan = AddToWeekList(self.meal_plan_repository).execute(self._kitchen_id(current_user.sub), current_user.sub, request.day, items)
+            plan = AddToWeekList(self.meal_plan_repository, self.grocery_repository).execute(self._kitchen_id(current_user.sub), current_user.sub, request.day, items)
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
         return self._reload(plan.id)

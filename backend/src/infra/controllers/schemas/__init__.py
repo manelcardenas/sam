@@ -11,6 +11,7 @@ from src.infra.controllers.schemas.meal_plan import (
     AddToWeekListRequest,
     AdvancePlanRequest,
     AssignDishRequest,
+    ResyncEntryListRequest,
     TickItemRequest,
 )
 from src.infra.controllers.schemas.place import ReverseGeocodeResponse
@@ -29,6 +30,7 @@ __all__ = [
     "CreateRestaurantRequest",
     "CreateReviewRequest",
     "InviteRequest",
+    "ResyncEntryListRequest",
     "ReverseGeocodeResponse",
     "TickItemRequest",
     "UpdateMeRequest",
