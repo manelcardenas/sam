@@ -9,7 +9,7 @@ a headcount feeds four.
 
 import pytest
 
-from scripts.restructure_ingredients import ReadOnlyGroceryRepository, as_item, describe, is_structured
+from scripts.restructure_ingredients import ReadOnlyGroceryRepository, as_item, as_text, describe, is_structured
 from src.domain.entities import Aisle, GroceryItem
 from src.domain.entities.parsed_ingredient import ResolvedLine
 from src.infra.adapters.repos.in_memory_grocery_repo import InMemoryGroceryRepository
@@ -78,6 +78,34 @@ class TestRefusingToInventVocabulary:
         wrapped = ReadOnlyGroceryRepository(InMemoryGroceryRepository([grocery("sal")]))
 
         assert [item.key for item in wrapped.list_all()] == ["sal"]
+
+
+class TestWhatTheParserIsShown:
+    """A stored line, turned back into the sentence the parser reads.
+
+    Found on the second production run: `Magdalenas de anís` lost `250 Gr` of
+    sugar because only `name` was being sent.
+    """
+
+    def test_a_plain_name_goes_through_untouched(self) -> None:
+        assert as_text({"name": "400g espaguetis"}) == "400g espaguetis"
+
+    def test_a_stored_amount_is_put_back_into_the_sentence(self) -> None:
+        assert as_text({"name": "azúcar", "amount": 250, "unit": "Gr"}) == "250 Gr azúcar"
+
+    def test_a_stored_amount_survives_without_a_unit(self) -> None:
+        assert as_text({"name": "huevos", "amount": 6}) == "6 huevos"
+
+    def test_the_name_wins_when_it_already_carries_the_number(self) -> None:
+        # `{"name": "6 huevos", "amount": 6}` is one six written twice. Prepending
+        # would send "6 6 huevos".
+        assert as_text({"name": "6 huevos", "amount": 6}) == "6 huevos"
+
+    def test_a_whole_amount_keeps_no_trailing_zero(self) -> None:
+        assert as_text({"name": "azúcar", "amount": 250.0, "unit": "g"}) == "250 g azúcar"
+
+    def test_a_blank_line_stays_blank_so_the_caller_can_drop_it(self) -> None:
+        assert as_text({"name": "  "}) == ""
 
 
 class TestWhatGetsWritten:
