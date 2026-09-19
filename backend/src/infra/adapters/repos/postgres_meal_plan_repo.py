@@ -1,10 +1,21 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.domain.entities import ListItemSource, MealPlan, PlanEntry, PlanStatus, PlanSummary, ShoppingListItem, merge_key, sort_entries, sort_items
+from src.domain.entities import (
+    ListItemSource,
+    MealPlan,
+    PlanEntry,
+    PlanStatus,
+    PlanSummary,
+    ShoppingListItem,
+    merge_key,
+    normalise_ingredient_name,
+    sort_entries,
+    sort_items,
+)
 from src.domain.ports import MealPlanRepository
 from src.infra.db import ListItemSourceModel, MealPlanModel, PlanEntryModel, ShoppingListItemModel
 
@@ -15,6 +26,9 @@ from src.infra.db import ListItemSourceModel, MealPlanModel, PlanEntryModel, Sho
 # most household ingredients have no unit, and Postgres treats NULLs as distinct
 # (docs/plans/meal-planner-plan.md §8.3b).
 _UNIT_KEY = func.coalesce(ShoppingListItemModel.unit, "")
+# The identity half of the merge key, mirroring `merge_key()` and the SQL index.
+# All three have to agree; see the index comment in models.py.
+_NAME_KEY = func.coalesce(ShoppingListItemModel.grocery_key, ShoppingListItemModel.normalised_name)
 
 
 class PostgresMealPlanRepository(MealPlanRepository):
@@ -40,6 +54,7 @@ class PostgresMealPlanRepository(MealPlanRepository):
             id=str(model.id),
             display_name=model.display_name,
             normalised_name=model.normalised_name,
+            grocery_key=model.grocery_key,
             unit=model.unit,
             total_amount=float(model.total_amount) if model.total_amount is not None else None,
             is_checked=model.is_checked,
@@ -95,13 +110,27 @@ class PostgresMealPlanRepository(MealPlanRepository):
 
     def upsert_entry(self, plan_id: str, entry: PlanEntry) -> PlanEntry:
         with self._session_factory() as session:
-            existing = session.scalars(
-                select(PlanEntryModel).where(
-                    PlanEntryModel.plan_id == uuid.UUID(plan_id),
-                    PlanEntryModel.date == entry.date,
-                    PlanEntryModel.meal == entry.meal,
-                )
-            ).one_or_none()
+            # The *dish in the slot* is the identity, not the slot: a slot holds
+            # a flat list, so a different dish joins Wednesday dinner rather than
+            # replacing what is there.
+            #
+            # The fallback to `dish_name` matters. `uq_plan_entries_slot_dish` is
+            # partial on `recipe_id IS NOT NULL`, so the database cannot stop two
+            # identical one-off text entries — matching on the name here is what
+            # keeps typing "Sobras" twice from leaving two of them. The in-memory
+            # adapter's `_same_dish` says the same thing; the two have to agree
+            # or a suite passes while production duplicates rows.
+            slot = (
+                PlanEntryModel.plan_id == uuid.UUID(plan_id),
+                PlanEntryModel.date == entry.date,
+                PlanEntryModel.meal == entry.meal,
+            )
+            identity = (
+                PlanEntryModel.recipe_id == uuid.UUID(entry.recipe_id)
+                if entry.recipe_id
+                else and_(PlanEntryModel.recipe_id.is_(None), PlanEntryModel.dish_name == entry.dish_name)
+            )
+            existing = session.scalars(select(PlanEntryModel).where(*slot, identity)).one_or_none()
 
             if existing is None:
                 existing = PlanEntryModel(plan_id=uuid.UUID(plan_id), date=entry.date, meal=entry.meal)
@@ -143,11 +172,15 @@ class PostgresMealPlanRepository(MealPlanRepository):
             touched: dict[str, ShoppingListItemModel] = {}
 
             for incoming in items:
-                name_key, unit_key = merge_key(incoming.display_name, incoming.unit)
+                # `normalised_name` is still derived from what was typed — it is
+                # the fallback identity and the thing a legacy row matches on.
+                # The grocery key, when the caller resolved one, is what actually
+                # merges.
+                name_key, unit_key = merge_key(incoming.display_name, incoming.unit, incoming.grocery_key)
                 existing = session.scalars(
                     select(ShoppingListItemModel).where(
                         ShoppingListItemModel.plan_id == plan_uuid,
-                        ShoppingListItemModel.normalised_name == name_key,
+                        _NAME_KEY == name_key,
                         _UNIT_KEY == unit_key,
                     )
                 ).one_or_none()
@@ -158,7 +191,8 @@ class PostgresMealPlanRepository(MealPlanRepository):
                         # The first spelling wins, so the list reads in the
                         # user's own words rather than in normalised form.
                         display_name=incoming.display_name.strip(),
-                        normalised_name=name_key,
+                        normalised_name=normalise_ingredient_name(incoming.display_name),
+                        grocery_key=incoming.grocery_key,
                         unit=incoming.unit,
                         total_amount=incoming.total_amount,
                         is_manual=incoming.is_manual,

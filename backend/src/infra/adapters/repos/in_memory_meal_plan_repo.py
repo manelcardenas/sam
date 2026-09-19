@@ -1,8 +1,35 @@
 import uuid
 from datetime import UTC, date, datetime
 
-from src.domain.entities import MealPlan, PlanEntry, PlanStatus, PlanSummary, ShoppingListItem, merge_key, sort_entries, sort_items
+from src.domain.entities import (
+    MealPlan,
+    PlanEntry,
+    PlanStatus,
+    PlanSummary,
+    ShoppingListItem,
+    merge_key,
+    normalise_ingredient_name,
+    sort_entries,
+    sort_items,
+)
 from src.domain.ports import MealPlanRepository
+
+
+def _same_dish(existing: PlanEntry, incoming: PlanEntry) -> bool:
+    """Whether these are the same dish in the same slot.
+
+    Mirrors the SQL adapter exactly, and the fallback to `dish_name` is the part
+    worth stating: `uq_plan_entries_slot_dish` is partial on
+    `recipe_id IS NOT NULL`, so the database cannot stop two identical one-off
+    text entries. Matching on the name here is what keeps typing "Sobras" twice
+    from leaving two of them — a rule the app enforces because the index
+    deliberately does not.
+    """
+    if existing.date != incoming.date or existing.meal != incoming.meal:
+        return False
+    if incoming.recipe_id is not None:
+        return existing.recipe_id == incoming.recipe_id
+    return existing.recipe_id is None and existing.dish_name == incoming.dish_name
 
 
 class InMemoryMealPlanRepository(MealPlanRepository):
@@ -66,14 +93,15 @@ class InMemoryMealPlanRepository(MealPlanRepository):
 
     def upsert_entry(self, plan_id: str, entry: PlanEntry) -> PlanEntry:
         plan = self.plans[plan_id]
-        existing = next((e for e in plan.entries if e.date == entry.date and e.meal == entry.meal), None)
+        existing = next((e for e in plan.entries if _same_dish(e, entry)), None)
         if existing is None:
             stored = entry.model_copy(deep=True, update={"id": str(uuid.uuid4())})
             plan.entries.append(stored)
         else:
-            # The slot is the identity: reassigning it changes the dish, it does
-            # not create a second Wednesday dinner. The author changes too —
-            # whoever set what is there now is who it is attributed to.
+            # The *dish in the slot* is the identity, not the slot. Assigning the
+            # same dish again is changing your mind about the headcount; a
+            # different dish joins it. The author changes too — whoever set what
+            # is there now is who it is attributed to.
             existing.recipe_id = entry.recipe_id
             existing.dish_name = entry.dish_name
             existing.servings = entry.servings
@@ -96,14 +124,18 @@ class InMemoryMealPlanRepository(MealPlanRepository):
         touched: dict[str, ShoppingListItem] = {}
 
         for incoming in items:
-            key = merge_key(incoming.display_name, incoming.unit)
-            existing = next((i for i in plan.items if merge_key(i.display_name, i.unit) == key), None)
+            # Same three-argument key the SQL index uses. This fake exists to
+            # stand in for that index, so a divergence here is a suite that
+            # passes while production merges wrong.
+            key = merge_key(incoming.display_name, incoming.unit, incoming.grocery_key)
+            existing = next((i for i in plan.items if merge_key(i.display_name, i.unit, i.grocery_key) == key), None)
 
             if existing is None:
                 existing = ShoppingListItem(
                     id=str(uuid.uuid4()),
                     display_name=incoming.display_name.strip(),
-                    normalised_name=key[0],
+                    normalised_name=normalise_ingredient_name(incoming.display_name),
+                    grocery_key=incoming.grocery_key,
                     unit=incoming.unit,
                     total_amount=incoming.total_amount,
                     is_manual=incoming.is_manual,

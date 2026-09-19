@@ -21,9 +21,12 @@ class MealPlanRepository(ABC):
       and passes ids. `created_by` travels on the rows purely as attribution.
     - `get_plan_for_week` returning None is a normal answer, not an error. Most
       weeks have no plan yet.
-    - `upsert_entry` upserts because the slot is the identity — assigning
-      Wednesday dinner twice means changing your mind, not creating a second
-      Wednesday dinner (§6).
+    - `upsert_entry` keys on the **dish within the slot**, not the slot. A slot
+      holds a flat list (ingredient-capture-plan §5), so assigning a *second*
+      dish to Wednesday dinner adds it; assigning the *same* dish again changes
+      its headcount rather than duplicating it. For a one-off text entry — which
+      has no recipe id — the dish name plays that part, so typing "Sobras" twice
+      does not leave two.
     - `drop_sources_for_entry` is separate from `delete_entry` on purpose. §4.5's
       drift rule: the list never rewrites itself, so unpicking a dish's lines is
       a second call the client makes after the user says yes.
