@@ -4,7 +4,7 @@ from src.app.use_cases import GetCurrentUser, GetUserStats, ListUserReviews, Upd
 from src.domain.entities import User, UserReview, UserStats
 from src.domain.errors import DisplayNameTakenError
 from src.domain.ports import ReviewRepository, UserRepository
-from src.infra.controllers.schemas import UpdateMeRequest
+from src.infra.controllers.schemas import MeResponse, UpdateMeRequest
 from src.infra.security import TokenPayload, get_current_user
 
 
@@ -20,7 +20,7 @@ class UserController:
             "/users/me",
             self.get_me,
             methods=["GET"],
-            response_model=User,
+            response_model=MeResponse,
             dependencies=[Depends(get_current_user)],
             summary="Get the current user",
             description="Returns the authenticated user's profile",
@@ -30,7 +30,7 @@ class UserController:
             "/users/me",
             self.update_me,
             methods=["PATCH"],
-            response_model=User,
+            response_model=MeResponse,
             dependencies=[Depends(get_current_user)],
             summary="Update the current user's display name",
             description="Sets a user-chosen display name (must be unique)",
@@ -57,20 +57,24 @@ class UserController:
             tags=["Users"],
         )
 
-    def get_me(self, current_user: TokenPayload = Depends(get_current_user)) -> User:
+    def get_me(self, current_user: TokenPayload = Depends(get_current_user)) -> MeResponse:
         """Return the current user's profile. The auth dependency JIT-provisions
         the row, so it should always exist; 404 is a safety net."""
         use_case = GetCurrentUser(self.user_repository)
         user = use_case.execute(current_user.sub)
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        return user
+        return _me(user, current_user)
 
-    def update_me(self, request: UpdateMeRequest, current_user: TokenPayload = Depends(get_current_user)) -> User:
-        """Set the current user's display name."""
+    def update_me(self, request: UpdateMeRequest, current_user: TokenPayload = Depends(get_current_user)) -> MeResponse:
+        """Set the current user's display name.
+
+        Returns the same shape as GET: the client replaces its cached profile
+        with this response, and a PATCH that dropped `is_admin` would hide the
+        admin tab until the next reload."""
         use_case = UpdateDisplayName(self.user_repository)
         try:
-            return use_case.execute(current_user.sub, request.display_name)
+            return _me(use_case.execute(current_user.sub, request.display_name), current_user)
         except DisplayNameTakenError as e:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Display name already taken") from e
 
@@ -85,3 +89,7 @@ class UserController:
         written nothing yet — the profile strip still renders."""
         use_case = GetUserStats(self.review_repository)
         return use_case.execute(current_user.sub)
+
+
+def _me(user: User, token: TokenPayload) -> MeResponse:
+    return MeResponse(**user.model_dump(), is_admin=token.is_admin)
