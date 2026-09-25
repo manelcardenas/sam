@@ -5,6 +5,7 @@ wherever the schema actually lives — the split is about where things are writt
 not about making every caller track it.
 """
 
+from src.infra.controllers.schemas.grocery import SetAisleRequest, UpdateGroceryItemRequest
 from src.infra.controllers.schemas.kitchen import AnswerInvitationRequest, InviteRequest
 from src.infra.controllers.schemas.meal_plan import (
     AddToListRequest,
@@ -18,7 +19,7 @@ from src.infra.controllers.schemas.place import ReverseGeocodeResponse
 from src.infra.controllers.schemas.recipe import CreateRecipeRequest, UpdateRecipeRequest
 from src.infra.controllers.schemas.restaurant import CreateRestaurantRequest, UpdateRestaurantRequest
 from src.infra.controllers.schemas.review import CreateReviewRequest
-from src.infra.controllers.schemas.user import UpdateMeRequest
+from src.infra.controllers.schemas.user import MeResponse, UpdateMeRequest
 
 __all__ = [
     "AddToListRequest",
@@ -30,9 +31,12 @@ __all__ = [
     "CreateRestaurantRequest",
     "CreateReviewRequest",
     "InviteRequest",
+    "MeResponse",
     "ResyncEntryListRequest",
     "ReverseGeocodeResponse",
+    "SetAisleRequest",
     "TickItemRequest",
+    "UpdateGroceryItemRequest",
     "UpdateMeRequest",
     "UpdateRecipeRequest",
     "UpdateRestaurantRequest",
