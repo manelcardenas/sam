@@ -1,4 +1,4 @@
-from src.domain.entities import GroceryItem, GrocerySource, ParsedLine, key_for, near_duplicates
+from src.domain.entities import GroceryItem, GrocerySource, ParsedLine, key_for, name_index, near_duplicates
 from src.domain.entities.parsed_ingredient import ResolvedIngredients, ResolvedLine
 from src.domain.ports import GroceryRepository, IngredientParser
 
@@ -25,8 +25,23 @@ class ParseIngredients:
         self.groceries = groceries
 
     def execute(self, text: str, servings: int) -> ResolvedIngredients:
+        resolved, created = self.propose(text, servings)
+        if created:
+            self.groceries.upsert_many(created)
+        return resolved
+
+    def propose(self, text: str, servings: int) -> tuple[ResolvedIngredients, list[GroceryItem]]:
+        """Everything `execute` does except writing the new rows — which it returns instead.
+
+        For a caller with its own opinion on which proposals are worth keeping:
+        the list's background lookup (`ClassifyListItem`) will not keep a row the
+        model could only file under `other`, because that is where the line
+        already was — and a hand-typed `aksjhkjqew` should not become vocabulary
+        that autocompletes for everybody.
+        """
         vocabulary = self.groceries.list_all()
         known = {item.key: item for item in vocabulary}
+        aliases = name_index(vocabulary)
 
         parsed = self.parser.parse(text, vocabulary, servings)
 
@@ -34,12 +49,14 @@ class ParseIngredients:
         resolved: list[ResolvedLine] = []
 
         for line in parsed.lines:
-            item, is_new = self._resolve(line, known)
+            item, is_new = self._resolve(line, known, aliases)
             if item is None:
                 continue
             if is_new:
                 created.append(item)
                 known[item.key] = item
+                for name in (item.name_es, item.name_ca, item.name_en):
+                    aliases[key_for(name)] = item.key
             resolved.append(
                 ResolvedLine(
                     raw=line.raw,
@@ -65,12 +82,9 @@ class ParseIngredients:
                 )
             )
 
-        if created:
-            self.groceries.upsert_many(created)
+        return ResolvedIngredients(lines=resolved), created
 
-        return ResolvedIngredients(lines=resolved)
-
-    def _resolve(self, line: ParsedLine, known: dict[str, GroceryItem]) -> tuple[GroceryItem | None, bool]:
+    def _resolve(self, line: ParsedLine, known: dict[str, GroceryItem], aliases: dict[str, str]) -> tuple[GroceryItem | None, bool]:
         """The vocabulary row this line means, and whether it is brand new.
 
         A `grocery_key` the vocabulary does not hold is treated as **no match**
@@ -92,6 +106,17 @@ class ParseIngredients:
             # It proposed something that already exists under a different
             # spelling of the same name. Silently the right answer.
             return known[key], False
+
+        # **Any of the three names, not just the Spanish one.** A proposal whose
+        # Catalan or English name is already another row's name is that row: a
+        # second row owning the same written form makes `name_index` refuse to
+        # build, and every shopping-list write after it fails. Hand-filed rows
+        # (`FileListItem`) carry the typed word in all three columns, so a later
+        # proposal naming `Bosses d'escombraries` in Catalan is the common way in.
+        for name in (line.proposed.name_es, line.proposed.name_ca, line.proposed.name_en):
+            owner = aliases.get(key_for(name))
+            if owner is not None:
+                return known[owner], False
 
         return (
             GroceryItem(
