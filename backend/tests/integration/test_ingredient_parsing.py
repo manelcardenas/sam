@@ -18,6 +18,7 @@ from src.domain.entities import Aisle, GroceryItem, GrocerySource, IngredientPar
 from src.domain.ports import IngredientParser
 from src.infra.adapters.parsing import FailoverParser
 from src.infra.adapters.repos.in_memory_grocery_repo import InMemoryGroceryRepository
+from src.infra.adapters.repos.in_memory_recipe_repo import InMemoryRecipeRepository
 from src.infra.controllers.grocery_controller import GroceryController
 from src.infra.security import get_current_user
 
@@ -62,7 +63,7 @@ def client_for(parser: IngredientParser, groceries: InMemoryGroceryRepository) -
 
     app = FastAPI()
     router = APIRouter()
-    GroceryController(groceries, parser, router)
+    GroceryController(groceries, InMemoryRecipeRepository(), parser, router)
     app.include_router(router)
     app.dependency_overrides[get_current_user] = lambda: None
     with TestClient(app) as client:
