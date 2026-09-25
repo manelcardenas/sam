@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -30,6 +32,47 @@ class PostgresGroceryRepository(GroceryRepository):
             models = session.query(GroceryItemModel).order_by(GroceryItemModel.key).all()
             return [_to_entity(m) for m in models]
 
+    def get(self, key: str) -> GroceryItem | None:
+        with self._session_factory() as session:
+            model = session.get(GroceryItemModel, key)
+            return _to_entity(model) if model else None
+
+    def set_aisle(self, key: str, aisle: Aisle) -> GroceryItem | None:
+        with self._session_factory() as session:
+            model = session.get(GroceryItemModel, key)
+            if model is None:
+                return None
+            model.aisle = aisle
+            model.confirmed_at = datetime.now(UTC)
+            session.commit()
+            session.refresh(model)
+            return _to_entity(model)
+
+    def update(self, item: GroceryItem) -> GroceryItem | None:
+        with self._session_factory() as session:
+            model = session.get(GroceryItemModel, item.key)
+            if model is None:
+                return None
+            model.name_es = item.name_es
+            model.name_ca = item.name_ca
+            model.name_en = item.name_en
+            model.aisle = item.aisle
+            model.is_pantry = item.is_pantry
+            model.default_unit = item.default_unit
+            model.confirmed_at = datetime.fromisoformat(item.confirmed_at) if item.confirmed_at else None
+            session.commit()
+            session.refresh(model)
+            return _to_entity(model)
+
+    def delete(self, key: str) -> bool:
+        with self._session_factory() as session:
+            model = session.get(GroceryItemModel, key)
+            if model is None:
+                return False
+            session.delete(model)
+            session.commit()
+            return True
+
     def upsert_many(self, items: list[GroceryItem]) -> int:
         if not items:
             return 0
@@ -46,6 +89,7 @@ class PostgresGroceryRepository(GroceryRepository):
                         "is_pantry": item.is_pantry,
                         "default_unit": item.default_unit,
                         "source": item.source.value,
+                        "confirmed_at": datetime.fromisoformat(item.confirmed_at) if item.confirmed_at else None,
                     }
                     for item in items
                 ]
@@ -69,6 +113,10 @@ class PostgresGroceryRepository(GroceryRepository):
                         "default_unit": statement.excluded.default_unit,
                         "source": statement.excluded.source,
                     },
+                    # A confirmed row is left exactly as a person left it. The
+                    # seed runs on every deploy, so without this an edit — an
+                    # aisle, a name — would last until the next push.
+                    where=GroceryItemModel.confirmed_at.is_(None),
                 )
             )
             session.commit()

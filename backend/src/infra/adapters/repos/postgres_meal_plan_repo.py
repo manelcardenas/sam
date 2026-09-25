@@ -231,6 +231,44 @@ class PostgresMealPlanRepository(MealPlanRepository):
             session.refresh(model)
             return self._item_to_entity(model)
 
+    def set_item_grocery_key(self, item_id: str, grocery_key: str, amount: float | None = None, unit: str | None = None) -> ShoppingListItem | None:
+        with self._session_factory() as session:
+            model = session.get(ShoppingListItemModel, uuid.UUID(item_id))
+            if model is None:
+                return None
+            if model.total_amount is None and amount is not None:
+                model.total_amount = amount
+                model.unit = unit
+
+            name_key, unit_key = merge_key(model.display_name, model.unit, grocery_key)
+            other = session.scalars(
+                select(ShoppingListItemModel).where(
+                    ShoppingListItemModel.plan_id == model.plan_id,
+                    ShoppingListItemModel.id != model.id,
+                    _NAME_KEY == name_key,
+                    _UNIT_KEY == unit_key,
+                )
+            ).one_or_none()
+
+            if other is None:
+                model.grocery_key = grocery_key
+                survivor = model
+            else:
+                # Folded rather than re-keyed: two rows on one merge key is what
+                # `uq_shopping_list_items_merge_key` exists to refuse.
+                if model.total_amount is not None:
+                    current = float(other.total_amount) if other.total_amount is not None else 0.0
+                    other.total_amount = current + float(model.total_amount)
+                for source in model.sources:
+                    other.sources.append(ListItemSourceModel(entry_id=source.entry_id, dish_name=source.dish_name, amount=source.amount))
+                other.is_checked = other.is_checked and model.is_checked
+                session.delete(model)
+                survivor = other
+
+            session.commit()
+            session.refresh(survivor)
+            return self._item_to_entity(survivor)
+
     def delete_item(self, item_id: str) -> None:
         with self._session_factory() as session:
             model = session.get(ShoppingListItemModel, uuid.UUID(item_id))
