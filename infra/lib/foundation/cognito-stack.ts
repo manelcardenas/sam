@@ -8,6 +8,7 @@ import {
 import { Construct } from "constructs/lib/construct";
 import {
   AccountRecovery,
+  CfnUserPoolGroup,
   OAuthScope,
   ProviderAttribute,
   UserPool,
@@ -75,6 +76,18 @@ export class CognitoStack extends Stack {
     );
 
     // Configure Google Identity Provider
+    // Members may edit shared reference data — the grocery vocabulary, from the
+    // profile's Admin tab. Membership rides in the ID token as `cognito:groups`,
+    // which is what the API checks (`backend/src/infra/security/schemas.py`,
+    // ADMIN_GROUP — the names must match). Nobody is added here: membership is
+    // an AWS-side act, `aws cognito-idp admin-add-user-to-group`, so it can
+    // never be granted through the app itself.
+    new CfnUserPoolGroup(this, "AdminsGroup", {
+      userPoolId: this.userPool.userPoolId,
+      groupName: "admins",
+      description: "Can edit and delete grocery vocabulary rows from the app",
+    });
+
     const googleProvider = new UserPoolIdentityProviderGoogle(
       this,
       "GoogleProvider",
