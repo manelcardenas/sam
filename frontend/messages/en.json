@@ -379,7 +379,8 @@
     "tab-plans": "Weeks",
     "tab-recipes": "Recipes",
     "tab-reviews": "Reviews",
-    "your-numbers": "Your numbers"
+    "your-numbers": "Your numbers",
+    "tab-admin": "Admin"
   },
   "recent-visits": {
     "blurb": "The last few places you went.",
@@ -566,6 +567,51 @@
   },
   "grocery": {
     "pantry": "at home",
-    "suggestions": "Suggestions"
+    "suggestions": "Suggestions",
+    "which-aisle": "Which aisle?",
+    "change-aisle": "Change aisle",
+    "finding-aisle": "Finding its aisle…",
+    "pick-aisle": "Where is it in the shop?",
+    "pick-aisle-hint": "Saved for everyone — next time it goes there on its own."
+  },
+  "admin": {
+    "groceries-title": "Ingredients",
+    "groceries-intro": "The shared vocabulary every list and recipe uses. Changes here apply to everybody.",
+    "search-placeholder": "Search in any language",
+    "search-label": "Search ingredients",
+    "count": {
+      "one": "{{count}} ingredient",
+      "other": "{{count}} ingredients"
+    },
+    "unreviewed": "To review",
+    "source-seed": "Built-in",
+    "source-ai": "AI",
+    "source-human": "By hand",
+    "added": "added {{when}}",
+    "name-es": "Spanish",
+    "name-ca": "Catalan",
+    "name-en": "English",
+    "aisle": "Aisle",
+    "unit": "Usual unit",
+    "unit-hint": "g, ml… blank if counted",
+    "pantry": "Usually at home (starts unticked)",
+    "saved": "Saved",
+    "seed-cannot-delete": "Built-in ingredients can't be deleted here — the next deploy would bring them back. Edit it instead, or remove it from grocery_seed_data.py.",
+    "delete-title": "Delete {{name}}?",
+    "delete-body": "It disappears from suggestions and from the aisle grouping. Lists that already have it keep the line, in Other.",
+    "empty-title": "Nothing matches",
+    "empty-body": "Try another search or aisle.",
+    "load-failed": "Couldn't load the ingredients.",
+    "show-more": "Show more",
+    "used-in": {
+      "one": "in {{count}} recipe",
+      "other": "in {{count}} recipes"
+    },
+    "recipes": "Recipes that use it",
+    "no-recipes": "No recipe uses it.",
+    "delete-used": {
+      "one": "{{count}} recipe uses it: it keeps the name, but on the list it will go to Other.",
+      "other": "{{count}} recipes use it: they keep the name, but on the list it will go to Other."
+    }
   }
 }
