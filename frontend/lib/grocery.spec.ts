@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { GroceryItem, ShoppingListItem } from "@/lib/api-client";
-import { AISLES, aisleOrder, byKey, displayName, groceryFor, groupByAisle, nameFor, resolveKey, suggest } from "@/lib/grocery";
+import type { GroceryItem, MealPlan, ShoppingListItem } from "@/lib/api-client";
+import { AISLES, aisleOrder, byKey, displayName, groceryFor, groupByAisle, isUnreviewed, lineToClassify, nameFor, narrowVocabulary, resolveKey, suggest } from "@/lib/grocery";
 
 function grocery(key: string, overrides: Partial<GroceryItem> = {}): GroceryItem {
   return {
@@ -221,5 +221,63 @@ describe("displayName", () => {
 
   it("keeps the typed words for anything unmatched", () => {
     expect(displayName(line("bolsas de basura"), vocabulary, "en")).toBe("bolsas de basura");
+  });
+});
+
+describe("which freshly typed line is worth asking the model about", () => {
+  const week = (...items: ShoppingListItem[]): MealPlan => ({
+    id: "plan-1",
+    kitchen_id: "k1",
+    week_start: "2026-09-05",
+    status: "planning",
+    entries: [],
+    items,
+    created_by: null,
+    created_at: "",
+    updated_at: "",
+  });
+  const vocabulary = byKey([grocery("huevos", { aisle: "dairy_eggs" })]);
+
+  it("is the line the typed words became, found by name — however they were typed", () => {
+    const typed = line("papel de horno");
+
+    expect(lineToClassify(week(typed), "  Papel de HORNO ", vocabulary)).toBe(typed);
+  });
+
+  it("is nothing when the server already gave it a key", () => {
+    expect(lineToClassify(week(line("huevos", "huevos")), "huevos", vocabulary)).toBeNull();
+  });
+
+  it("is nothing when the vocabulary already files it by name — that answer is free", () => {
+    expect(lineToClassify(week(line("huevos")), "huevos", vocabulary)).toBeNull();
+  });
+
+  it("is nothing when the typing only merged into a line already in the basket", () => {
+    expect(lineToClassify(week({ ...line("papel de horno"), is_checked: true }), "papel de horno", vocabulary)).toBeNull();
+  });
+});
+
+describe("the admin's ingredient list", () => {
+  const seed = grocery("huevos", { name_ca: "Ous", name_en: "Eggs", aisle: "dairy_eggs", source: "seed", created_at: "2026-09-01T10:00:00+00:00" });
+  const guess = grocery("kombucha", { aisle: "drinks", source: "ai", confirmed_at: null, created_at: "2026-09-24T10:00:00+00:00" });
+  const vouched = grocery("kefir", { aisle: "dairy_eggs", source: "ai", confirmed_at: "2026-09-24T12:00:00+00:00", created_at: "2026-09-20T10:00:00+00:00" });
+  const filed = grocery("qwerty", { source: "human", created_at: "2026-09-25T10:00:00+00:00" });
+  const all = [seed, guess, vouched, filed];
+
+  it("puts the newest first — the thing you came to look at is the one that just appeared", () => {
+    expect(narrowVocabulary(all, "", null).map((i) => i.key)).toEqual(["qwerty", "kombucha", "kefir", "huevos"]);
+  });
+
+  it("narrows to one aisle", () => {
+    expect(narrowVocabulary(all, "", "dairy_eggs").map((i) => i.key)).toEqual(["kefir", "huevos"]);
+  });
+
+  it("finds a row by any of its three names, accents and case aside", () => {
+    expect(narrowVocabulary(all, "OUS", null)).toEqual([seed]);
+  });
+
+  it("calls only the parser's unvouched guesses 'to review'", () => {
+    expect(all.filter(isUnreviewed)).toEqual([guess]);
+    expect(narrowVocabulary(all, "", "unreviewed")).toEqual([guess]);
   });
 });

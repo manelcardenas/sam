@@ -1,4 +1,4 @@
-import type { Aisle, GroceryItem, ShoppingListItem } from "@/lib/api-client";
+import type { Aisle, GroceryItem, MealPlan, ShoppingListItem } from "@/lib/api-client";
 import { normaliseName } from "@/lib/plan-ingredients";
 
 /**
@@ -173,4 +173,58 @@ export function suggest(query: string, items: GroceryItem[], limit = 6): Grocery
   }
 
   return [...prefixes, ...contains].slice(0, limit);
+}
+
+/**
+ * The line a hand-typed name just became, if it is one worth asking the model about.
+ *
+ * **Worth asking** means nothing already knows its aisle: no vocabulary row by
+ * key, and none by name either (a legacy spelling the client
+ * can already file for free). A ticked line is left alone — it only merged into
+ * something already in the basket, and asking about it spends a call on a
+ * decision nobody is waiting for.
+ *
+ * Found by normalised name rather than by diffing ids, because adding can merge
+ * into a line that already existed — which has the old id, and is exactly the
+ * line that needs filing if it was sitting in `Other`.
+ */
+export function lineToClassify(plan: MealPlan, typed: string, vocabulary: Map<string, GroceryItem>): ShoppingListItem | null {
+  const wanted = normalise(typed);
+  // "Nothing knows it" is judged against the vocabulary, not by `grocery_key`
+  // being null: a line can hold the key of a row an admin has since deleted,
+  // and that line is exactly as unfiled as one that never had a key.
+  const line = plan.items.find((item) => item.normalised_name === wanted && !item.is_checked);
+  if (!line || groceryFor(line, vocabulary)) return null;
+  return line;
+}
+
+/**
+ * A row the parser created that nobody has vouched for — what the admin panel
+ * calls "to review", and where junk like `qwerty` collects.
+ *
+ * Only `ai` rows: a seeded row was curated and a hand-filed one was a person's
+ * own decision, so neither is waiting on anybody.
+ */
+export function isUnreviewed(item: GroceryItem): boolean {
+  return item.source === "ai" && !item.confirmed_at;
+}
+
+/**
+ * The admin's ingredient list: narrowed to one aisle (or to "to review") and by
+ * a search, **newest first**.
+ *
+ * Newest first because the reason to open the list is almost always something
+ * that just appeared — the parser's latest guess, a typo somebody filed a
+ * minute ago. The seed's 274 rows share one insert and would otherwise bury
+ * them. Ties break on the key so the order does not shuffle between renders.
+ *
+ * The search matches all three names and the key, the same breadth as the
+ * manual-add autocomplete: an admin reading in Spanish still finds `Ous`.
+ */
+export function narrowVocabulary(items: GroceryItem[], q: string, shelf: Aisle | "unreviewed" | null): GroceryItem[] {
+  const needle = normaliseName(q);
+  return items
+    .filter((item) => (shelf === null ? true : shelf === "unreviewed" ? isUnreviewed(item) : item.aisle === shelf))
+    .filter((item) => !needle || [item.key, item.name_es, item.name_ca, item.name_en].some((name) => normaliseName(name).includes(needle)))
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? "") || a.key.localeCompare(b.key));
 }

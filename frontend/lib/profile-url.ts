@@ -1,4 +1,6 @@
+import type { Aisle } from "@/lib/api-client";
 import { FOOD_TYPES, type FoodType } from "@/lib/constants";
+import { AISLES } from "@/lib/grocery";
 
 /**
  * The /profile view state machine, as a query string.
@@ -8,6 +10,7 @@ import { FOOD_TYPES, type FoodType } from "@/lib/constants";
  * reviews   →  /profile?tab=reviews            (+ &q=, &sort=score)
  * plans     →  /profile?tab=plans              (+ &year=2025)
  * account   →  /profile?tab=account
+ * admin     →  /profile?tab=admin              (+ &q=, &shelf=dairy_eggs|unreviewed)
  *
  * Same shape and the same reasoning as `dine-url.ts` / `dashboard-url.ts`:
  * `output: 'export'` rules out path segments, so views live in query params
@@ -25,12 +28,27 @@ import { FOOD_TYPES, type FoodType } from "@/lib/constants";
 // `plans` sits before `account` because account is settings and the rest are
 // content — the archive belongs with the things you look at, not with the
 // things you change.
-export const PROFILE_TABS = ["overview", "recipes", "reviews", "plans", "account"] as const;
+// `admin` is last and only ever shown to members of the Cognito `admins` group
+// — the page filters it out of the strip for everybody else, and a hand-typed
+// ?tab=admin lands on the overview instead.
+export const PROFILE_TABS = ["overview", "recipes", "reviews", "plans", "account", "admin"] as const;
 export type ProfileTab = (typeof PROFILE_TABS)[number];
+
+/** The tabs a person sees: every one, minus `admin` unless they are one. */
+export function visibleTabs(isAdmin: boolean): readonly ProfileTab[] {
+  return isAdmin ? PROFILE_TABS : PROFILE_TABS.filter((tab) => tab !== "admin");
+}
 
 /** How the reviews list is ordered. `recent` is the default and stays out of the URL. */
 export const REVIEW_SORTS = ["recent", "score"] as const;
 export type ReviewSort = (typeof REVIEW_SORTS)[number];
+
+/**
+ * What the admin's ingredient list is narrowed to: one aisle, or `unreviewed`
+ * — rows the parser created that nobody has vouched for, which is where junk
+ * like `qwerty` collects. Null is everything.
+ */
+export type Shelf = Aisle | "unreviewed";
 
 export interface ProfileUrlState {
   tab: ProfileTab;
@@ -45,6 +63,8 @@ export interface ProfileUrlState {
    * a link to "the archive" rather than to one particular year forever.
    */
   year: number | null;
+  /** Admin tab only. */
+  shelf: Shelf | null;
 }
 
 export const INITIAL_STATE: ProfileUrlState = {
@@ -53,11 +73,13 @@ export const INITIAL_STATE: ProfileUrlState = {
   category: null,
   sort: "recent",
   year: null,
+  shelf: null,
 };
 
 const VALID_TABS = new Set<string>(PROFILE_TABS);
 const VALID_CATEGORIES = new Set<string>(FOOD_TYPES.map((c) => c.value));
 const VALID_SORTS = new Set<string>(REVIEW_SORTS);
+const VALID_SHELVES = new Set<string>([...AISLES, "unreviewed"]);
 
 /**
  * A four-digit year inside the range the API accepts, or null for "this year".
@@ -72,9 +94,9 @@ function parseYear(raw: string | null): number | null {
 }
 
 /** Which tabs a given param is allowed to appear on. */
-const NARROWABLE: ReadonlySet<ProfileTab> = new Set<ProfileTab>(["recipes", "reviews"]);
+const NARROWABLE: ReadonlySet<ProfileTab> = new Set<ProfileTab>(["recipes", "reviews", "admin"]);
 
-export function toQuery({ tab, q, category, sort, year }: ProfileUrlState): string {
+export function toQuery({ tab, q, category, sort, year, shelf }: ProfileUrlState): string {
   const params = new URLSearchParams();
   // The hub is the bare URL, so /profile is always a valid, canonical link.
   if (tab !== "overview") params.set("tab", tab);
@@ -82,6 +104,7 @@ export function toQuery({ tab, q, category, sort, year }: ProfileUrlState): stri
   if (tab === "recipes" && category) params.set("category", category);
   if (tab === "reviews" && sort !== "recent") params.set("sort", sort);
   if (tab === "plans" && year) params.set("year", String(year));
+  if (tab === "admin" && shelf) params.set("shelf", shelf);
   return params.toString();
 }
 
@@ -103,6 +126,7 @@ export function fromQuery(params: URLSearchParams): ProfileUrlState {
         : null,
     sort: tab === "reviews" && rawSort && VALID_SORTS.has(rawSort) ? (rawSort as ReviewSort) : "recent",
     year: tab === "plans" ? parseYear(params.get("year")) : null,
+    shelf: tab === "admin" && VALID_SHELVES.has(params.get("shelf") ?? "") ? (params.get("shelf") as Shelf) : null,
   };
 }
 

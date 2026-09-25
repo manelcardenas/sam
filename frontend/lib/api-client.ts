@@ -76,6 +76,29 @@ export interface GroceryItem {
   /** Normally already at home. Starts its line unticked — never hides it. */
   is_pantry: boolean;
   default_unit: string | null;
+  /** Who decided this row was a thing. Optional here only so fixtures can omit it; the API always sends it. */
+  source?: GrocerySource;
+  /** When a person last vouched for it. `null` = nobody has — the admin panel's "to review". */
+  confirmed_at?: string | null;
+  created_at?: string;
+}
+
+export type GrocerySource = "seed" | "ai" | "human";
+
+/** Enough of a recipe to name it and link to it. */
+export interface RecipeRef {
+  id: string;
+  title: string;
+}
+
+/** Everything an admin can change about a vocabulary row — all of it but the key. */
+export interface GroceryItemInput {
+  name_es: string;
+  name_ca: string;
+  name_en: string;
+  aisle: Aisle;
+  is_pantry: boolean;
+  default_unit: string | null;
 }
 
 /** One ingredient line as the parser understood it (plan §4.3). */
@@ -231,6 +254,12 @@ export interface UserProfile {
   email: string;
   created_at: string;
   updated_at: string;
+  /**
+   * In the Cognito `admins` group, per the token that fetched this. Decides
+   * what the UI *shows* — the admin routes check the token themselves. Optional
+   * because a profile cached before this field existed has no value for it.
+   */
+  is_admin?: boolean;
 }
 
 export interface Cuisine {
@@ -561,6 +590,31 @@ export class RecipeAPIClient {
     await this.request<void>(`/plans/${planId}/items/${itemId}`, { method: "DELETE" });
   }
 
+  /**
+   * File a list line in the aisle somebody picked.
+   *
+   * One call whether or not the vocabulary knows the line: a known line moves
+   * its vocabulary row (for everybody), an unknown one becomes a row filed where
+   * you said — so typing the same thing next week lands there on its own.
+   */
+  async fileListItem(planId: string, itemId: string, aisle: Aisle): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/items/${itemId}/aisle`, {
+      method: "PUT",
+      body: JSON.stringify({ aisle }),
+    });
+  }
+
+  /**
+   * Ask the model which aisle a hand-typed line belongs in.
+   *
+   * **Only ever after the line is on the list** — adding never waits for this.
+   * Throws `ApiError` 503 when no provider answers; the caller's answer is to do
+   * nothing, because the line is already safely in Other.
+   */
+  async classifyListItem(planId: string, itemId: string): Promise<MealPlan> {
+    return this.request<MealPlan>(`/plans/${planId}/items/${itemId}/classify`, { method: "POST" });
+  }
+
   /** Weeks planned in a year, newest first — across every kitchen you have been in. */
   async getPlanArchive(year: number): Promise<PlanSummary[]> {
     return this.request<PlanSummary[]>(`/plans/archive?year=${year}`);
@@ -590,6 +644,36 @@ export class RecipeAPIClient {
    */
   async listGroceryItems(): Promise<GroceryItem[]> {
     return this.request<GroceryItem[]>("/grocery-items");
+  }
+
+  /**
+   * Admins only: which recipes use each vocabulary row, by key, alphabetical.
+   * A key no recipe uses is absent. Resolved from recipe ingredient names the
+   * same way the shopping list resolves them.
+   */
+  async getGroceryUsage(): Promise<Record<string, RecipeRef[]>> {
+    return this.request<Record<string, RecipeRef[]>>("/admin/grocery-items/usage");
+  }
+
+  /** Admins only: rewrite a vocabulary row. 409 when a name already belongs to another row. */
+  async updateGroceryItem(key: string, input: GroceryItemInput): Promise<GroceryItem> {
+    return this.request<GroceryItem>(`/admin/grocery-items/${encodeURIComponent(key)}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+  }
+
+  /** Admins only: delete a vocabulary row. 409 for seeded rows, which the next deploy would recreate. */
+  async deleteGroceryItem(key: string): Promise<void> {
+    await this.request<void>(`/admin/grocery-items/${encodeURIComponent(key)}`, { method: "DELETE" });
+  }
+
+  /** Move one vocabulary row to another aisle — a correction to the shared vocabulary, for everybody. */
+  async setGroceryAisle(key: string, aisle: Aisle): Promise<GroceryItem> {
+    return this.request<GroceryItem>(`/grocery-items/${encodeURIComponent(key)}/aisle`, {
+      method: "PUT",
+      body: JSON.stringify({ aisle }),
+    });
   }
 
   /**
