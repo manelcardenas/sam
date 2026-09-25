@@ -37,6 +37,13 @@ class Ingredients(BaseModel):
     items: list[Ingredient] = Field(default_factory=list)
 
 
+class RecipeRef(BaseModel):
+    """Enough of a recipe to name it and link to it — for lists that point at recipes."""
+
+    id: str
+    title: str
+
+
 class Recipe(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
