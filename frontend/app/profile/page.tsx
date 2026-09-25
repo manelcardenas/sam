@@ -12,6 +12,7 @@ import {
   INITIAL_STATE,
   fromQuery,
   toQuery,
+  visibleTabs,
   withTab,
   type ProfileTab,
   type ProfileUrlState,
@@ -27,6 +28,7 @@ import { RecipeList } from "@/components/profile/RecipeList";
 import { ReviewList } from "@/components/profile/ReviewList";
 import { AccountPanel } from "@/components/profile/AccountPanel";
 import { PlansPanel } from "@/components/profile/PlansPanel";
+import { GroceryAdminPanel } from "@/components/profile/GroceryAdminPanel";
 import { toQuery as toPlanQuery } from "@/lib/plan-url";
 
 /**
@@ -155,6 +157,11 @@ export default function ProfilePage() {
   };
 
   const displayName = me?.display_name ?? "";
+  const tabs = visibleTabs(Boolean(me?.is_admin));
+  // A hand-typed ?tab=admin from somebody outside the group opens the overview,
+  // as any unknown tab does. Hiding the tab is presentation; the admin routes
+  // refuse them regardless.
+  const tab: ProfileTab = tabs.includes(state.tab) ? state.tab : "overview";
 
   if (loading || !me) {
     return (
@@ -168,7 +175,8 @@ export default function ProfilePage() {
     <AppShell userName={displayName}>
       <div className="space-y-5">
         <ProfileTabs
-          active={state.tab}
+          tabs={tabs}
+          active={tab}
           counts={{ recipes: myRecipes.length, reviews: myReviews.length }}
           onSelect={selectTab}
         />
@@ -179,10 +187,10 @@ export default function ProfilePage() {
             of entrance animations you never see. */}
         <div
           role="tabpanel"
-          id={`profile-panel-${state.tab}`}
-          aria-labelledby={`profile-tab-${state.tab}`}
+          id={`profile-panel-${tab}`}
+          aria-labelledby={`profile-tab-${tab}`}
         >
-          {state.tab === "overview" && (
+          {tab === "overview" && (
             <div className="space-y-5">
               <ProfileHero name={displayName} email={me.email} since={me.created_at} />
               <OverviewPanel
@@ -195,7 +203,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {state.tab === "recipes" && (
+          {tab === "recipes" && (
             <RecipeList
               recipes={myRecipes}
               q={state.q}
@@ -219,7 +227,7 @@ export default function ProfilePage() {
             />
           )}
 
-          {state.tab === "reviews" && (
+          {tab === "reviews" && (
             <ReviewList
               reviews={myReviews}
               q={state.q}
@@ -233,7 +241,7 @@ export default function ProfilePage() {
             />
           )}
 
-          {state.tab === "plans" && (
+          {tab === "plans" && (
             <PlansPanel
               year={shownYear}
               weeks={archive}
@@ -259,8 +267,17 @@ export default function ProfilePage() {
             />
           )}
 
-          {state.tab === "account" && (
+          {tab === "account" && (
             <AccountPanel me={me} onSaved={setMe} onSignOut={handleSignOut} />
+          )}
+
+          {tab === "admin" && (
+            <GroceryAdminPanel
+              q={state.q}
+              shelf={state.shelf}
+              onQueryChange={(q) => narrow({ q })}
+              onShelfChange={(shelf) => narrow({ shelf })}
+            />
           )}
         </div>
       </div>
