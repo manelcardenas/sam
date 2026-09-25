@@ -661,6 +661,98 @@ per-kitchen favourite star is the cheap upgrade **if** ranking disappoints; held
 exactly like today, plus an optional one-tap *"¿en qué pasillo?"* to file it properly. You are
 standing in a kitchen typing fast; that path stays instant and works with the API unreachable.
 
+### 6.3 Filing a line after the fact (2026-09-25)
+
+**The one-tap *"¿en qué pasillo?"* above was specified and not built** — it had no phase row, the same
+blind spot §9 records for §6.1 — so for a week every hand-typed word the seed did not know sat in
+`Otros` for good, and a wrong aisle the parser had proposed could not be corrected anywhere. Built
+now, with one addition that was asked for rather than designed here: the model guesses too.
+
+| | Who | Route | What it writes |
+| --- | --- | --- | --- |
+| **The background guess** | the model, right after a manual add | `POST /plans/{plan_id}/items/{item_id}/classify` | the same `ParseIngredients` the recipe box uses: a typo (`huveos`) is matched and **folded into the existing line**; a new thing becomes a `source='ai'`, unconfirmed row, like any other proposal |
+| **The question on the line** | a person, on any line in `Otros` | `PUT /plans/{plan_id}/items/{item_id}/aisle` | an unknown line becomes a `source='human'`, **confirmed** row with the typed words in all three names; a known line moves its row |
+| **The correction** | a person, on any other line or in the recipe review table | the same, or `PUT /grocery-items/{key}/aisle` | the row's aisle, and `confirmed_at` |
+
+**§6.2's rule survives, sharpened.** It said manual add *never calls the model*; what it meant is that
+adding never *waits* on one. The line lands instantly in `Otros` with *"Buscando su pasillo…"*, and
+moves when the answer arrives. Provider down → 503, swallowed by the client, and the line simply keeps
+its question.
+
+Four decisions that are not obvious from the table:
+
+- **A person outranks the model, including mid-flight.** `classify` is a no-op on a line that already
+  has a `grocery_key`, so a pick made while the call is running wins.
+- **The guess carries the quantity.** The manual box sends a name only, so `6 huevos` is a line with
+  no amount; filed, it renders as `Huevos` from the vocabulary, so the 6 the parse read out of the
+  name moves into the amount (only when the line has none). `6 huevos` + `4 huveos` → one line of 10.
+  Found in testing: the first version filed the line and dropped the number off the screen.
+- **A new row the model can only put in `other` is not kept.** Unlike the recipe box, nobody reviews
+  this parse before it is written, and such a row says nothing the line did not already say — while
+  living in the vocabulary, and the autocomplete, for good. That is what stops a mistyped
+  `aksjhkjqew` (DeepSeek returns no line for it at all) or `qwerty` (a new row in `other`) becoming a
+  word everybody is offered. A row a *person* files is kept wherever they put it.
+- **One line that parses as two things is left alone.** `aceite y sal` typed as one extra cannot live
+  in two aisles; the question stays for a person to answer.
+- **The seed no longer touches a confirmed row.** It runs on every deploy (`deploy-backend.yml`), so
+  without a `WHERE confirmed_at IS NULL` on its `ON CONFLICT` a correction lasted exactly until the
+  next push. (First built as a `CASE` on the aisle alone; widened by §6.4, where names are editable.)
+- **A proposal whose *any* name is already another row's is that row.** Hand-filed rows own their
+  typed words in all three columns, so a later proposal of `Bolsas de basura` with a Catalan
+  `Bosses d'escombraries` would have created a second owner of that name — and `name_index` refuses
+  to build on a collision, which would have failed every shopping-list write after it. `ParseIngredients`
+  now checks all three names, not just the Spanish key.
+
+**The vocabulary is shared, so a correction is for everybody** — ADR-0002's trade for restaurant facts,
+made again: an aisle is a fact about a shop, not about whoever fixed it. A per-kitchen override stays
+in §10 with the pantry one.
+
+Measured against DeepSeek with the real seed, one word each: `bosses d'escombraries` → the existing
+`bolsas de basura` (household), `huveos` → `huevos`, `kombucha` → a new row in drinks, `aceite y sal`
+→ two lines (left alone). Cost per guess is the same cached-prefix call as §7.4, a fraction of a cent.
+
+### 6.4 The admin panel (2026-09-25)
+
+§4.6 said *"cleanup is a small script … not worth a UI for two people"*. That changed the moment the
+list started writing rows too: junk now arrives from two directions, and the script was never written.
+So there is a UI, for one role only — the Cognito group **`admins`** (setup in
+[`../wiki/cognito-setup.md`](../wiki/cognito-setup.md#admins)).
+
+**Where:** an **Admin** tab on the profile, shown only when `/users/me` says `is_admin` — which is read
+off the same token the routes check. Every row, **newest first** (the seed's 274 share one insert and
+would otherwise bury what just appeared), a search across all three names, and chips per aisle plus
+**Por revisar**: `source='ai' AND confirmed_at IS NULL`, §4.6's query, as a button.
+
+**Routes:** `PUT` and `DELETE /admin/grocery-items/{key}`, behind `require_admin` (403 otherwise). The
+`/admin` prefix is there so the privilege shows in the route table, not only in a dependency.
+
+Four rules:
+
+- **The key never changes.** It is the primary key and list lines hold it. Renaming `name_es` leaves
+  the key as it was; nothing resolves through the key's spelling, only through the three names.
+- **An edit that gives a name to two rows is a 409 naming the other row.** `name_index` refuses to
+  build on a collision, and every list write builds it — so renaming the typo row `Huveos` to
+  `Huevos` would otherwise break every shopping list. The fix for a duplicate is to delete it.
+- **Seeded rows cannot be deleted.** The seed runs on every deploy and would recreate the row; a
+  delete that lasts until the next push is a lie. They are edited, or removed from
+  `grocery_seed_data.py`. A soft delete (a tombstone the seed respects) is the upgrade if that ever
+  gets annoying — it needs a migration, which this did not.
+- **The seed now leaves a confirmed row entirely alone**, not only its aisle as §6.3 first built.
+  Any edit confirms the row, so an admin's rename survives deploys too.
+
+**Deleting leaves list lines holding the key as text** — there is no foreign key. `FileListItem`,
+`ClassifyListItem` and the client's `lineToClassify` all treat a key with no row as unfiled, so the line
+lands in `Otros` and can be filed again.
+
+**Which recipes use a row** — `GET /admin/grocery-items/usage`, `{key: [{id, title}]}`. Each row says
+*"en 4 recetas"*, and its editor links each one to `/dashboard?recipe=<id>`. It is the fact that
+decides between delete and rename: `qwerty` in no recipe goes, a badly named row half the collection
+uses gets renamed. **Computed on each request, not stored**: recipes keep ingredient names in JSONB
+with no key, so the answer is every name resolved through `name_index`, as planning a recipe does. A
+stored link would be a second copy of that decision, stale after the first rename, so the panel
+reloads it after every save. Quick-created dishes are `recipes` rows and count the same. Hand-typed
+names that match no row are not counted: there is no row to hang them on.
+
 ---
 
 ## 7. Providers, failure, and what it actually costs
@@ -902,6 +994,7 @@ old form, and they degrade the same graceful way.
 | **Retrieval instead of sending the whole vocabulary** (§4.3). | Past ~1,500 rows, or past ~4s per call. |
 | **Per-kitchen `is_pantry` override** (§3.4). | Two kitchens disagree often enough that the one-tap cost annoys somebody. |
 | **Per-kitchen favourite star** for manual add (§6.2). | History-based ranking demonstrably puts the wrong things first. |
+| **Per-kitchen aisle override** (§6.3) — corrections are shared today. | Two kitchens' shops are laid out differently enough that one's fix is the other's mistake. |
 | **Per-dish servings override** in the UI (§5.4). | Somebody actually wants rice for four and meat for two, more than once. |
 | **Reordering dishes within a slot** — no `position` column until then (§5.2). | Somebody asks. |
 | **Splitting `household` into droguería and perfumería** (§3.3). | One enum value, whenever the aisle feels too broad in a real shop. |

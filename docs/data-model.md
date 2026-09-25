@@ -98,7 +98,7 @@ one-off text entries can share one.
 
 | Table | What one row is | Created by |
 | --- | --- | --- |
-| `grocery_items` | **One buyable thing**, with no quantity, ever | Seeded (274 rows); proposed by the parser; never deleted by a user |
+| `grocery_items` | **One buyable thing**, with no quantity, ever | Seeded (274 rows); proposed by the parser; filed by hand from the list; aisle corrected by anyone; edited or deleted (non-seed only) by admins; a confirmed row is never touched by re-seeding |
 
 Keyed on `normalise_ingredient_name(name_es)` — lowercase, whitespace-collapsed, diacritics stripped.
 **No foreign keys point into it and none point out of it.** Recipes and list lines match it by
