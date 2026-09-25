@@ -455,3 +455,48 @@ class TestTheArchive:
         repository.create_plan(kitchen, MONDAY, None)
 
         assert repository.list_year([], 2026) == []
+
+
+class TestFilingALineAfterTheFact:
+    """`set_item_grocery_key` against the real index. The fold is the part a
+    fake can get right while Postgres refuses it: two rows briefly sharing one
+    merge key is exactly what `uq_shopping_list_items_merge_key` forbids."""
+
+    def test_a_line_with_no_twin_just_gains_its_key(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
+        plan = repository.create_plan(kitchen, MONDAY, None)
+        [line] = repository.add_items(plan.id, [_line("papel de horno")])
+
+        filed = repository.set_item_grocery_key(line.id, "papel de horno")
+
+        assert filed is not None
+        assert filed.id == line.id
+        assert repository.get_plan(plan.id).items[0].grocery_key == "papel de horno"
+
+    def test_a_typo_folds_into_the_line_it_meant(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
+        plan = repository.create_plan(kitchen, MONDAY, None)
+        [eggs] = repository.add_items(plan.id, [_line("Huevos", 6, dish="Tortilla").model_copy(update={"grocery_key": "huevos"})])
+        repository.set_item_checked(eggs.id, True)
+        [typo] = repository.add_items(plan.id, [_line("huveos", 4, dish="Flan")])
+
+        survivor = repository.set_item_grocery_key(typo.id, "huevos")
+
+        items = repository.get_plan(plan.id).items
+        assert len(items) == 1
+        assert survivor is not None
+        assert survivor.id == eggs.id
+        assert items[0].total_amount == 10
+        assert sorted(s.dish_name for s in items[0].sources) == ["Flan", "Tortilla"]
+        # A fresh line folded into a ticked one is still something to buy.
+        assert items[0].is_checked is False
+
+    def test_a_quantity_read_out_of_the_name_is_kept(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
+        plan = repository.create_plan(kitchen, MONDAY, None)
+        [line] = repository.add_items(plan.id, [_line("200g harina")])
+
+        repository.set_item_grocery_key(line.id, "harina", 200, "g")
+
+        [item] = repository.get_plan(plan.id).items
+        assert (item.grocery_key, item.total_amount, item.unit) == ("harina", 200, "g")
+
+    def test_a_missing_line_is_none(self, repository: PostgresMealPlanRepository) -> None:
+        assert repository.set_item_grocery_key(str(uuid.uuid4()), "huevos") is None

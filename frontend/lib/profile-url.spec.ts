@@ -5,6 +5,7 @@ import {
   PROFILE_TABS,
   fromQuery,
   toQuery,
+  visibleTabs,
   withTab,
   type ProfileUrlState,
 } from "./profile-url";
@@ -26,18 +27,18 @@ describe("toQuery / fromQuery round trip", () => {
   });
 
   it("restores a searched recipe list", () => {
-    const state: ProfileUrlState = { tab: "recipes", q: "lasaña", category: "comida", sort: "recent", year: null };
+    const state: ProfileUrlState = { tab: "recipes", q: "lasaña", category: "comida", sort: "recent", year: null, shelf: null };
     expect(roundTrip(state)).toEqual(state);
   });
 
   it("restores a searched, re-sorted review list", () => {
-    const state: ProfileUrlState = { tab: "reviews", q: "casa", category: null, sort: "score", year: null };
+    const state: ProfileUrlState = { tab: "reviews", q: "casa", category: null, sort: "score", year: null, shelf: null };
     expect(roundTrip(state)).toEqual(state);
   });
 
   it("keeps the default sort out of the URL", () => {
-    expect(toQuery({ tab: "reviews", q: "", category: null, sort: "recent", year: null })).toBe("tab=reviews");
-    expect(toQuery({ tab: "reviews", q: "", category: null, sort: "score", year: null })).toBe(
+    expect(toQuery({ tab: "reviews", q: "", category: null, sort: "recent", year: null, shelf: null })).toBe("tab=reviews");
+    expect(toQuery({ tab: "reviews", q: "", category: null, sort: "score", year: null, shelf: null })).toBe(
       "tab=reviews&sort=score",
     );
   });
@@ -50,8 +51,8 @@ describe("toQuery / fromQuery round trip", () => {
 
 describe("narrowing is scoped to the tab that owns it", () => {
   it("does not write a category on tabs that have no categories", () => {
-    expect(toQuery({ tab: "reviews", q: "", category: "postre", sort: "recent", year: null })).toBe("tab=reviews");
-    expect(toQuery({ tab: "account", q: "", category: "postre", sort: "score", year: null })).toBe("tab=account");
+    expect(toQuery({ tab: "reviews", q: "", category: "postre", sort: "recent", year: null, shelf: null })).toBe("tab=reviews");
+    expect(toQuery({ tab: "account", q: "", category: "postre", sort: "score", year: null, shelf: null })).toBe("tab=account");
   });
 
   it("does not write a search on the hub or the account tab", () => {
@@ -89,7 +90,7 @@ describe("guards against hand-edited URLs", () => {
 
 describe("withTab", () => {
   it("drops the previous tab's narrowing", () => {
-    const searched: ProfileUrlState = { tab: "recipes", q: "pan", category: "comida", sort: "recent", year: null };
+    const searched: ProfileUrlState = { tab: "recipes", q: "pan", category: "comida", sort: "recent", year: null, shelf: null };
     expect(withTab("reviews")).toEqual({ ...INITIAL_STATE, tab: "reviews" });
     // The search must not survive the switch, or the reviews list looks empty
     // for no visible reason.
@@ -133,5 +134,25 @@ describe("the plans archive tab", () => {
 
   it("is dropped by withTab, like every other narrowing", () => {
     expect(withTab("plans").year).toBeNull();
+  });
+});
+
+describe("the admin tab", () => {
+  it("keeps its search and its shelf in the URL", () => {
+    const state: ProfileUrlState = { ...INITIAL_STATE, tab: "admin", q: "kombu", shelf: "unreviewed" };
+
+    expect(toQuery(state)).toBe("tab=admin&q=kombu&shelf=unreviewed");
+    expect(fromQuery(new URLSearchParams(toQuery(state)))).toEqual(state);
+  });
+
+  it("ignores a shelf on any other tab, and a shelf that is not an aisle", () => {
+    expect(fromQuery(new URLSearchParams("tab=recipes&shelf=drinks")).shelf).toBeNull();
+    expect(fromQuery(new URLSearchParams("tab=admin&shelf=garden")).shelf).toBeNull();
+  });
+
+  it("is only among the visible tabs for an admin", () => {
+    expect(visibleTabs(true)).toContain("admin");
+    expect(visibleTabs(false)).not.toContain("admin");
+    expect(visibleTabs(false)).toHaveLength(PROFILE_TABS.length - 1);
   });
 });

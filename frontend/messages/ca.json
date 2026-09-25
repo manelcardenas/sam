@@ -379,7 +379,8 @@
     "tab-plans": "Setmanes",
     "tab-recipes": "Receptes",
     "tab-reviews": "Ressenyes",
-    "your-numbers": "Els teus números"
+    "your-numbers": "Els teus números",
+    "tab-admin": "Admin"
   },
   "recent-visits": {
     "blurb": "Els últims llocs on vas anar.",
@@ -566,6 +567,51 @@
   },
   "grocery": {
     "pantry": "de casa",
-    "suggestions": "Suggeriments"
+    "suggestions": "Suggeriments",
+    "which-aisle": "A quin passadís?",
+    "change-aisle": "Canviar de passadís",
+    "finding-aisle": "Buscant-ne el passadís…",
+    "pick-aisle": "On és al súper?",
+    "pick-aisle-hint": "Es desa per a tothom: la propera vegada hi anirà sol."
+  },
+  "admin": {
+    "groceries-title": "Ingredients",
+    "groceries-intro": "El vocabulari compartit que fan servir totes les llistes i receptes. El que canviïs aquí val per a tothom.",
+    "search-placeholder": "Cerca en qualsevol idioma",
+    "search-label": "Cercar ingredients",
+    "count": {
+      "one": "{{count}} ingredient",
+      "other": "{{count}} ingredients"
+    },
+    "unreviewed": "Per revisar",
+    "source-seed": "De sèrie",
+    "source-ai": "IA",
+    "source-human": "A mà",
+    "added": "afegit {{when}}",
+    "name-es": "Castellà",
+    "name-ca": "Català",
+    "name-en": "Anglès",
+    "aisle": "Passadís",
+    "unit": "Unitat habitual",
+    "unit-hint": "g, ml… buit si es compta",
+    "pantry": "Sol haver-n'hi a casa (comença sense marcar)",
+    "saved": "Desat",
+    "seed-cannot-delete": "Els ingredients de sèrie no es poden esborrar des d'aquí: el següent deploy els tornaria a crear. Edita'l, o treu-lo de grocery_seed_data.py.",
+    "delete-title": "Vols eliminar {{name}}?",
+    "delete-body": "Desapareix dels suggeriments i de l'agrupació per passadissos. Les llistes que ja el tenen conserven la línia, a Altres.",
+    "empty-title": "Cap coincidència",
+    "empty-body": "Prova una altra cerca o un altre passadís.",
+    "load-failed": "No s'han pogut carregar els ingredients.",
+    "show-more": "Mostra'n més",
+    "used-in": {
+      "one": "en {{count}} recepta",
+      "other": "en {{count}} receptes"
+    },
+    "recipes": "Receptes que el fan servir",
+    "no-recipes": "Cap recepta el fa servir.",
+    "delete-used": {
+      "one": "El fa servir {{count}} recepta: conservarà el nom, però a la llista anirà a Altres.",
+      "other": "El fan servir {{count}} receptes: conservaran el nom, però a la llista anirà a Altres."
+    }
   }
 }

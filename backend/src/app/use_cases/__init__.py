@@ -3,12 +3,15 @@ from src.app.use_cases.add_to_week_list import AddToWeekList
 from src.app.use_cases.advance_plan import AdvancePlan
 from src.app.use_cases.answer_invitation import AnswerInvitation
 from src.app.use_cases.assign_dish import AssignDish
+from src.app.use_cases.classify_list_item import ClassifyListItem
 from src.app.use_cases.create_recipe import CreateRecipe
 from src.app.use_cases.create_restaurant import CreateRestaurant
 from src.app.use_cases.create_review import CreateReview
+from src.app.use_cases.delete_grocery_item import DeleteGroceryItem
 from src.app.use_cases.delete_recipe import DeleteRecipe
 from src.app.use_cases.delete_review import DeleteReview
 from src.app.use_cases.drop_entry_from_list import DropEntryFromList
+from src.app.use_cases.file_list_item import FileListItem
 from src.app.use_cases.get_current_user import GetCurrentUser
 from src.app.use_cases.get_kitchen import GetKitchen
 from src.app.use_cases.get_plan import GetPlan
@@ -21,6 +24,7 @@ from src.app.use_cases.get_user_stats import GetUserStats
 from src.app.use_cases.invite_to_kitchen import InviteToKitchen
 from src.app.use_cases.list_cuisines import ListCuisines
 from src.app.use_cases.list_grocery_items import ListGroceryItems
+from src.app.use_cases.list_grocery_usage import ListGroceryUsage
 from src.app.use_cases.list_invitable_people import ListInvitablePeople
 from src.app.use_cases.list_recipes import ListRecipes
 from src.app.use_cases.list_reviews import ListReviews
@@ -35,8 +39,10 @@ from src.app.use_cases.reverse_geocode import ReverseGeocode
 from src.app.use_cases.search_areas import SearchAreas
 from src.app.use_cases.search_places import SearchPlaces
 from src.app.use_cases.search_restaurants import SearchRestaurants
+from src.app.use_cases.set_grocery_aisle import SetGroceryAisle
 from src.app.use_cases.tick_item import TickItem
 from src.app.use_cases.update_display_name import UpdateDisplayName
+from src.app.use_cases.update_grocery_item import UpdateGroceryItem
 from src.app.use_cases.update_recipe import UpdateRecipe
 from src.app.use_cases.update_restaurant import UpdateRestaurant
 from src.app.use_cases.update_review import UpdateReview
@@ -47,12 +53,15 @@ __all__ = [
     "AdvancePlan",
     "AnswerInvitation",
     "AssignDish",
+    "ClassifyListItem",
     "CreateRecipe",
     "CreateRestaurant",
     "CreateReview",
+    "DeleteGroceryItem",
     "DeleteRecipe",
     "DeleteReview",
     "DropEntryFromList",
+    "FileListItem",
     "GetCurrentUser",
     "GetKitchen",
     "GetPlan",
@@ -65,6 +74,7 @@ __all__ = [
     "InviteToKitchen",
     "ListCuisines",
     "ListGroceryItems",
+    "ListGroceryUsage",
     "ListInvitablePeople",
     "ListRecipes",
     "ListReviews",
@@ -79,8 +89,10 @@ __all__ = [
     "SearchAreas",
     "SearchPlaces",
     "SearchRestaurants",
+    "SetGroceryAisle",
     "TickItem",
     "UpdateDisplayName",
+    "UpdateGroceryItem",
     "UpdateRecipe",
     "UpdateRestaurant",
     "UpdateReview",

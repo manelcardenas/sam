@@ -18,7 +18,7 @@ from src.domain.entities.plan_lifecycle import (
     permits,
     require,
 )
-from src.domain.entities.recipe import FoodType, Ingredient, Ingredients, Recipe
+from src.domain.entities.recipe import FoodType, Ingredient, Ingredients, Recipe, RecipeRef
 from src.domain.entities.restaurant import Restaurant, RestaurantDetail, RestaurantFilters, RestaurantSort
 from src.domain.entities.review import Review, ReviewAggregate, UserReview, UserStats
 from src.domain.entities.shopping_list import (
@@ -60,6 +60,7 @@ __all__ = [
     "PlanSummary",
     "ProposedGroceryItem",
     "Recipe",
+    "RecipeRef",
     "Restaurant",
     "RestaurantDetail",
     "RestaurantFilters",

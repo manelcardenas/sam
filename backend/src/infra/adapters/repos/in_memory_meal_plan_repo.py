@@ -169,6 +169,32 @@ class InMemoryMealPlanRepository(MealPlanRepository):
         self._touch(plan)
         return self._name_of(item.model_copy(deep=True))
 
+    def set_item_grocery_key(self, item_id: str, grocery_key: str, amount: float | None = None, unit: str | None = None) -> ShoppingListItem | None:
+        plan = self._plan_of_item(item_id)
+        if plan is None:
+            return None
+        item = next(i for i in plan.items if i.id == item_id)
+        if item.total_amount is None and amount is not None:
+            item.total_amount = amount
+            item.unit = unit
+        key = merge_key(item.display_name, item.unit, grocery_key)
+        # Same key function the SQL index uses — see `add_items`.
+        other = next((i for i in plan.items if i.id != item_id and merge_key(i.display_name, i.unit, i.grocery_key) == key), None)
+
+        if other is None:
+            item.grocery_key = grocery_key
+            survivor = item
+        else:
+            if item.total_amount is not None:
+                other.total_amount = (other.total_amount or 0.0) + item.total_amount
+            other.sources.extend(s.model_copy(deep=True) for s in item.sources)
+            other.is_checked = other.is_checked and item.is_checked
+            plan.items = [i for i in plan.items if i.id != item_id]
+            survivor = other
+
+        self._touch(plan)
+        return self._name_of(survivor.model_copy(deep=True))
+
     def delete_item(self, item_id: str) -> None:
         plan = self._plan_of_item(item_id)
         if plan is None:

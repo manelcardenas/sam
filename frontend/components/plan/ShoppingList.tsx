@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Plus, ShoppingBasket, Trash2 } from "lucide-react";
-import type { GroceryItem, MealPlan, ShoppingListItem } from "@/lib/api-client";
+import { Check, Plus, ShoppingBasket, Sparkles, Tag, Trash2 } from "lucide-react";
+import type { Aisle, GroceryItem, MealPlan, ShoppingListItem } from "@/lib/api-client";
+import { AisleIcon } from "@/components/AisleIcon";
+import { AislePicker } from "@/components/AislePicker";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
 import { PersonMark } from "@/components/ui/PersonMark";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
-import { byKey, displayName, groupByAisle, nameFor, suggest } from "@/lib/grocery";
+import { byKey, displayName, groceryFor, groupByAisle, nameFor, suggest } from "@/lib/grocery";
 
 /**
  * The list you walk into the shop with.
@@ -39,6 +41,14 @@ import { byKey, displayName, groupByAisle, nameFor, suggest } from "@/lib/grocer
  * a week that has no dishes in it, and the week gets created by the act of
  * adding. So the add box renders with or without a plan, and only the lines
  * above it depend on there being one.
+ *
+ * **Every outstanding line can be moved to another aisle**, and a line in
+ * `Other` asks for one out loud (ingredient-capture-plan §6.2's *"¿en qué
+ * pasillo?"*). A hand-typed line the vocabulary does not know also gets a
+ * background guess from the model the moment it is added; while that runs the
+ * line says so, and when it lands the line moves. The two never race in the
+ * person's disfavour: the server ignores the model for a line somebody already
+ * filed.
  */
 export function ShoppingList({
   plan,
@@ -46,6 +56,8 @@ export function ShoppingList({
   onTick,
   onRemove,
   onAddExtra,
+  onFileAisle,
+  classifying = new Set<string>(),
   currentUserId,
   vocabulary,
 }: {
@@ -63,6 +75,10 @@ export function ShoppingList({
   onTick: (item: ShoppingListItem, checked: boolean) => void;
   onRemove: (item: ShoppingListItem) => void;
   onAddExtra: (name: string) => Promise<void>;
+  /** File a line in an aisle — its vocabulary row moves, or the typed words become one. */
+  onFileAisle: (item: ShoppingListItem, aisle: Aisle) => Promise<void>;
+  /** Lines the model is still placing, so they can say so instead of sitting silently in `Other`. */
+  classifying?: ReadonlySet<string>;
   /** So a line somebody else added can say so, and yours stay unmarked. */
   currentUserId: string | null;
   /** Empty until it loads, and empty forever if it fails — see the note above. */
@@ -83,6 +99,20 @@ export function ShoppingList({
   // is worse than no headings at all.
   const grouped = groups.length > 1 || (groups.length === 1 && groups[0].aisle !== "other");
   const suggestions = useMemo(() => suggest(draft, vocabulary), [draft, vocabulary]);
+
+  const renderLine = (item: ShoppingListItem) => (
+    <Line
+      key={item.id}
+      item={item}
+      editable={editable}
+      onTick={onTick}
+      onRemove={onRemove}
+      onFileAisle={onFileAisle}
+      classifying={classifying.has(item.id)}
+      currentUserId={currentUserId}
+      vocabulary={index}
+    />
+  );
 
   const add = async (name: string) => {
     if (!name || adding) return;
@@ -119,29 +149,24 @@ export function ShoppingList({
           {grouped ? (
             groups.map((group) => (
               <section key={group.aisle}>
-                <h3 className="mb-1.5 px-1 font-display text-[0.7rem] font-bold uppercase tracking-wider text-muted">
+                <h3 className="mb-1.5 flex items-center gap-1.5 px-1 font-display text-[0.7rem] font-bold uppercase tracking-wider text-muted">
+                  <AisleIcon aisle={group.aisle} className="h-3.5 w-3.5 shrink-0" />
                   {t(`aisle.${group.aisle}`)}
                 </h3>
                 <ul className="space-y-1.5">
-                  {group.items.map((item) => (
-                    <Line key={item.id} item={item} editable={editable} onTick={onTick} onRemove={onRemove} currentUserId={currentUserId} vocabulary={index} />
-                  ))}
+                  {group.items.map(renderLine)}
                 </ul>
               </section>
             ))
           ) : (
             <ul className="space-y-1.5">
-              {outstanding.map((item) => (
-                <Line key={item.id} item={item} editable={editable} onTick={onTick} onRemove={onRemove} currentUserId={currentUserId} vocabulary={index} />
-              ))}
+              {outstanding.map(renderLine)}
             </ul>
           )}
 
           {done.length > 0 && (
             <ul className="space-y-1.5">
-              {done.map((item) => (
-                <Line key={item.id} item={item} editable={editable} onTick={onTick} onRemove={onRemove} currentUserId={currentUserId} vocabulary={index} />
-              ))}
+              {done.map(renderLine)}
             </ul>
           )}
         </div>
@@ -206,6 +231,8 @@ function Line({
   editable,
   onTick,
   onRemove,
+  onFileAisle,
+  classifying,
   currentUserId,
   vocabulary,
 }: {
@@ -213,10 +240,29 @@ function Line({
   editable: boolean;
   onTick: (item: ShoppingListItem, checked: boolean) => void;
   onRemove: (item: ShoppingListItem) => void;
+  onFileAisle: (item: ShoppingListItem, aisle: Aisle) => Promise<void>;
+  classifying: boolean;
   currentUserId: string | null;
   vocabulary: Map<string, GroceryItem>;
 }) {
   const { t, locale } = useI18n();
+  const [picking, setPicking] = useState(false);
+  const [filing, setFiling] = useState(false);
+
+  const grocery = groceryFor(item, vocabulary);
+  // Only lines still to buy. Re-filing something already in the basket is a
+  // correction nobody is standing in the shop waiting for.
+  const canFile = editable && !item.is_checked;
+
+  const file = async (aisle: Aisle) => {
+    setFiling(true);
+    try {
+      await onFileAisle(item, aisle);
+      setPicking(false);
+    } finally {
+      setFiling(false);
+    }
+  };
 
   // A matched line reads from the vocabulary rather than from whoever typed it
   // first: one merged line is `Cebolla` to you and `Ceba` to whoever else is in
@@ -231,58 +277,100 @@ function Line({
 
   return (
     <li
-      className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 transition-colors ${
+      className={`rounded-2xl border transition-colors ${
         item.is_checked ? "border-line/60 bg-surface-2/50" : "border-line bg-surface"
       }`}
     >
-      <button
-        type="button"
-        onClick={() => onTick(item, !item.is_checked)}
-        disabled={!editable}
-        role="checkbox"
-        aria-checked={item.is_checked}
-        aria-label={name}
-        className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-          item.is_checked ? "border-leaf bg-leaf text-white" : "border-line hover:border-tomato"
-        }`}
-      >
-        {item.is_checked && <Check className="h-4 w-4" aria-hidden />}
-      </button>
-
-      <span className="min-w-0 flex-1">
-        <span className={`block text-sm font-semibold [overflow-wrap:anywhere] ${item.is_checked ? "text-muted line-through" : "text-fg"}`}>
-          {name}
-        </span>
-        <span className="block truncate text-xs text-muted">
-          {item.is_manual && recipes.length === 0
-            ? t("plan.added-by-hand")
-            : t("plan.from-recipes", { recipes: recipes.join(" · ") })}
-        </span>
-      </span>
-
-      {amount && (
-        <span className={`shrink-0 text-sm font-semibold tabular-nums ${item.is_checked ? "text-muted" : "text-fg"}`}>{amount}</span>
-      )}
-
-      {/* Left of the amount would push the number around as names come and go.
-          Here it sits in the row's quiet end, next to the delete button it will
-          often share a line with. */}
-      <PersonMark
-        userId={item.created_by}
-        name={item.created_by_name}
-        currentUserId={currentUserId}
-        label={(name) => t("kitchen.added-by", { name })}
-      />
-
-      {editable && (
+      <div className="flex items-center gap-3 px-3 py-2.5">
         <button
           type="button"
-          onClick={() => onRemove(item)}
-          aria-label={`${t("plan.remove-line")}: ${name}`}
-          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          onClick={() => onTick(item, !item.is_checked)}
+          disabled={!editable}
+          role="checkbox"
+          aria-checked={item.is_checked}
+          aria-label={name}
+          className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+            item.is_checked ? "border-leaf bg-leaf text-white" : "border-line hover:border-tomato"
+          }`}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          {item.is_checked && <Check className="h-4 w-4" aria-hidden />}
         </button>
+
+        <span className="min-w-0 flex-1">
+          <span className={`block text-sm font-semibold [overflow-wrap:anywhere] ${item.is_checked ? "text-muted line-through" : "text-fg"}`}>
+            {name}
+          </span>
+          <span className="block truncate text-xs text-muted">
+            {item.is_manual && recipes.length === 0
+              ? t("plan.added-by-hand")
+              : t("plan.from-recipes", { recipes: recipes.join(" · ") })}
+          </span>
+          {/* The model's guess in flight, or — when there is none and nothing
+              knows this line — the question, asked on the line itself. */}
+          {canFile && classifying && (
+            <span aria-live="polite" className="mt-0.5 flex items-center gap-1 text-xs text-muted">
+              <Sparkles className="h-3 w-3 shrink-0 animate-pulse text-tomato" aria-hidden />
+              {t("grocery.finding-aisle")}
+            </span>
+          )}
+          {canFile && !classifying && !grocery && (
+            <button
+              type="button"
+              onClick={() => setPicking((open) => !open)}
+              aria-expanded={picking}
+              className="mt-1 inline-flex cursor-pointer items-center gap-1 rounded-full border border-dashed border-line px-2.5 py-1 text-xs font-semibold text-muted transition-colors hover:border-tomato/50 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            >
+              <Tag className="h-3 w-3" aria-hidden />
+              {t("grocery.which-aisle")}
+            </button>
+          )}
+        </span>
+
+        {amount && (
+          <span className={`shrink-0 text-sm font-semibold tabular-nums ${item.is_checked ? "text-muted" : "text-fg"}`}>{amount}</span>
+        )}
+
+        {/* Left of the amount would push the number around as names come and go.
+            Here it sits in the row's quiet end, next to the delete button it will
+            often share a line with. */}
+        <PersonMark
+          userId={item.created_by}
+          name={item.created_by_name}
+          currentUserId={currentUserId}
+          label={(name) => t("kitchen.added-by", { name })}
+        />
+
+        {/* A line with an aisle moves with a quiet icon; one without has the
+            louder question above instead, so it never gets both. */}
+        {canFile && grocery && (
+          <button
+            type="button"
+            onClick={() => setPicking((open) => !open)}
+            aria-expanded={picking}
+            aria-label={`${t("grocery.change-aisle")}: ${name}`}
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/10 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          >
+            <Tag className="h-3.5 w-3.5" />
+          </button>
+        )}
+
+        {editable && (
+          <button
+            type="button"
+            onClick={() => onRemove(item)}
+            aria-label={`${t("plan.remove-line")}: ${name}`}
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {picking && canFile && (
+        <div className="space-y-2 border-t border-line px-3 pb-3 pt-2.5">
+          <p className="text-xs text-muted">{t("grocery.pick-aisle-hint")}</p>
+          <AislePicker current={grocery?.aisle} onPick={(aisle) => void file(aisle)} disabled={filing} />
+        </div>
       )}
     </li>
   );

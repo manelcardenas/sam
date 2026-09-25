@@ -7,7 +7,9 @@ from src.app.use_cases import (
     AddToWeekList,
     AdvancePlan,
     AssignDish,
+    ClassifyListItem,
     DropEntryFromList,
+    FileListItem,
     GetPlan,
     GetPlanArchive,
     GetPlanForWeek,
@@ -18,6 +20,7 @@ from src.app.use_cases import (
 )
 from src.app.use_cases.kitchen_access import current_kitchen
 from src.domain.entities import (
+    IngredientParserError,
     ListItemSource,
     Meal,
     MealPlan,
@@ -27,20 +30,21 @@ from src.domain.entities import (
     PlanSummary,
     ShoppingListItem,
 )
-from src.domain.ports import GroceryRepository, KitchenRepository, MealPlanRepository
+from src.domain.ports import GroceryRepository, IngredientParser, KitchenRepository, MealPlanRepository
 from src.infra.controllers.schemas import (
     AddToListRequest,
     AddToWeekListRequest,
     AdvancePlanRequest,
     AssignDishRequest,
     ResyncEntryListRequest,
+    SetAisleRequest,
     TickItemRequest,
 )
 from src.infra.security import TokenPayload, get_current_user
 
 
 class MealPlanController:
-    """Eight paths. Every write is scoped to the caller's kitchen (§8.12).
+    """The planner's routes. Every write is scoped to the caller's kitchen (§8.12).
 
     The kitchen is resolved once per request here rather than inside each use
     case, so the planner's use cases stay about plans and take a kitchen id the
@@ -56,11 +60,15 @@ class MealPlanController:
         # written, so lines meaning one thing merge whichever language each was
         # typed in (ingredient-capture-plan §6.1).
         grocery_repository: GroceryRepository,
+        # Only for filing a hand-typed line after it is already on the list —
+        # never on the way in (ingredient-capture-plan §6.2).
+        parser: IngredientParser,
         router: APIRouter,
     ) -> None:
         self.meal_plan_repository = meal_plan_repository
         self.kitchen_repository = kitchen_repository
         self.grocery_repository = grocery_repository
+        self.parser = parser
         self.router = router
         self._register_routes()
 
@@ -145,6 +153,30 @@ class MealPlanController:
             methods=["DELETE"],
             status_code=status.HTTP_204_NO_CONTENT,
             summary="Remove a list line",
+            **common,
+        )
+        self.router.add_api_route(
+            "/plans/{plan_id}/items/{item_id}/aisle",
+            self.file_item,
+            methods=["PUT"],
+            response_model=MealPlan,
+            summary="Put a list line in an aisle",
+            description=(
+                "A line the vocabulary knows moves its vocabulary row, for everybody. A line it does not know becomes a row, filed where the "
+                "caller said — so the same words land in that aisle next time too."
+            ),
+            **common,
+        )
+        self.router.add_api_route(
+            "/plans/{plan_id}/items/{item_id}/classify",
+            self.classify_item,
+            methods=["POST"],
+            response_model=MealPlan,
+            summary="Ask the AI which aisle a hand-typed line belongs in",
+            description=(
+                "Called in the background after a line is added, never before: adding by hand stays instant. "
+                "503 when no provider answers — the line simply stays in Other."
+            ),
             **common,
         )
         self.router.add_api_route(
@@ -339,6 +371,24 @@ class MealPlanController:
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    def file_item(self, plan_id: str, item_id: str, request: SetAisleRequest, current_user: TokenPayload = Depends(get_current_user)) -> MealPlan:
+        try:
+            FileListItem(self.meal_plan_repository, self.grocery_repository).execute(self._kitchen_id(current_user.sub), plan_id, item_id, request.aisle)
+        except (PermissionError, PlanStateError, KeyError, ValueError) as e:
+            self._raise(e)
+        return self._reload(plan_id)
+
+    def classify_item(self, plan_id: str, item_id: str, current_user: TokenPayload = Depends(get_current_user)) -> MealPlan:
+        try:
+            ClassifyListItem(self.meal_plan_repository, self.grocery_repository, self.parser).execute(self._kitchen_id(current_user.sub), plan_id, item_id)
+        except IngredientParserError as e:
+            # 503 as on /ingredients/parse: nothing is broken, a provider is
+            # unreachable, and the line is already safely on the list.
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)) from e
+        except (PermissionError, PlanStateError, KeyError, ValueError) as e:
+            self._raise(e)
+        return self._reload(plan_id)
 
     def advance(self, plan_id: str, request: AdvancePlanRequest, current_user: TokenPayload = Depends(get_current_user)) -> MealPlan:
         try:

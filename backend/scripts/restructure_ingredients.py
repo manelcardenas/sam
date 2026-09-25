@@ -91,7 +91,7 @@ from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 
 from src.app.use_cases import ParseIngredients
-from src.domain.entities import GroceryItem, IngredientParserError, key_for
+from src.domain.entities import Aisle, GroceryItem, IngredientParserError, key_for
 from src.domain.entities.parsed_ingredient import ResolvedLine
 from src.domain.ports import GroceryRepository
 from src.infra.adapters.parsing import build_ingredient_parser
@@ -121,6 +121,20 @@ class ReadOnlyGroceryRepository(GroceryRepository):
 
     def list_all(self) -> list[GroceryItem]:
         return self.inner.list_all()
+
+    def get(self, key: str) -> GroceryItem | None:
+        return self.inner.get(key)
+
+    def set_aisle(self, key: str, aisle: Aisle) -> GroceryItem | None:
+        # Nothing in this script moves an aisle; refusing it too keeps "read-only"
+        # a promise about the whole repository rather than about one method.
+        return self.inner.get(key)
+
+    def update(self, item: GroceryItem) -> GroceryItem | None:
+        return self.inner.get(item.key)
+
+    def delete(self, key: str) -> bool:
+        return False
 
     def upsert_many(self, items: list[GroceryItem]) -> int:
         self.refused.extend(items)

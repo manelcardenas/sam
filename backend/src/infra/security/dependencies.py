@@ -77,3 +77,15 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             print(f"⚠️  User provisioning failed for {token_payload.sub}: {type(e).__name__}: {e}", file=sys.stderr)
 
     return token_payload
+
+
+def require_admin(current_user: TokenPayload = Depends(get_current_user)) -> TokenPayload:
+    """`get_current_user`, plus a 403 for anybody outside the admin group.
+
+    A 403 rather than a 404: the routes are no secret — they are in the gateway
+    stack and the OpenAPI document — and pretending they do not exist would only
+    make a missing group membership look like a deploy problem.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+    return current_user

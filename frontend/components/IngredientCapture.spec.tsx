@@ -249,3 +249,44 @@ describe("the review table", () => {
     expect(onRowsChange).toHaveBeenCalledWith([]);
   });
 });
+
+describe("correcting an aisle", () => {
+  const eggs = grocery("huevos", { name_en: "Eggs", aisle: "produce" });
+
+  it("writes the pick to the vocabulary and shows it once the server agrees", async () => {
+    const save = vi.spyOn(apiClient, "setGroceryAisle").mockResolvedValue({ ...eggs, aisle: "dairy_eggs" });
+    const { onRowsChange } = setup([{ id: 1, name: "Eggs", amount: "", unit: "", groceryKey: "huevos", aisle: "produce" }]);
+
+    fireEvent.click(screen.getByRole("button", { name: /change aisle: fruit and veg/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Dairy and eggs" }));
+
+    await waitFor(() => expect(save).toHaveBeenCalledWith("huevos", "dairy_eggs"));
+    await waitFor(() => expect(onRowsChange).toHaveBeenCalledWith([expect.objectContaining({ id: 1, aisle: "dairy_eggs" })]));
+  });
+
+  it("keeps the row as it was when the save fails", async () => {
+    vi.spyOn(apiClient, "setGroceryAisle").mockRejectedValue(new Error("down"));
+    const { onRowsChange } = setup([{ id: 1, name: "Eggs", amount: "", unit: "", groceryKey: "huevos", aisle: "produce" }]);
+
+    fireEvent.click(screen.getByRole("button", { name: /change aisle/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Dairy and eggs" }));
+
+    await waitFor(() => expect(screen.getByRole("group", { name: /where is it/i })).not.toHaveAttribute("aria-disabled", "true"));
+    expect(onRowsChange).not.toHaveBeenCalled();
+  });
+
+  it("forgets which row it was once the name is edited by hand — moving it would move somebody else's ingredient", () => {
+    const { onRowsChange } = setup([{ id: 1, name: "Eggs", amount: "", unit: "", groceryKey: "huevos", aisle: "produce" }]);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /ingredient name/i }), { target: { value: "Quail eggs" } });
+
+    expect(onRowsChange).toHaveBeenCalledWith([expect.objectContaining({ name: "Quail eggs", groceryKey: undefined })]);
+  });
+
+  it("leaves the aisle as plain text on a row with no vocabulary row behind it", () => {
+    setup([{ id: 1, name: "Eggs", amount: "", unit: "", aisle: "produce" }]);
+
+    expect(screen.queryByRole("button", { name: /change aisle/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Fruit and veg")).toBeInTheDocument();
+  });
+});

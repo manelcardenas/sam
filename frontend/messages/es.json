@@ -379,7 +379,8 @@
     "tab-plans": "Semanas",
     "tab-recipes": "Recetas",
     "tab-reviews": "Reseñas",
-    "your-numbers": "Tus números"
+    "your-numbers": "Tus números",
+    "tab-admin": "Admin"
   },
   "recent-visits": {
     "blurb": "Los últimos sitios donde estuviste.",
@@ -566,6 +567,51 @@
   },
   "grocery": {
     "pantry": "de casa",
-    "suggestions": "Sugerencias"
+    "suggestions": "Sugerencias",
+    "which-aisle": "¿En qué pasillo?",
+    "change-aisle": "Cambiar de pasillo",
+    "finding-aisle": "Buscando su pasillo…",
+    "pick-aisle": "¿Dónde está en el súper?",
+    "pick-aisle-hint": "Se guarda para todos: la próxima vez irá ahí solo."
+  },
+  "admin": {
+    "groceries-title": "Ingredientes",
+    "groceries-intro": "El vocabulario compartido que usan todas las listas y recetas. Lo que cambies aquí vale para todo el mundo.",
+    "search-placeholder": "Busca en cualquier idioma",
+    "search-label": "Buscar ingredientes",
+    "count": {
+      "one": "{{count}} ingrediente",
+      "other": "{{count}} ingredientes"
+    },
+    "unreviewed": "Por revisar",
+    "source-seed": "De serie",
+    "source-ai": "IA",
+    "source-human": "A mano",
+    "added": "añadido {{when}}",
+    "name-es": "Español",
+    "name-ca": "Catalán",
+    "name-en": "Inglés",
+    "aisle": "Pasillo",
+    "unit": "Unidad habitual",
+    "unit-hint": "g, ml… vacío si se cuenta",
+    "pantry": "Suele haber en casa (empieza sin marcar)",
+    "saved": "Guardado",
+    "seed-cannot-delete": "Los ingredientes de serie no se pueden borrar desde aquí: el siguiente deploy los volvería a crear. Edítalo, o quítalo de grocery_seed_data.py.",
+    "delete-title": "¿Eliminar {{name}}?",
+    "delete-body": "Desaparece de las sugerencias y de la agrupación por pasillos. Las listas que ya lo tienen conservan la línea, en Otros.",
+    "empty-title": "No hay coincidencias",
+    "empty-body": "Prueba otra búsqueda u otro pasillo.",
+    "load-failed": "No se han podido cargar los ingredientes.",
+    "show-more": "Mostrar más",
+    "used-in": {
+      "one": "en {{count}} receta",
+      "other": "en {{count}} recetas"
+    },
+    "recipes": "Recetas que lo usan",
+    "no-recipes": "Ninguna receta lo usa.",
+    "delete-used": {
+      "one": "Lo usa {{count}} receta: conservará el nombre, pero en la lista irá a Otros.",
+      "other": "Lo usan {{count}} recetas: conservarán el nombre, pero en la lista irá a Otros."
+    }
   }
 }

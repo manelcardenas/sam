@@ -6,6 +6,7 @@ import { useAuthGate } from "@/components/auth/useAuthGate";
 import {
   ApiError,
   apiClient,
+  type Aisle,
   type GroceryItem,
   type KitchenMember,
   type KitchenView,
@@ -21,6 +22,7 @@ import { currentParams, useBrowserNavigation, useHistoryDepth, writeUrl } from "
 import { DAYS_IN_WEEK, fromQuery, homeWeekOf, shiftDate, toQuery, weekDays, weekStartOf, type PlanView } from "@/lib/plan-url";
 import type { ScaledLine } from "@/lib/plan-ingredients";
 import { entryForDish } from "@/lib/plan-entries";
+import { byKey, lineToClassify } from "@/lib/grocery";
 import { AppShell } from "@/components/shell/AppShell";
 import { PlanSkeleton } from "@/components/ui/PageSkeleton";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
@@ -68,6 +70,8 @@ export default function PlanPage() {
   // and unsuggested rather than waiting or erroring, so a vocabulary that never
   // arrives costs a feature and not the page.
   const [vocabulary, setVocabulary] = useState<GroceryItem[]>([]);
+  // Lines the model is still placing in an aisle, by id. See `classifyInBackground`.
+  const [classifying, setClassifying] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState("");
 
   const [view, setView] = useState<PlanView>("calendar");
@@ -323,6 +327,59 @@ export default function PlanPage() {
       else await loadPlan(weekStart);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("plan.save-failed"));
+    }
+  };
+
+  /**
+   * Take a write that may have created vocabulary rows, and show its result.
+   *
+   * **The vocabulary first, then the plan.** A line whose new key the client
+   * cannot look up yet would render in `Other` for one frame and then jump —
+   * exactly the move this whole feature exists to make once, not twice. If the
+   * vocabulary refetch fails, the plan still lands: a line in `Other` is the
+   * degraded case the list already handles.
+   */
+  const applyWithVocabulary = async (updated: MealPlan) => {
+    const groceries = await apiClient.listGroceryItems().catch(() => null);
+    if (groceries) setVocabulary(groceries);
+    applyUpdatedPlan(updated);
+  };
+
+  /**
+   * Ask the model where a hand-typed line goes, **after** it is already on the list.
+   *
+   * Fire-and-forget on purpose (ingredient-capture-plan §6.2): adding by hand
+   * never waits on a model, so the line appears instantly in `Other` and moves
+   * when the answer arrives. A provider that is down or slow costs nothing but
+   * the move — the "which aisle?" question on the line is still there to answer
+   * by hand, and the server ignores the model for a line somebody filed first.
+   */
+  const classifyInBackground = (updated: MealPlan, typed: string) => {
+    const line = lineToClassify(updated, typed, byKey(vocabulary));
+    if (!line) return;
+    const done = () =>
+      setClassifying((current) => {
+        const next = new Set(current);
+        next.delete(line.id);
+        return next;
+      });
+    setClassifying((current) => new Set(current).add(line.id));
+    void apiClient
+      .classifyListItem(updated.id, line.id)
+      .then(applyWithVocabulary)
+      // Silent: nothing failed that the person needs to act on. The line is
+      // saved; only the guess about its aisle is missing.
+      .catch(() => undefined)
+      .finally(done);
+  };
+
+  const fileAisle = async (item: ShoppingListItem, aisle: Aisle) => {
+    if (!plan) return;
+    try {
+      setError("");
+      await applyWithVocabulary(await apiClient.fileListItem(plan.id, item.id, aisle));
+    } catch {
+      setError(t("plan.save-failed"));
     }
   };
 
@@ -598,8 +655,14 @@ export default function PlanPage() {
           // both cases — creating the week or merging into it — so there is no
           // branch here that could pick wrong.
           onAddExtra={async (name) => {
-            await withPlan(() => apiClient.addToWeekList(weekStart, [{ name }]));
+            await withPlan(async () => {
+              const updated = await apiClient.addToWeekList(weekStart, [{ name }]);
+              classifyInBackground(updated, name);
+              return updated;
+            });
           }}
+          onFileAisle={fileAisle}
+          classifying={classifying}
         />
       )}
 

@@ -17,7 +17,8 @@ import pytest
 from fastapi import APIRouter, FastAPI
 from starlette.testclient import TestClient
 
-from src.domain.entities import Aisle, GroceryItem
+from src.domain.entities import Aisle, GroceryItem, IngredientParserError, ParsedIngredients
+from src.domain.ports import IngredientParser
 from src.infra.adapters.repos.in_memory_grocery_repo import InMemoryGroceryRepository
 from src.infra.adapters.repos.in_memory_kitchen_repo import InMemoryKitchenRepository
 from src.infra.adapters.repos.in_memory_meal_plan_repo import InMemoryMealPlanRepository
@@ -72,15 +73,28 @@ VOCABULARY = [
 ]
 
 
+class _NoParser(IngredientParser):
+    """No provider configured — what the planner's own tests run against.
+
+    The aisle lookup is the only planner route that reaches a model, and it has
+    its own suite (`test_list_aisles.py`); here it should fail the way an
+    unconfigured deployment does rather than quietly succeed.
+    """
+
+    def parse(self, text: str, vocabulary: list[GroceryItem], servings: int) -> ParsedIngredients:  # noqa: ARG002 — the port's signature
+        raise IngredientParserError("no provider configured")
+
+
 def _app(
     repository: InMemoryMealPlanRepository,
     kitchens: InMemoryKitchenRepository,
     caller: str = OWNER,
     users: InMemoryUserRepository | None = None,
     groceries: InMemoryGroceryRepository | None = None,
+    parser: IngredientParser | None = None,
 ) -> TestClient:
     router = APIRouter()
-    MealPlanController(repository, kitchens, groceries or InMemoryGroceryRepository(VOCABULARY), router)
+    MealPlanController(repository, kitchens, groceries or InMemoryGroceryRepository(VOCABULARY), parser or _NoParser(), router)
     KitchenController(kitchens, users or _users(), router)
     app = FastAPI()
     app.include_router(router)

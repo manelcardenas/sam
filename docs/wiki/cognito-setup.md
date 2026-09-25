@@ -125,6 +125,43 @@ aws cloudformation describe-stacks \
 
 ---
 
+## Admins
+
+Members of the user-pool group **`admins`** see an extra **Admin** tab on their profile, where they
+can edit and delete rows of the shared grocery vocabulary. The group is declared in
+`infra/lib/foundation/cognito-stack.ts`; membership is never granted from the app, only here.
+
+The API reads membership from the `cognito:groups` claim of the ID token it already validates
+(`backend/src/infra/security/schemas.py`, `ADMIN_GROUP`), so there is no database column and no
+secret. Local development uses the same user pool, so one membership covers both.
+
+**1. Create the group** — once. CI deploys only the Lambda stack, so this one is by hand. Diff first:
+the only change should be `AWS::Cognito::UserPoolGroup`.
+
+```bash
+cd infra
+npx cdk diff -e RecipeManagerCognitoStack
+npx cdk deploy -e RecipeManagerCognitoStack
+```
+
+`-e` (`--exclusively`) matters: without it CDK also bundles the Lambda stack that depends on this
+one, which needs Docker and fails if Docker cannot run the build image.
+
+Do **not** create the group by hand with `aws cognito-idp create-group` instead: CloudFormation would
+then fail to create a group that already exists.
+
+**2. Add yourself.** The username is not your email for Google sign-ins (it looks like
+`google_1234…`), so look it up first:
+
+```bash
+POOL=$(grep ^COGNITO_USER_POOL_ID= .env | cut -d= -f2 | awk '{print $1}')   # the line carries a trailing comment
+aws cognito-idp list-users --user-pool-id "$POOL" --filter 'email = "you@example.com"' --query 'Users[].Username'
+aws cognito-idp admin-add-user-to-group --user-pool-id "$POOL" --username '<that username>' --group-name admins
+```
+
+**3. Sign out and back in.** Groups are written into the token when it is issued, so the tab appears
+only with a fresh one. To remove somebody: `admin-remove-user-from-group`, same arguments.
+
 ## Testing Authentication
 
 ### Create a Test User
