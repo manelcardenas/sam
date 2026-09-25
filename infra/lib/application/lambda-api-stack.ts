@@ -213,6 +213,32 @@ export class LambdaApiStack extends Stack {
       authorizer,
     });
 
+    // A person correcting which aisle a row belongs in. Writes to the shared
+    // vocabulary — the one write on it that is not the parser's.
+    httpApi.addRoutes({
+      path: "/grocery-items/{key}/aisle",
+      methods: [HttpMethod.PUT],
+      integration,
+      authorizer,
+    });
+
+    // Admin-only: which recipes use each vocabulary row, and
+    // rewriting and deleting rows. The Cognito authorizer
+    // only proves you are signed in; the `admins` group is checked by the API.
+    httpApi.addRoutes({
+      path: "/admin/grocery-items/{key}",
+      methods: [HttpMethod.PUT, HttpMethod.DELETE],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/admin/grocery-items/usage",
+      methods: [HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
     // Free ingredient text in, structured reviewable lines out. The slowest
     // route the API has — it calls an external model with an 8s budget and
     // fails over once, so ~17s worst case against the gateway's hard 30s.
@@ -332,6 +358,23 @@ export class LambdaApiStack extends Stack {
     httpApi.addRoutes({
       path: "/plans/{plan_id}/items/{item_id}",
       methods: [HttpMethod.PATCH, HttpMethod.DELETE],
+      integration,
+      authorizer,
+    });
+
+    // Filing a list line in an aisle: by hand, or by the model in the background
+    // after a hand-typed line lands in Other. `classify` shares /ingredients/parse's
+    // time budget — same parser, same ~17s worst case against the 30s ceiling.
+    httpApi.addRoutes({
+      path: "/plans/{plan_id}/items/{item_id}/aisle",
+      methods: [HttpMethod.PUT],
+      integration,
+      authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/plans/{plan_id}/items/{item_id}/classify",
+      methods: [HttpMethod.POST],
       integration,
       authorizer,
     });
