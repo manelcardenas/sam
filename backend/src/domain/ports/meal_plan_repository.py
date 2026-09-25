@@ -61,6 +61,24 @@ class MealPlanRepository(ABC):
         pass
 
     @abstractmethod
+    def set_item_grocery_key(self, item_id: str, grocery_key: str, amount: float | None = None, unit: str | None = None) -> ShoppingListItem | None:
+        """Say which vocabulary row a line means, after the fact. None if there is no such line.
+
+        `amount` and `unit` are what a parse read **out of the name** — `6 huevos`
+        typed into the manual box arrives as a line with no amount at all. They
+        are taken only by a line that has no amount of its own; one that does
+        already knows how much, and a guess must not overwrite it.
+
+        **This can merge.** The key is half of the merge key, so giving `huveos`
+        the key `huevos` makes it the same line as the `Huevos` already on the
+        list. When that happens this line is folded into the existing one —
+        amounts summed with `add_items`' None-is-not-zero rule, sources moved
+        across, `created_by` left with whoever was first — and the survivor is
+        returned. It stays ticked only if both were: a fresh line folded into a
+        ticked one is something you still have to buy.
+        """
+
+    @abstractmethod
     def delete_item(self, item_id: str) -> None:
         pass
 
