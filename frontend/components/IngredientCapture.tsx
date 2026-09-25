@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { CircleAlert, Plus, Trash2 } from "lucide-react";
 import { apiClient, type Aisle, type ParsedIngredientLine } from "@/lib/api-client";
+import { AisleIcon } from "@/components/AisleIcon";
+import { AislePicker } from "@/components/AislePicker";
 import { DeepSeekMark } from "@/components/brand/DeepSeekMark";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { nameFor } from "@/lib/grocery";
@@ -35,6 +37,13 @@ export interface CaptureRow {
   name: string;
   amount: string;
   unit: string;
+  /**
+   * The vocabulary row this line was matched to — what an aisle correction is
+   * written to. Dropped the moment the name is edited by hand: the row no longer
+   * describes what is in the box, and moving its aisle would move somebody
+   * else's ingredient.
+   */
+  groceryKey?: string;
   /** Vocabulary facts, absent on a hand-added or unparsed row. */
   aisle?: Aisle;
   isPantry?: boolean;
@@ -68,6 +77,7 @@ export function rowsFromParsed(lines: ParsedIngredientLine[], locale: string, ne
     name: nameFor(line.item, locale),
     amount: line.amount != null ? String(line.amount) : "",
     unit: line.unit ?? "",
+    groceryKey: line.item.key,
     aisle: line.item.aisle,
     isPantry: line.item.is_pantry,
     isNew: line.is_new,
@@ -118,6 +128,9 @@ export function IngredientCapture({
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Which row's aisle picker is open. One at a time: the table is already dense.
+  const [picking, setPicking] = useState<number | null>(null);
+  const [filing, setFiling] = useState(false);
 
   // The box is the entry point whenever there is nothing to review yet. Editing
   // an existing recipe therefore opens straight into the table, with no parse
@@ -162,6 +175,28 @@ export function IngredientCapture({
       }),
     );
   const remove = (id: number) => onRowsChange(rows.filter((row) => row.id !== id));
+
+  /**
+   * Correct the aisle the parser (or the seed) gave this ingredient.
+   *
+   * Written straight to the shared vocabulary rather than held with the recipe:
+   * a recipe stores names, not aisles, so an aisle kept here would be forgotten
+   * on save. Only updated on the row once the server agrees — a picker that
+   * showed an aisle the vocabulary never took would be lying about the list.
+   */
+  const fileAisle = async (row: CaptureRow, aisle: Aisle) => {
+    if (!row.groceryKey) return;
+    setFiling(true);
+    try {
+      const saved = await apiClient.setGroceryAisle(row.groceryKey, aisle);
+      update(row.id, { aisle: saved.aisle });
+      setPicking(null);
+    } catch {
+      // Left open, so it is plain the pick did not take and can be tried again.
+    } finally {
+      setFiling(false);
+    }
+  };
   const add = () => onRowsChange([...rows, { id: nextId(), name: "", amount: "", unit: "" }]);
 
   if (!reviewing) {
@@ -220,7 +255,7 @@ export function IngredientCapture({
             <input
               type="text"
               value={row.name}
-              onChange={(e) => update(row.id, { name: e.target.value })}
+              onChange={(e) => update(row.id, { name: e.target.value, groceryKey: undefined })}
               aria-label={t("recipe-form.ingredient-name")}
               className={`${fieldClass} min-w-0 flex-1`}
             />
@@ -263,7 +298,24 @@ export function IngredientCapture({
               data in the first place. */}
           {(row.aisle || row.isNew || row.isPantry) && (
             <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-3 text-[0.7rem] text-muted">
-              {row.aisle && <span>{t(`aisle.${row.aisle}`)}</span>}
+              {row.aisle &&
+                (row.groceryKey ? (
+                  <button
+                    type="button"
+                    onClick={() => setPicking(picking === row.id ? null : row.id)}
+                    aria-expanded={picking === row.id}
+                    aria-label={`${t("grocery.change-aisle")}: ${t(`aisle.${row.aisle}`)}`}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-full underline decoration-dotted underline-offset-2 transition-colors hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  >
+                    <AisleIcon aisle={row.aisle} className="h-3 w-3 shrink-0" />
+                    {t(`aisle.${row.aisle}`)}
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <AisleIcon aisle={row.aisle} className="h-3 w-3 shrink-0" />
+                    {t(`aisle.${row.aisle}`)}
+                  </span>
+                ))}
               {row.isNew && <span className="font-semibold text-tomato">✦ {t("recipe-form.new-item")}</span>}
               {row.isPantry && <span>· {t("recipe-form.from-home")}</span>}
               {/* Amber rather than tomato, and this is the one place the two are
@@ -283,13 +335,20 @@ export function IngredientCapture({
                 <button
                   key={name}
                   type="button"
-                  onClick={() => update(row.id, { name, isNew: false, didYouMean: [] })}
+                  onClick={() => update(row.id, { name, isNew: false, didYouMean: [], groceryKey: undefined })}
                   className="cursor-pointer rounded-full border border-line px-2 py-0.5 font-semibold text-fg transition-colors hover:border-tomato hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                 >
                   {t("recipe-form.did-you-mean", { name })}
                 </button>
               ))}
             </p>
+          )}
+
+          {picking === row.id && row.groceryKey && (
+            <div className="space-y-2 rounded-xl border border-line bg-surface-2/40 p-2.5">
+              <p className="text-xs text-muted">{t("grocery.pick-aisle-hint")}</p>
+              <AislePicker current={row.aisle} onPick={(aisle) => void fileAisle(row, aisle)} disabled={filing} />
+            </div>
           )}
         </div>
       ))}
