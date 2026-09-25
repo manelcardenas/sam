@@ -78,9 +78,12 @@ def create_app() -> FastAPI:
     UserController(user_repository, review_repository, router)
     RestaurantController(restaurant_repository, review_repository, cuisine_repository, router)
     PlacesController(places_provider, router)
-    MealPlanController(meal_plan_repository, kitchen_repository, grocery_repository, router)
+    # One parser for both consumers: the recipe box and the list's background
+    # aisle lookup. Built once so a cold start resolves the key from SSM once.
+    ingredient_parser = build_ingredient_parser()
+    MealPlanController(meal_plan_repository, kitchen_repository, grocery_repository, ingredient_parser, router)
     KitchenController(kitchen_repository, user_repository, router)
-    GroceryController(grocery_repository, build_ingredient_parser(), router)
+    GroceryController(grocery_repository, recipe_repository, ingredient_parser, router)
     app.include_router(router)
 
     return app
