@@ -4,6 +4,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from src.domain.entities.user import Person
+
 
 class Restaurant(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -32,6 +34,7 @@ class RestaurantDetail(Restaurant):
     average_overall: float | None = None
     last_visited_at: date | None = None
     reviewer_names: list[str] = Field(default_factory=list)
+    reviewers: list[Person] = Field(default_factory=list)
     last_comment: str | None = None
     last_comment_by: str | None = None
     last_comment_at: date | None = None
@@ -63,7 +66,7 @@ class RestaurantFilters(BaseModel):
     cuisines: list[str] = Field(default_factory=list)  # any-of
     price_levels: list[int] = Field(default_factory=list)  # any-of
     min_score: float | None = None  # floor on average overall; excludes unreviewed restaurants when set
-    reviewed_by: str | None = None  # user id — restaurants this user has reviewed
+    reviewed_by: list[str] = Field(default_factory=list)  # user ids, any-of — restaurants any of them has reviewed
     sort: RestaurantSort = RestaurantSort.RECENT
 
     @property

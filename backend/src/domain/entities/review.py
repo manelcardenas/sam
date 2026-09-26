@@ -3,6 +3,8 @@ from datetime import UTC, date, datetime
 
 from pydantic import BaseModel, Field, computed_field
 
+from src.domain.entities.user import Person
+
 
 class Review(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -39,6 +41,7 @@ class ReviewAggregate(BaseModel):
     average_overall: float | None = None
     last_visited_at: date | None = None  # newest visited_at; also the default sort key for the list
     reviewer_names: list[str] = Field(default_factory=list)  # distinct reviewers, alphabetical
+    reviewers: list[Person] = Field(default_factory=list)  # the same people with their ids, same order — what "Reviewed by" offers
     last_comment: str | None = None
     last_comment_by: str | None = None
     last_comment_at: date | None = None
