@@ -17,14 +17,18 @@ import { AppShell } from "@/components/shell/AppShell";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import RestaurantForm from "@/components/RestaurantForm";
 import ReviewForm from "@/components/ReviewForm";
+import AddRestaurantFlow from "@/components/AddRestaurantFlow";
 import ConfirmModal from "@/components/ConfirmModal";
 import { RecentVisitsRail } from "@/components/dine/RecentVisitsRail";
+import { PendingReviews } from "@/components/dine/PendingReviews";
+import { awaitingMyReview, isAwaitingMyReview } from "@/lib/pending-reviews";
 import {
   DEFAULT_SORT,
   EMPTY_FILTERS,
   clearFilters,
   RestaurantFilters,
   fromSearchParams,
+  reviewersOf,
   isFiltered,
   toQuery,
   toSearchParams,
@@ -42,6 +46,7 @@ import {
   LayoutGrid,
   Map as MapIcon,
   MapPin,
+  NotebookPen,
   Plus,
   SearchX,
   Star,
@@ -76,6 +81,17 @@ function ScoreRow({ label, value }: { label: string; value: number | null }) {
   );
 }
 
+/**
+ * Whether the list request cannot double as the archive snapshot, so the
+ * archive needs its own fetch. `loadRestaurants` only stores its result as the
+ * archive when it is unfiltered *and* in the default order; anything else —
+ * including a bare `?sort=rating` — has to fetch it separately, or the page
+ * opens with an empty archive and says nobody has eaten anywhere.
+ */
+function needsOwnArchiveFetch(state: FilterState): boolean {
+  return isFiltered(state) || state.sort !== DEFAULT_SORT;
+}
+
 export default function DinePage() {
   const { locale, t, tp } = useI18n();
 
@@ -96,6 +112,16 @@ export default function DinePage() {
   const [pending, startTransition] = useTransition();
 
   const [view, setView] = useState<DineView>("list");
+  // A restaurant whose review form should open as soon as its detail has — set
+  // by "Review" in the pending block and by creating a place. Stepping through
+  // the detail rather than jumping to the form keeps it in history, so backing
+  // out of the form lands on the place you were reviewing, not on the list.
+  const [reviewOnceOpen, setReviewOnceOpen] = useState<string | null>(null);
+  // The place just added, so its review form can say so instead of a bare "Review".
+  const [justAdded, setJustAdded] = useState<string | null>(null);
+  // Set before a view change that must *replace* the current entry rather than
+  // push one — see handleCreateRestaurant.
+  const replaceNextView = useRef(false);
   const [listMode, setListMode] = useState<ListMode>("cards");
   const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -144,7 +170,7 @@ export default function DinePage() {
       if (cancelled) return;
       setFilters(restored);
       await loadRestaurants(restored);
-      if (isFiltered(restored)) await loadArchive();
+      if (needsOwnArchiveFetch(restored)) await loadArchive();
       if (!cancelled) setLoading(false);
     })();
     return () => {
@@ -193,22 +219,39 @@ export default function DinePage() {
       setReviews(restaurantReviews);
       setView("detail");
     } catch (err) {
+      setReviewOnceOpen(null);
       setError(err instanceof Error ? err.message : t("dine.load-one-failed"));
     }
   };
 
   /** Refresh both the filtered list and the archive snapshot the rail reads from. */
   const refreshLists = useCallback(async () => {
-    await Promise.all([loadRestaurants(filters), isFiltered(filters) ? loadArchive() : Promise.resolve()]);
+    await Promise.all([loadRestaurants(filters), needsOwnArchiveFetch(filters) ? loadArchive() : Promise.resolve()]);
   }, [filters, loadRestaurants, loadArchive]);
 
   const handleCreateRestaurant = async (data: CreateRestaurantInput) => {
     const { restaurant, alreadyExisted } = await apiClient.createRestaurant(data);
     await refreshLists();
+    if (!alreadyExisted) {
+      // Straight on to the review: adding a place means you ate there
+      // (docs/adr/0005), and the moment you add it is when you remember it
+      // best. Left on the detail page, places went unreviewed by whoever added
+      // them (3 of 13 in the dev data). The form replaces the add-restaurant
+      // entry in history, so back from the review is the new place, and back
+      // again is the list — never the empty form you just submitted.
+      replaceNextView.current = true;
+      setJustAdded(restaurant.id);
+      setReviewOnceOpen(restaurant.id);
+    }
     await openRestaurant(restaurant);
     if (alreadyExisted) {
       setNotice(t("dine.already-added", { name: restaurant.name }));
     }
+  };
+
+  const reviewRestaurant = async (restaurant: RestaurantDetail) => {
+    setReviewOnceOpen(restaurant.id);
+    await openRestaurant(restaurant);
   };
 
   const handleSelectExisting = async (restaurant: Restaurant) => {
@@ -225,6 +268,7 @@ export default function DinePage() {
   const handleCreateReview = async (data: CreateReviewInput) => {
     if (!selectedRestaurant) return;
     await apiClient.createReview(selectedRestaurant.id, data);
+    setJustAdded(null);
     await refreshLists();
     await openRestaurant(selectedRestaurant);
   };
@@ -251,18 +295,30 @@ export default function DinePage() {
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
-  // Chip vocabularies come from the archive, not the current results, so a chip
-  // never disappears the moment you use it. Sorted by frequency: the cuisines
-  // you actually eat lead, which at this data's distribution is a real difference.
+  // Filter vocabularies come from the archive, not the current results, so an
+  // option never disappears the moment you use it — and the count beside each
+  // cuisine is places in the archive, not in the current results, for the same
+  // reason. Sorted by frequency: the cuisines you actually eat lead, which at
+  // this data's distribution is a real difference.
   const cuisineOptions = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of archive) for (const c of r.cuisines) counts.set(c, (counts.get(c) ?? 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name, count]) => ({ name, count }));
   }, [archive]);
 
   const priceOptions = useMemo(
     () => [...new Set(archive.map((r) => r.price_level).filter((p): p is 1 | 2 | 3 | 4 => p != null))].sort(),
     [archive],
+  );
+
+  // From the archive, not the filtered list: a filter must not hide what you owe.
+  const pendingMine = useMemo(() => awaitingMyReview(archive, currentUserId), [archive, currentUserId]);
+
+  const reviewerOptions = useMemo(
+    () => reviewersOf(archive, currentUserId, locale),
+    [archive, currentUserId, locale],
   );
 
   const filtering = isFiltered(filters);
@@ -347,13 +403,20 @@ export default function DinePage() {
     lastViewKey.current = viewKey;
 
     const before = window.location.search;
-    writeUrl(
-      composeQuery(toSearchParams(filters), view, selectedRestaurant?.id ?? null),
-      viewChanged ? "push" : "replace",
-    );
-    if (viewChanged && window.location.search !== before) history.recordPush();
+    const push = viewChanged && !replaceNextView.current;
+    replaceNextView.current = false;
+    writeUrl(composeQuery(toSearchParams(filters), view, selectedRestaurant?.id ?? null), push ? "push" : "replace");
+    if (push && window.location.search !== before) history.recordPush();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, view, selectedRestaurant?.id]);
+
+  // After the URL writer, so the detail is in history before the form is.
+  useEffect(() => {
+    if (reviewOnceOpen && view === "detail" && selectedRestaurant?.id === reviewOnceOpen) {
+      setReviewOnceOpen(null);
+      setView("add-review");
+    }
+  }, [reviewOnceOpen, view, selectedRestaurant?.id]);
 
   // ── Navigation helpers ───────────────────────────────────────────────────────
 
@@ -435,6 +498,8 @@ export default function DinePage() {
 
           {/* The reel of recent visits — hides itself when there's too little to
               reel through, so an empty-ish account doesn't get a broken-looking rail. */}
+          <PendingReviews restaurants={pendingMine} onReview={(r) => void reviewRestaurant(r)} />
+
           <RecentVisitsRail restaurants={archive} onSelect={openRestaurant} />
 
           {archive.length > 0 && (
@@ -478,6 +543,8 @@ export default function DinePage() {
                 value={filters}
                 cuisines={cuisineOptions}
                 priceLevels={priceOptions}
+                reviewers={reviewerOptions}
+                currentUserId={currentUserId}
                 onChange={setFilters}
                 resultCount={restaurants.length}
                 busy={pending}
@@ -537,7 +604,7 @@ export default function DinePage() {
               />
             ) : (
               <>
-                <RestaurantsMap restaurants={mapped} onOpenRestaurant={openRestaurant} />
+                <RestaurantsMap restaurants={mapped} currentUserId={currentUserId} onOpenRestaurant={openRestaurant} />
                 {unmappedCount > 0 && (
                   <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-sm text-muted">
                     <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -570,7 +637,11 @@ export default function DinePage() {
                   className={`min-w-0 ${i < 8 ? "will-fetch animate-fetch-in" : ""}`}
                   style={i < 8 ? { animationDelay: `${i * 40}ms` } : undefined}
                 >
-                  <RestaurantCard restaurant={r} onClick={() => openRestaurant(r)} />
+                  <RestaurantCard
+                    restaurant={r}
+                    awaitingYou={isAwaitingMyReview(r, currentUserId)}
+                    onClick={() => openRestaurant(r)}
+                  />
                 </div>
               ))}
             </div>
@@ -632,19 +703,32 @@ export default function DinePage() {
             </div>
 
             <div className="border-t border-line px-6 py-5">
+              {/* Yours and unreviewed: the button says whose review is missing,
+                  and the line above it says why it matters. Everyone else gets
+                  the plain invitation. */}
+              {isAwaitingMyReview(selectedRestaurant, currentUserId) && (
+                <p className="mb-3 flex items-start gap-2 rounded-2xl bg-amber/10 px-4 py-3 text-sm text-fg">
+                  <NotebookPen className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber" aria-hidden />
+                  <span>
+                    {t("dine.awaiting-yours", {
+                      when: formatRelativeDate(selectedRestaurant.created_at.slice(0, 10), locale),
+                    })}
+                  </span>
+                </p>
+              )}
               <button
                 onClick={() => setView("add-review")}
                 className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
               >
                 <Plus className="h-4 w-4" />
-                {t("dine.write-a-review")}
+                {isAwaitingMyReview(selectedRestaurant, currentUserId) ? t("dine.add-my-review") : t("dine.write-a-review")}
               </button>
             </div>
           </article>
 
           <div>
             <h2 className="mb-3 font-display text-lg font-semibold text-fg">
-              Reviews {reviews.length > 0 && `(${reviews.length})`}
+              {t("dine.reviews-heading")} {reviews.length > 0 && `(${reviews.length})`}
             </h2>
             {reviews.length === 0 ? (
               <p className="rounded-3xl border border-dashed border-line bg-surface py-10 text-center text-muted">
@@ -713,11 +797,11 @@ export default function DinePage() {
         <div className="mx-auto max-w-xl">
           <h1 className="mb-6 font-display text-2xl font-bold text-fg sm:text-3xl">{t("dine.new-restaurant")}</h1>
           <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
-            <RestaurantForm
+            <AddRestaurantFlow
+              archive={archive}
               onSubmit={handleCreateRestaurant}
               onCancel={goBack}
               onSelectExisting={handleSelectExisting}
-              submitLabel={t("dine.add-restaurant")}
             />
           </div>
         </div>
@@ -748,8 +832,19 @@ export default function DinePage() {
       {/* ── ADD REVIEW ── */}
       {view === "add-review" && selectedRestaurant && (
         <div className="mx-auto max-w-xl">
-          <h1 className="mb-1 font-display text-2xl font-bold text-fg sm:text-3xl">{t("dine.review")}</h1>
-          <p className="mb-6 text-muted">{selectedRestaurant.name}</p>
+          {justAdded === selectedRestaurant.id ? (
+            <>
+              <h1 className="mb-1 font-display text-2xl font-bold text-fg sm:text-3xl">
+                {t("dine.just-added-title", { name: selectedRestaurant.name })}
+              </h1>
+              <p className="mb-6 text-muted">{t("dine.just-added-body")}</p>
+            </>
+          ) : (
+            <>
+              <h1 className="mb-1 font-display text-2xl font-bold text-fg sm:text-3xl">{t("dine.review")}</h1>
+              <p className="mb-6 text-muted">{selectedRestaurant.name}</p>
+            </>
+          )}
           <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
             <ReviewForm onSubmit={handleCreateReview} onCancel={goBack} />
           </div>
