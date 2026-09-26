@@ -28,3 +28,51 @@ can rank, or Bayesian shrinkage pulling sparse averages toward the global mean. 
 better of the two — it degrades gracefully instead of hiding places — and it is a change to one
 SQL expression in `_score_sql.py`, which is where the display score and the sort key are now
 deliberately kept identical.
+
+## Addendum (2026-09-25) — "reviewed by me" became "Reviewed by"
+
+The reviewed-by-me chip was replaced by the same labelled people dropdown the recipe lists use
+for "Created by" (`AuthorSelect`): `?reviewers=<id>&reviewers=<id>`, any-of, like cuisines. The
+lone chip could only answer "where have I been", not "where has Martina been", and it looked like
+a different kind of filter from its recipe-side twin for no reason.
+
+The old comment argued for resolving `mine` from the JWT so "nobody gets to filter by someone
+else's identity". That protected nothing: every card already names who went. The options come
+from a new `reviewers: [{id, display_name}]` on each list row, so the dropdown is derived from
+the loaded archive like cuisines and authors, and cannot offer someone who reviewed nothing.
+
+Cuisine moved into the same kind of dropdown in the same change. The argument above for cuisine
+*filters* still holds; what changed is their shape. Ten-odd cuisine chips ran about three phone
+screens wide and pushed the four price chips out of sight, so the row is now `Reviewed by ▾`,
+`Cuisine ▾`, then price chips — one screen. The dropdown keeps each cuisine's colour and the
+frequency order, and adds the archive count beside each name. Recipe categories stay chips:
+there are five of them and they fit.
+
+## Addendum (2026-09-25) — a place you added and never reviewed is flagged
+
+If adding a place means you ate there, a place its author never reviewed is a meal with no memory,
+and only the author can fill it in. In the dev data, 3 of 13 places were like this. The cause was
+the flow: creating a restaurant landed on its detail page, and the review was a second, optional
+tap. Now:
+
+- **Prevention.** Creating a place opens its review form straight away ("X is on SAM. How was
+  it?"). The form replaces the add-restaurant entry in history, so back goes to the new place and
+  then to the list, never to the submitted form.
+- **The rule** lives in `lib/pending-reviews.ts`. A place counts when you are its `created_by`
+  and you are not among its `reviewers`. A friend's review does not clear it, because it does not
+  say what you thought.
+- **Where it shows:**
+  - an undismissable "You owe N reviews" block at the top of `/dine`, with a one-tap Review button
+    per place;
+  - a dashed amber edge and a "Your review is missing" tag on the card;
+  - a line above the detail page's button, whose label becomes "Add my review";
+  - an amber dot on the map pin.
+
+Deferred, with their triggers:
+
+- **A badge on the Dine tab**, visible from every page. It needs the count outside `/dine`, which
+  today means fetching the whole archive on every page or adding a `GET /users/me/pending-reviews`.
+  Revisit if people ignore the block because they rarely open `/dine`.
+- **"I haven't been yet".** The model has no wishlist, so a place added as a plan to go stays
+  flagged until it is reviewed. Revisit if people start adding places they have not visited;
+  that is a wishlist feature, not a dismiss button.
