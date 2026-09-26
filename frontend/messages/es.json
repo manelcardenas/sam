@@ -90,8 +90,10 @@
     "title": "Eliminar receta"
   },
   "dine": {
+    "add-my-review": "Añadir mi reseña",
     "add-restaurant": "Añadir restaurante",
     "already-added": "{{name}} ya estaba en SAM — aquí tienes la entrada existente.",
+    "awaiting-yours": "Lo añadiste {{when}} y aún no has contado qué tal estuvo.",
     "count": {
       "one": "{{count}} sitio donde habéis comido.",
       "other": "{{count}} sitios donde habéis comido."
@@ -105,6 +107,8 @@
     "empty-archive": "Todos los sitios donde ha comido alguien de aquí.",
     "heading-all": "Todos",
     "heading-matching": "Coincidencias",
+    "just-added-body": "Puntúalo ahora que lo tienes fresco: cuatro notas y, si quieres, un comentario.",
+    "just-added-title": "{{name}} ya está en SAM. ¿Qué tal estuvo?",
     "load-failed": "No se han podido cargar los restaurantes",
     "load-one-failed": "No se ha podido cargar el restaurante",
     "new-restaurant": "Nuevo restaurante",
@@ -133,12 +137,17 @@
     "write-a-review": "Escribir una reseña"
   },
   "dine-filters": {
+    "cuisine": "Cocina",
+    "cuisines-count": {
+      "one": "{{count}} cocina",
+      "other": "{{count}} cocinas"
+    },
     "price-level": "Nivel de precio {{level}} de 4",
     "results": {
       "one": "{{count}} restaurante",
       "other": "{{count}} restaurantes"
     },
-    "reviewed-by-me": "Reseñados por mí",
+    "reviewed-by": "Reseñado por",
     "search-label": "Buscar restaurantes por nombre",
     "search-placeholder": "Buscar por nombre…",
     "updating": "Actualizando resultados"
@@ -220,6 +229,7 @@
     "already-on-sam": "Ya está en SAM",
     "loading": "Cargando el mapa…",
     "loading-label": "Cargando el mapa",
+    "no-cuisine": "Sin cocina",
     "no-reviews": "Todavía sin reseñas",
     "pin-hint": "Toca para poner el pin · arrastra para ajustarlo",
     "this-is-it": "Es este — ábrelo",
@@ -448,6 +458,8 @@
     }
   },
   "restaurant-card": {
+    "awaiting-you": "Falta tu reseña",
+    "awaiting-you-hint": "Lo añadiste tú — ¿qué tal estuvo?",
     "more-reviewers": {
       "one": "{{count}} más",
       "other": "{{count}} más"
@@ -464,34 +476,17 @@
     "address": "Dirección",
     "address-placeholder": "Carrer Gran de Gràcia, 1",
     "adjust-pin": "Ajustar el pin",
-    "already-here": "¿Ya está en SAM?",
-    "already-here-body": "Puede que alguien ya haya añadido este sitio — elígelo en lugar de crear un duplicado.",
-    "area-label": "Ciudad, barrio o dirección donde buscar",
-    "area-placeholder": "…o una ciudad / dirección, p. ej. Zaragoza",
     "attribution": "Con tecnología de Geoapify · © colaboradores de OpenStreetMap",
-    "clear-area": "Limpiar la zona de búsqueda",
     "cuisine": "Cocina",
     "cuisine-hint": "(opcional, marca las que apliquen)",
-    "drop-a-pin": "Poner un pin",
     "drop-pin-on-map": "Poner un pin en el mapa",
-    "from-the-map": "Desde el mapa",
-    "from-the-map-body": "Elige el sitio donde estás para rellenar sus datos.",
-    "locating": "Ubicando…",
     "location": "Ubicación",
-    "mapped-to": "Vinculado a",
     "name": "Nombre",
     "name-placeholder": "p. ej. Casa Pepe",
     "name-required": "El nombre es obligatorio.",
-    "near-me": "Cerca de mí",
     "pinned": "Marcado en el mapa",
     "price-level": "Nivel de precio",
-    "ranked-by-distance": "Los resultados se ordenan por distancia desde ti",
-    "remove-map-link": "Quitar el vínculo del mapa",
-    "remove-pin": "Quitar el pin",
-    "searching-around": "Buscando cerca de",
-    "use-this-spot": "Usar este punto",
-    "where": "¿Dónde está?",
-    "where-hint": "(ayuda a encontrar el correcto en el mapa)"
+    "use-this-spot": "Usar este punto"
   },
   "review-form": {
     "comment": "Comentario",
@@ -613,5 +608,56 @@
       "one": "Lo usa {{count}} receta: conservará el nombre, pero en la lista irá a Otros.",
       "other": "Lo usan {{count}} recetas: conservarán el nombre, pero en la lista irá a Otros."
     }
+  },
+  "pending-reviews": {
+    "added": "Añadido {{when}}",
+    "body": "Los añadiste tú, pero aún no has dicho qué tal. Son 30 segundos: cuatro notas y, si quieres, un comentario.",
+    "review": "Reseñar",
+    "review-label": "Reseñar {{name}}",
+    "show-fewer": "Ver menos",
+    "show-more": {
+      "one": "Ver {{count}} más",
+      "other": "Ver {{count}} más"
+    },
+    "title": {
+      "one": "Te debes una reseña",
+      "other": "Te debes {{count}} reseñas"
+    }
+  },
+  "add-restaurant": {
+    "address-from-pin": "Sacada del pin del mapa. Corrígela si hace falta.",
+    "already-near": "Ya hay en SAM a menos de 75 m — ¿es alguno de estos?",
+    "change-place": "Cambiar de sitio",
+    "denied-title": "Sin permiso de ubicación.",
+    "dropped-pin": "Tu pin — arrástralo para ajustarlo",
+    "edit-facts": "Editar nombre o dirección",
+    "finding-address": "Buscando la dirección…",
+    "finding-places": "Buscando restaurantes cerca de ti…",
+    "group-areas": "Zonas",
+    "group-places": "Restaurantes",
+    "in-this-area": "En esta zona",
+    "locating": "Buscando dónde estás…",
+    "map-hint": "Toca un restaurante, o el mapa donde está",
+    "nearby": "Cerca de ti",
+    "no-address": "No sabemos la dirección exacta — podrás escribirla.",
+    "no-location-body": "Busca el restaurante o la ciudad arriba, o toca el mapa.",
+    "no-places": "No encontramos restaurantes a tu alrededor.",
+    "no-results": "No hemos encontrado nada con ese nombre.",
+    "not-this-one": "No, es otro",
+    "places-failed": "No hemos podido buscar restaurantes cerca ahora mismo.",
+    "recenter": "Volver a mi ubicación",
+    "save-failed": "No se ha podido guardar el restaurante.",
+    "search-here": "Buscar en esta zona",
+    "search-label": "Buscar un restaurante, una calle o una ciudad",
+    "search-placeholder": "Busca un restaurante, calle o ciudad…",
+    "spot-heading": "Aquí",
+    "spot-hint": "¿No es exacto? Arrastra el pin o toca otro punto.",
+    "this-is-it": "Es este",
+    "try-again": "Reintentar",
+    "unavailable-title": "No encontramos tu ubicación.",
+    "use-this-spot": "Es aquí",
+    "where-body": "Toca el restaurante en el que estás. Si no sale, toca el mapa justo donde está.",
+    "where-title": "¿Dónde estás?",
+    "you-are-here": "Estás aquí"
   }
 }

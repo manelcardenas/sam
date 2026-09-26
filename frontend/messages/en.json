@@ -90,8 +90,10 @@
     "title": "Delete recipe"
   },
   "dine": {
+    "add-my-review": "Add my review",
     "add-restaurant": "Add restaurant",
     "already-added": "{{name}} was already on SAM — here's the existing entry.",
+    "awaiting-yours": "You added this {{when}} and haven't said how it was yet.",
     "count": {
       "one": "{{count}} place you've all eaten at.",
       "other": "{{count}} places you've all eaten at."
@@ -105,6 +107,8 @@
     "empty-archive": "Everywhere anyone here has eaten.",
     "heading-all": "Everywhere",
     "heading-matching": "Matching",
+    "just-added-body": "Score it while it's fresh: four ratings and, if you like, a comment.",
+    "just-added-title": "{{name}} is on SAM. How was it?",
     "load-failed": "Failed to load restaurants",
     "load-one-failed": "Failed to load restaurant",
     "new-restaurant": "New restaurant",
@@ -133,12 +137,17 @@
     "write-a-review": "Write a review"
   },
   "dine-filters": {
+    "cuisine": "Cuisine",
+    "cuisines-count": {
+      "one": "{{count}} cuisine",
+      "other": "{{count}} cuisines"
+    },
     "price-level": "Price level {{level}} of 4",
     "results": {
       "one": "{{count}} restaurant",
       "other": "{{count}} restaurants"
     },
-    "reviewed-by-me": "Reviewed by me",
+    "reviewed-by": "Reviewed by",
     "search-label": "Search restaurants by name",
     "search-placeholder": "Search by name…",
     "updating": "Updating results"
@@ -220,6 +229,7 @@
     "already-on-sam": "Already on SAM",
     "loading": "Loading the map…",
     "loading-label": "Loading map",
+    "no-cuisine": "No cuisine",
     "no-reviews": "No reviews yet",
     "pin-hint": "Tap to drop the pin · drag to adjust",
     "this-is-it": "This is it — open it",
@@ -448,6 +458,8 @@
     }
   },
   "restaurant-card": {
+    "awaiting-you": "Your review is missing",
+    "awaiting-you-hint": "You added this — how was it?",
     "more-reviewers": {
       "one": "{{count}} more",
       "other": "{{count}} more"
@@ -464,34 +476,17 @@
     "address": "Address",
     "address-placeholder": "Carrer Gran de Gràcia, 1",
     "adjust-pin": "Adjust the pin",
-    "already-here": "Already on SAM?",
-    "already-here-body": "Someone may have added this place already — pick it instead of creating a duplicate.",
-    "area-label": "City, neighbourhood or address to search in",
-    "area-placeholder": "…or a city / address, e.g. Zaragoza",
     "attribution": "Powered by Geoapify · © OpenStreetMap contributors",
-    "clear-area": "Clear search area",
     "cuisine": "Cuisine",
     "cuisine-hint": "(optional, pick any that apply)",
-    "drop-a-pin": "Drop a pin",
     "drop-pin-on-map": "Drop a pin on the map",
-    "from-the-map": "From the map",
-    "from-the-map-body": "Pick the place you're at to fill in its details.",
-    "locating": "Locating…",
     "location": "Location",
-    "mapped-to": "Mapped to",
     "name": "Name",
     "name-placeholder": "e.g. Casa Pepe",
     "name-required": "Name is required.",
-    "near-me": "Near me",
     "pinned": "Pinned on the map",
     "price-level": "Price level",
-    "ranked-by-distance": "Results are ranked by distance from you",
-    "remove-map-link": "Remove map link",
-    "remove-pin": "Remove pin",
-    "searching-around": "Searching around",
-    "use-this-spot": "Use this spot",
-    "where": "Where is it?",
-    "where-hint": "(helps find the right one on the map)"
+    "use-this-spot": "Use this spot"
   },
   "review-form": {
     "comment": "Comment",
@@ -613,5 +608,56 @@
       "one": "{{count}} recipe uses it: it keeps the name, but on the list it will go to Other.",
       "other": "{{count}} recipes use it: they keep the name, but on the list it will go to Other."
     }
+  },
+  "pending-reviews": {
+    "added": "Added {{when}}",
+    "body": "You added these, but haven't said how they were. It takes 30 seconds: four scores and, if you like, a comment.",
+    "review": "Review",
+    "review-label": "Review {{name}}",
+    "show-fewer": "Show fewer",
+    "show-more": {
+      "one": "Show {{count}} more",
+      "other": "Show {{count}} more"
+    },
+    "title": {
+      "one": "You owe a review",
+      "other": "You owe {{count}} reviews"
+    }
+  },
+  "add-restaurant": {
+    "address-from-pin": "Taken from the pin on the map. Fix it if needed.",
+    "already-near": "Already on SAM within 75 m — is it one of these?",
+    "change-place": "Change place",
+    "denied-title": "No location permission.",
+    "dropped-pin": "Your pin — drag it to adjust",
+    "edit-facts": "Edit name or address",
+    "finding-address": "Finding the address…",
+    "finding-places": "Finding restaurants near you…",
+    "group-areas": "Areas",
+    "group-places": "Restaurants",
+    "in-this-area": "In this area",
+    "locating": "Finding where you are…",
+    "map-hint": "Tap a restaurant, or the map where it is",
+    "nearby": "Near you",
+    "no-address": "We don't know the exact address — you can type it.",
+    "no-location-body": "Search for the restaurant or the city above, or tap the map.",
+    "no-places": "We couldn't find restaurants around you.",
+    "no-results": "Nothing found by that name.",
+    "not-this-one": "No, another one",
+    "places-failed": "We couldn't search nearby right now.",
+    "recenter": "Back to my location",
+    "save-failed": "Couldn't save the restaurant.",
+    "search-here": "Search this area",
+    "search-label": "Search for a restaurant, street or city",
+    "search-placeholder": "Search a restaurant, street or city…",
+    "spot-heading": "Here",
+    "spot-hint": "Not quite? Drag the pin or tap another spot.",
+    "this-is-it": "This is it",
+    "try-again": "Try again",
+    "unavailable-title": "We couldn't find your location.",
+    "use-this-spot": "It's here",
+    "where-body": "Tap the restaurant you're in. If it isn't there, tap the map right where it is.",
+    "where-title": "Where are you?",
+    "you-are-here": "You are here"
   }
 }
