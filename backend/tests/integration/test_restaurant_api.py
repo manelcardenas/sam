@@ -80,7 +80,10 @@ def test_filters_round_trip_through_the_query_string() -> None:
     assert [r["name"] for r in client.get("/restaurants", params={"q": "casa"}).json()] == ["Casa Nostra"]
     assert [r["name"] for r in client.get("/restaurants", params={"cuisines": ["Japanese"]}).json()] == ["Sushi Bar"]
     assert [r["name"] for r in client.get("/restaurants", params={"price_levels": [4]}).json()] == ["Sushi Bar"]
-    assert [r["name"] for r in client.get("/restaurants", params={"mine": "true"}).json()] == ["Casa Nostra"]
+    assert [r["name"] for r in client.get("/restaurants", params={"reviewers": [CALLER]}).json()] == ["Casa Nostra"]
+    # Any-of: someone who reviewed nothing adds nothing, and does not empty the list.
+    assert [r["name"] for r in client.get("/restaurants", params={"reviewers": [CALLER, "user-nobody"]}).json()] == ["Casa Nostra"]
+    assert client.get("/restaurants", params={"reviewers": ["user-nobody"]}).json() == []
 
 
 def test_repeated_price_levels_are_validated_per_element() -> None:
