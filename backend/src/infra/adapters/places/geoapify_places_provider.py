@@ -117,9 +117,21 @@ class GeoapifyPlacesProvider(PlacesProvider):
         return Place(
             external_place_id=str(place_id),
             name=name,
-            address=props.get("formatted"),
+            address=_address_without_name(props.get("formatted"), name),
             latitude=lat,
             longitude=lon,
             cuisines=cuisines,
             distance_m=round(distance) if distance is not None else None,
         )
+
+
+def _address_without_name(formatted: str | None, name: str) -> str | None:
+    """Geoapify's `formatted` for a venue leads with the venue's own name
+    ("Farggi, Carrer de Provença, 433, 08013 Barcelona"). Shown under the name,
+    or stored as the address, that says the name twice — so it is dropped. Only
+    an exact leading match is removed: a street that happens to share the name
+    stays whole."""
+    if not formatted:
+        return formatted
+    prefix = f"{name}, "
+    return formatted[len(prefix) :] if formatted.startswith(prefix) else formatted
