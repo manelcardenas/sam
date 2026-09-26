@@ -26,7 +26,7 @@ function setup(selected: string[] = [], authors = PEOPLE) {
   const onChange = vi.fn();
   render(
     <LocaleProvider>
-      <AuthorSelect authors={authors} selected={selected} onChange={onChange} currentUserId="u-manel" />
+      <AuthorSelect label="Created by" authors={authors} selected={selected} onChange={onChange} currentUserId="u-manel" />
     </LocaleProvider>,
   );
   return { onChange };

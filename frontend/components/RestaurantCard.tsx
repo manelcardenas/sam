@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, Users } from "lucide-react";
+import { MapPin, NotebookPen, Users } from "lucide-react";
 import type { RestaurantDetail } from "@/lib/api-client";
 import { formatRelativeDate, formatReviewers } from "@/lib/format";
 import { PriceLevel, QuoteBlock, ScoreBadge, quoteAttribution } from "@/components/dine/atoms";
@@ -17,6 +17,11 @@ import type { MessageKey } from "@/lib/i18n/dictionary";
  * (cuisine, address, price) as supporting metadata. A card with no reviews falls
  * back to an invitation rather than rendering an empty quote well.
  *
+ * A place *you* added and never reviewed (`awaitingYou`, see
+ * lib/pending-reviews.ts) says so on its face — an amber edge and a "Your review
+ * is missing" tag — rather than inviting a stranger to "be the first": you are
+ * the one person who can say what it was like.
+ *
  * Semantics: an <article> with the name as a real <h3>, and the click target a
  * button inside the heading stretched over the whole card (after:inset-0), so
  * headings stay navigable for screen readers — unlike wrapping everything in a
@@ -29,9 +34,11 @@ import type { MessageKey } from "@/lib/i18n/dictionary";
  */
 export function RestaurantCard({
   restaurant: r,
+  awaitingYou = false,
   onClick,
 }: {
   restaurant: RestaurantDetail;
+  awaitingYou?: boolean;
   onClick: () => void;
 }) {
   const { locale, t, tp } = useI18n();
@@ -45,7 +52,11 @@ export function RestaurantCard({
   });
 
   return (
-    <article className="group relative flex min-w-0 flex-col rounded-3xl border border-line bg-surface p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-tomato/40 hover:shadow-paw">
+    <article
+      className={`group relative flex min-w-0 flex-col rounded-3xl border bg-surface p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-tomato/40 hover:shadow-paw ${
+        awaitingYou ? "border-amber/60 border-dashed" : "border-line"
+      }`}
+    >
       <div className="flex min-w-0 items-start gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="min-w-0 font-display text-[1.05rem] font-semibold leading-snug text-fg transition-colors group-hover:text-tomato">
@@ -102,8 +113,17 @@ export function RestaurantCard({
           <p className="text-sm text-muted">
             {tp("restaurant-card.visits-no-notes", r.review_count)}
           </p>
-        ) : (
+        ) : awaitingYou ? null : (
           <p className="text-sm text-muted">{t("restaurant-card.not-reviewed")}</p>
+        )}
+        {awaitingYou && (
+          <p className={`flex items-start gap-2 text-sm ${r.last_comment || r.review_count > 0 ? "mt-3" : ""}`}>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber/15 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber">
+              <NotebookPen className="h-3 w-3" aria-hidden />
+              {t("restaurant-card.awaiting-you")}
+            </span>
+            <span className="text-muted">{t("restaurant-card.awaiting-you-hint")}</span>
+          </p>
         )}
       </div>
 

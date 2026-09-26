@@ -6,10 +6,12 @@ import {
   EMPTY_FILTERS,
   fromSearchParams,
   isFiltered,
+  reviewersOf,
   toQuery,
   toSearchParams,
   type FilterState,
 } from "./RestaurantFilters";
+import type { RestaurantDetail } from "@/lib/api-client";
 
 function filters(overrides: Partial<FilterState> = {}): FilterState {
   return { ...EMPTY_FILTERS, ...overrides };
@@ -30,10 +32,15 @@ describe("toSearchParams / fromSearchParams round trip", () => {
       q: "ramen",
       cuisines: ["japanese", "korean"],
       priceLevels: [2, 3],
-      mine: true,
+      reviewers: ["u-martina", "u-nel"],
       sort: "rating",
     });
     expect(roundTrip(state)).toEqual(state);
+  });
+
+  it("keeps several reviewers as repeated params", () => {
+    const params = new URLSearchParams(toSearchParams(filters({ reviewers: ["u-a", "u-b"] })));
+    expect(params.getAll("reviewer")).toEqual(["u-a", "u-b"]);
   });
 
   it("keeps multiple cuisines as repeated params, not one joined value", () => {
@@ -76,10 +83,8 @@ describe("hostile URL input", () => {
     expect(fromSearchParams(new URLSearchParams("sort=banana")).sort).toBe(DEFAULT_SORT);
   });
 
-  it("only treats mine=1 as true", () => {
-    expect(fromSearchParams(new URLSearchParams("mine=1")).mine).toBe(true);
-    expect(fromSearchParams(new URLSearchParams("mine=true")).mine).toBe(false);
-    expect(fromSearchParams(new URLSearchParams("mine=0")).mine).toBe(false);
+  it("drops the old ?mine=1 rather than guessing whose it was", () => {
+    expect(fromSearchParams(new URLSearchParams("mine=1"))).toEqual(EMPTY_FILTERS);
   });
 
   it("survives a URL with nothing it recognises", () => {
@@ -105,7 +110,7 @@ describe("sort is ordering, not filtering", () => {
     ["a search term", filters({ q: "ramen" })],
     ["a cuisine", filters({ cuisines: ["thai"] })],
     ["a price", filters({ priceLevels: [2] })],
-    ["reviewed by me", filters({ mine: true })],
+    ["a reviewer", filters({ reviewers: ["u-martina"] })],
   ])("%s does count as filtered", (_label, state) => {
     expect(isFiltered(state)).toBe(true);
   });
@@ -123,5 +128,36 @@ describe("toQuery, the API-facing shape", () => {
 
   it("trims the search term", () => {
     expect(toQuery(filters({ q: "  ramen " })).q).toBe("ramen");
+  });
+});
+
+describe("reviewersOf, what 'Reviewed by' offers", () => {
+  const MANEL = { id: "u-manel", display_name: "Manel" };
+  const MARTINA = { id: "u-martina", display_name: "Martina" };
+  const ALEX = { id: "u-alex", display_name: "Àlex" };
+
+  function place(reviewers: { id: string; display_name: string }[]): RestaurantDetail {
+    return { reviewers } as unknown as RestaurantDetail;
+  }
+
+  it("lists each reviewer once, you first, then by name", () => {
+    const people = reviewersOf([place([MARTINA, MANEL]), place([ALEX, MARTINA])], "u-manel", "es");
+    expect(people).toEqual([
+      { id: "u-manel", name: "Manel" },
+      { id: "u-alex", name: "Àlex" },
+      { id: "u-martina", name: "Martina" },
+    ]);
+  });
+
+  it("offers nothing when the only choice would select the whole list", () => {
+    expect(reviewersOf([place([MANEL]), place([MANEL])], "u-manel", "es")).toEqual([]);
+  });
+
+  it("keeps a lone reviewer while unreviewed places exist, since that still narrows", () => {
+    expect(reviewersOf([place([MANEL]), place([])], "u-manel", "es")).toEqual([{ id: "u-manel", name: "Manel" }]);
+  });
+
+  it("offers nothing for an empty archive", () => {
+    expect(reviewersOf([], "u-manel", "es")).toEqual([]);
   });
 });

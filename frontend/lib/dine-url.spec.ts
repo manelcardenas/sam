@@ -52,13 +52,13 @@ describe("edit-review is deliberately not restorable", () => {
 });
 
 describe("filters and view share one query string", () => {
-  const filters = "cuisine=italian&price=2&mine=1";
+  const filters = "cuisine=italian&price=2&reviewer=u-martina";
 
   it("keeps the filters when a place is open", () => {
     const params = new URLSearchParams(composeQuery(filters, "detail", "abc"));
     expect(params.get("cuisine")).toBe("italian");
     expect(params.get("price")).toBe("2");
-    expect(params.get("mine")).toBe("1");
+    expect(params.get("reviewer")).toBe("u-martina");
     expect(params.get("place")).toBe("abc");
   });
 

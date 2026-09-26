@@ -4,6 +4,8 @@
  * never reaches the browser — Geoapify remains the *places* provider only.
  * Positron is a quiet greyscale basemap: the tomato markers carry the brand.
  */
+import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
+
 export const MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/positron";
 
 export function prefersReducedMotion(): boolean {
@@ -26,4 +28,55 @@ export function pinInnerHtml(averageOverall: number | null): string {
   return averageOverall != null
     ? `${STAR_SVG}<span>${averageOverall.toFixed(1)}</span>`
     : PAW_SVG;
+}
+
+/**
+ * How long a click waits to see whether it is half of a double-click. Long
+ * enough for a normal double-tap, short enough that a single tap still feels
+ * immediate.
+ */
+export const DOUBLE_CLICK_MS = 250;
+
+/**
+ * A click that is not part of a double-click — shown at once, committed once
+ * it is clearly alone.
+ *
+ * MapLibre fires `click`, `click`, `dblclick` for a double-click, so a plain
+ * `click` handler also runs on the zoom gesture: on the pin maps, zooming in
+ * dropped the pin where you zoomed. Waiting out the double-click fixes that
+ * but makes a tap feel dead for a quarter of a second, with nothing under your
+ * finger. So there are two phases:
+ *
+ * - `preview.show` runs on every click, immediately — the pin jumps to where
+ *   you tapped, so you always see what you are pointing at;
+ * - `handler` runs only for a click left alone for `DOUBLE_CLICK_MS` — that is
+ *   where the expensive part (reverse geocoding, telling the parent) belongs;
+ * - on a double-click, `preview.undo` puts the pin back where it was, and the
+ *   gesture is just a zoom.
+ */
+export function onSingleClick(
+  map: MapLibreMap,
+  handler: (e: MapMouseEvent) => void,
+  preview?: { show: (e: MapMouseEvent) => void; undo: () => void },
+): void {
+  let pending: ReturnType<typeof setTimeout> | null = null;
+  const cancel = () => {
+    if (pending) clearTimeout(pending);
+    pending = null;
+  };
+  map.on("click", (e) => {
+    cancel();
+    preview?.show(e);
+    pending = setTimeout(() => {
+      pending = null;
+      handler(e);
+    }, DOUBLE_CLICK_MS);
+  });
+  map.on("dblclick", () => {
+    if (!pending) return;
+    cancel();
+    preview?.undo();
+  });
+  // A click still waiting when the map is torn down must not fire into it.
+  map.on("remove", cancel);
 }

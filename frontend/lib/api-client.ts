@@ -293,6 +293,8 @@ export interface RestaurantDetail extends Restaurant {
   // ── Scrapbook fields (docs/adr/0005) — the human trace of a visit ──
   last_visited_at: string | null; // "YYYY-MM-DD"; also the list's default sort key
   reviewer_names: string[]; // distinct reviewers, alphabetical
+  /** The same people with their ids, same order — what "Reviewed by" is built from. */
+  reviewers: Person[];
   /** Newest review that actually has a comment — not necessarily the newest review. */
   last_comment: string | null;
   last_comment_by: string | null;
@@ -316,8 +318,8 @@ export interface RestaurantQuery {
   cuisines?: string[];
   priceLevels?: number[];
   minScore?: number | null;
-  /** Only restaurants the signed-in user has reviewed. Resolved server-side from the JWT. */
-  mine?: boolean;
+  /** User ids, OR-ed together: only restaurants one of them has reviewed. Empty means anyone. */
+  reviewers?: string[];
   sort?: RestaurantSort;
 }
 
@@ -750,7 +752,7 @@ export class RecipeAPIClient {
     query.cuisines?.forEach((c) => params.append("cuisines", c));
     query.priceLevels?.forEach((p) => params.append("price_levels", String(p)));
     if (query.minScore != null) params.set("min_score", String(query.minScore));
-    if (query.mine) params.set("mine", "true");
+    query.reviewers?.forEach((id) => params.append("reviewers", id));
     if (query.sort) params.set("sort", query.sort);
     const qs = params.toString();
     return this.request<RestaurantDetail[]>(`/restaurants${qs ? `?${qs}` : ""}`);
