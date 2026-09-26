@@ -435,9 +435,22 @@ class TestScrapbookOrderingAndFilters:
         CreateReview(review_repo).execute(_review(mine.id, "user-a", "2026-01-01"))
         CreateReview(review_repo).execute(_review(theirs.id, "user-b", "2026-01-01"))
 
-        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(reviewed_by="user-a"))
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(reviewed_by=["user-a"]))
 
         assert [r.name for r in result] == ["Mine"]
+
+    def test_reviewed_by_several_people_is_any_of(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        """Any-of, the same OR-within-one-axis rule as cuisines: reviewed by Nel or Martina."""
+        a, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="A", created_by="user-1"))
+        b, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="B", created_by="user-1"))
+        c, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="C", created_by="user-1"))
+        CreateReview(review_repo).execute(_review(a.id, "user-a", "2026-01-01"))
+        CreateReview(review_repo).execute(_review(b.id, "user-b", "2026-01-02"))
+        CreateReview(review_repo).execute(_review(c.id, "user-c", "2026-01-03"))
+
+        result = SearchRestaurants(restaurant_repo, review_repo).execute(RestaurantFilters(reviewed_by=["user-a", "user-b"]))
+
+        assert sorted(r.name for r in result) == ["A", "B"]
 
 
 class TestScrapbookCardContent:
@@ -453,6 +466,21 @@ class TestScrapbookCardContent:
 
         assert str(result.last_visited_at) == "2026-07-15"
         assert result.reviewer_names == ["Martina", "Nel"]
+        # The same people with their ids, in the same order — what the
+        # "Reviewed by" dropdown is built from.
+        assert [(p.id, p.display_name) for p in result.reviewers] == [("user-b", "Martina"), ("user-a", "Nel")]
+
+    def test_a_reviewer_without_a_name_is_left_out_of_both_lists(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
+        restaurant, _ = CreateRestaurant(restaurant_repo).execute(Restaurant(name="Casa Pepe", created_by="user-1"))
+        review_repo.user_names = {"user-a": "Nel"}
+        CreateReview(review_repo).execute(_review(restaurant.id, "user-a", "2026-03-01"))
+        CreateReview(review_repo).execute(_review(restaurant.id, "user-a", "2026-04-01"))
+        CreateReview(review_repo).execute(_review(restaurant.id, "user-nameless", "2026-05-01"))
+
+        [result] = SearchRestaurants(restaurant_repo, review_repo).execute()
+
+        assert result.reviewer_names == ["Nel"]
+        assert [p.id for p in result.reviewers] == ["user-a"]
 
     def test_quote_comes_from_the_newest_review_that_has_one(self, restaurant_repo: InMemoryRestaurantRepository, review_repo: InMemoryReviewRepository) -> None:
         """Most recent reviews often carry no comment; the card shows the newest

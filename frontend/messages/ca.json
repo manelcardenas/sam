@@ -90,8 +90,10 @@
     "title": "Elimina la recepta"
   },
   "dine": {
+    "add-my-review": "Afegir la meva ressenya",
     "add-restaurant": "Afegeix un restaurant",
     "already-added": "{{name}} ja era a SAM — aquí tens l'entrada que existeix.",
+    "awaiting-yours": "El vas afegir {{when}} i encara no has explicat com va anar.",
     "count": {
       "one": "{{count}} lloc on heu menjat.",
       "other": "{{count}} llocs on heu menjat."
@@ -105,6 +107,8 @@
     "empty-archive": "Tots els llocs on ha menjat algú d'aquí.",
     "heading-all": "Tots",
     "heading-matching": "Coincidències",
+    "just-added-body": "Puntua'l ara que el tens fresc: quatre notes i, si vols, un comentari.",
+    "just-added-title": "{{name}} ja és a SAM. Com va anar?",
     "load-failed": "No s'han pogut carregar els restaurants",
     "load-one-failed": "No s'ha pogut carregar el restaurant",
     "new-restaurant": "Nou restaurant",
@@ -133,12 +137,17 @@
     "write-a-review": "Escriu una ressenya"
   },
   "dine-filters": {
+    "cuisine": "Cuina",
+    "cuisines-count": {
+      "one": "{{count}} cuina",
+      "other": "{{count}} cuines"
+    },
     "price-level": "Nivell de preu {{level}} de 4",
     "results": {
       "one": "{{count}} restaurant",
       "other": "{{count}} restaurants"
     },
-    "reviewed-by-me": "Ressenyats per mi",
+    "reviewed-by": "Ressenyat per",
     "search-label": "Cerca restaurants per nom",
     "search-placeholder": "Cerca per nom…",
     "updating": "S'estan actualitzant els resultats"
@@ -220,6 +229,7 @@
     "already-on-sam": "Ja és a SAM",
     "loading": "S'està carregant el mapa…",
     "loading-label": "S'està carregant el mapa",
+    "no-cuisine": "Sense cuina",
     "no-reviews": "Encara sense ressenyes",
     "pin-hint": "Toca per posar el pin · arrossega per ajustar-lo",
     "this-is-it": "És aquest — obre'l",
@@ -448,6 +458,8 @@
     }
   },
   "restaurant-card": {
+    "awaiting-you": "Falta la teva ressenya",
+    "awaiting-you-hint": "El vas afegir tu — com va anar?",
     "more-reviewers": {
       "one": "{{count}} més",
       "other": "{{count}} més"
@@ -464,34 +476,17 @@
     "address": "Adreça",
     "address-placeholder": "Carrer Gran de Gràcia, 1",
     "adjust-pin": "Ajusta el pin",
-    "already-here": "Ja és a SAM?",
-    "already-here-body": "Pot ser que algú ja hagi afegit aquest lloc — tria'l en lloc de crear un duplicat.",
-    "area-label": "Ciutat, barri o adreça on cercar",
-    "area-placeholder": "…o una ciutat / adreça, p. ex. Saragossa",
     "attribution": "Amb tecnologia de Geoapify · © col·laboradors d'OpenStreetMap",
-    "clear-area": "Neteja la zona de cerca",
     "cuisine": "Cuina",
     "cuisine-hint": "(opcional, marca les que apliquin)",
-    "drop-a-pin": "Posa un pin",
     "drop-pin-on-map": "Posa un pin al mapa",
-    "from-the-map": "Des del mapa",
-    "from-the-map-body": "Tria el lloc on ets per omplir-ne les dades.",
-    "locating": "S'està ubicant…",
     "location": "Ubicació",
-    "mapped-to": "Vinculat a",
     "name": "Nom",
     "name-placeholder": "p. ex. Casa Pepe",
     "name-required": "El nom és obligatori.",
-    "near-me": "A prop de mi",
     "pinned": "Marcat al mapa",
     "price-level": "Nivell de preu",
-    "ranked-by-distance": "Els resultats s'ordenen per distància des d'on ets",
-    "remove-map-link": "Treu el vincle del mapa",
-    "remove-pin": "Treu el pin",
-    "searching-around": "S'està cercant a prop de",
-    "use-this-spot": "Fes servir aquest punt",
-    "where": "On és?",
-    "where-hint": "(ajuda a trobar el correcte al mapa)"
+    "use-this-spot": "Fes servir aquest punt"
   },
   "review-form": {
     "comment": "Comentari",
@@ -613,5 +608,56 @@
       "one": "El fa servir {{count}} recepta: conservarà el nom, però a la llista anirà a Altres.",
       "other": "El fan servir {{count}} receptes: conservaran el nom, però a la llista anirà a Altres."
     }
+  },
+  "pending-reviews": {
+    "added": "Afegit {{when}}",
+    "body": "Els vas afegir tu, però encara no has dit com van anar. Són 30 segons: quatre notes i, si vols, un comentari.",
+    "review": "Ressenyar",
+    "review-label": "Ressenyar {{name}}",
+    "show-fewer": "Veure'n menys",
+    "show-more": {
+      "one": "Veure'n {{count}} més",
+      "other": "Veure'n {{count}} més"
+    },
+    "title": {
+      "one": "Et deus una ressenya",
+      "other": "Et deus {{count}} ressenyes"
+    }
+  },
+  "add-restaurant": {
+    "address-from-pin": "Treta del pin del mapa. Corregeix-la si cal.",
+    "already-near": "Ja n'hi ha a SAM a menys de 75 m — és algun d'aquests?",
+    "change-place": "Canviar de lloc",
+    "denied-title": "Sense permís d'ubicació.",
+    "dropped-pin": "El teu pin — arrossega'l per ajustar-lo",
+    "edit-facts": "Editar nom o adreça",
+    "finding-address": "Buscant l'adreça…",
+    "finding-places": "Buscant restaurants a prop teu…",
+    "group-areas": "Zones",
+    "group-places": "Restaurants",
+    "in-this-area": "En aquesta zona",
+    "locating": "Buscant on ets…",
+    "map-hint": "Toca un restaurant, o el mapa on és",
+    "nearby": "A prop teu",
+    "no-address": "No sabem l'adreça exacta — la podràs escriure.",
+    "no-location-body": "Cerca el restaurant o la ciutat a dalt, o toca el mapa.",
+    "no-places": "No trobem restaurants al teu voltant.",
+    "no-results": "No hem trobat res amb aquest nom.",
+    "not-this-one": "No, és un altre",
+    "places-failed": "Ara mateix no hem pogut buscar restaurants a prop.",
+    "recenter": "Tornar a la meva ubicació",
+    "save-failed": "No s'ha pogut desar el restaurant.",
+    "search-here": "Cercar en aquesta zona",
+    "search-label": "Cercar un restaurant, un carrer o una ciutat",
+    "search-placeholder": "Cerca un restaurant, carrer o ciutat…",
+    "spot-heading": "Aquí",
+    "spot-hint": "No és exacte? Arrossega el pin o toca un altre punt.",
+    "this-is-it": "És aquest",
+    "try-again": "Tornar-ho a provar",
+    "unavailable-title": "No trobem la teva ubicació.",
+    "use-this-spot": "És aquí",
+    "where-body": "Toca el restaurant on ets. Si no hi surt, toca el mapa just on és.",
+    "where-title": "On ets?",
+    "you-are-here": "Ets aquí"
   }
 }

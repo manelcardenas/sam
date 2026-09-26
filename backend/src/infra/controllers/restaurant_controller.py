@@ -49,7 +49,7 @@ class RestaurantController:
             response_model=list[RestaurantDetail],
             dependencies=[Depends(get_current_user)],
             summary="Search restaurants",
-            description="Lists restaurants with aggregate ratings, most recently visited first. Narrow with ?q=, ?cuisines=, ?price_levels=, ?min_score=, ?mine=; order with ?sort=",
+            description="Lists restaurants with aggregate ratings, most recently visited first. Narrow with ?q=, ?cuisines=, ?price_levels=, ?min_score=, ?reviewers=; order with ?sort=",
             tags=["Restaurants"],
         )
 
@@ -149,12 +149,11 @@ class RestaurantController:
         cuisines: list[str] = Query(default_factory=list, description="Any-of cuisine tags"),
         price_levels: list[PriceLevelParam] = Query(default_factory=list, description="Any-of price levels, 1-4"),
         min_score: float | None = Query(default=None, ge=0, le=10, description="Floor on average overall; excludes unreviewed restaurants"),
-        mine: bool = Query(default=False, description="Only restaurants the caller has reviewed"),
+        reviewers: list[str] = Query(default_factory=list, description="Any-of user ids: only restaurants one of them has reviewed"),
         sort: RestaurantSort = Query(
             default=RestaurantSort.RECENT,
             description="recent | oldest by last visit; rating | rating_low by average score. Unrated and unvisited restaurants sort last in every ordering",
         ),
-        current_user: TokenPayload = Depends(get_current_user),
     ) -> list[RestaurantDetail]:
         """List restaurants with aggregate ratings, narrowed by the filter params.
 
@@ -166,9 +165,10 @@ class RestaurantController:
             cuisines=cuisines,
             price_levels=price_levels,
             min_score=min_score,
-            # `mine` is resolved from the JWT rather than accepting a user id from
-            # the client — nobody gets to filter by someone else's identity.
-            reviewed_by=current_user.sub if mine else None,
+            # Plain user ids, not "mine" resolved from the JWT: who reviewed what
+            # is already on every card, so filtering by another person reveals
+            # nothing the list does not already show.
+            reviewed_by=reviewers,
             sort=sort,
         )
         use_case = SearchRestaurants(self.restaurant_repository, self.review_repository)

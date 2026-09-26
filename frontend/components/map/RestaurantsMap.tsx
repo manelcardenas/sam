@@ -5,22 +5,34 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapPin, Star, X } from "lucide-react";
 import type { RestaurantDetail } from "@/lib/api-client";
-import { MAP_STYLE_URL, pinInnerHtml, prefersReducedMotion } from "./map-style";
+import { MAP_STYLE_URL, onSingleClick, pinInnerHtml, prefersReducedMotion } from "./map-style";
+import { pinColors } from "@/lib/cuisines";
+import { isAwaitingMyReview } from "@/lib/pending-reviews";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 
 /** Every saved restaurant on one map: score-pill markers, tap → slide-up card.
+ *
+ * Each pin wears its cuisine's colour (`pinColors`), so the map reads by kind
+ * at a glance — the reds of a Chinese cluster, the teal along the coast —
+ * the way the card dots and the filter already do. The legend says which
+ * colour is which; the tapped card names the cuisines outright.
  *
  * Loaded with next/dynamic (ssr: false) — MapLibre needs the DOM and is heavy,
  * so it must stay out of the initial bundle and out of the static export pass.
  */
 export default function RestaurantsMap({
   restaurants,
+  currentUserId,
   onOpenRestaurant,
 }: {
   restaurants: RestaurantDetail[];
+  /** Marks the pins of places you added and never reviewed. */
+  currentUserId: string;
   onOpenRestaurant: (restaurant: RestaurantDetail) => void;
 }) {
-  const { t } = useI18n();
+  const { t, tp } = useI18n();
+  const [legendOpen, setLegendOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef(new Map<string, { marker: maplibregl.Marker; pin: HTMLButtonElement }>());
@@ -31,9 +43,17 @@ export default function RestaurantsMap({
     () => restaurants.filter((r) => r.latitude != null && r.longitude != null),
     [restaurants],
   );
+  // One entry per pin colour actually on the map, most pins first. Keyed on the
+  // first cuisine because that is what paints the pin; "" is an untagged place.
+  const legend = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of mapped) counts.set(r.cuisines[0] ?? "", (counts.get(r.cuisines[0] ?? "") ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([cuisine]) => cuisine);
+  }, [mapped]);
+
   // Rebuild markers only when something a pin shows actually changes.
   const markersKey = mapped
-    .map((r) => `${r.id}:${r.latitude}:${r.longitude}:${r.average_overall}`)
+    .map((r) => `${r.id}:${r.latitude}:${r.longitude}:${r.average_overall}:${r.cuisines[0] ?? ""}:${isAwaitingMyReview(r, currentUserId)}`)
     .join("|");
 
   useEffect(() => {
@@ -48,7 +68,9 @@ export default function RestaurantsMap({
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.on("load", () => setReady(true));
-    map.on("click", () => setSelected(null)); // marker clicks stopPropagation
+    // Marker clicks stopPropagation. A single click only, so zooming in with a
+    // double-click does not also close the card you are zooming towards.
+    onSingleClick(map, () => setSelected(null));
     mapRef.current = map;
     const markers = markersRef.current;
     return () => {
@@ -71,11 +93,18 @@ export default function RestaurantsMap({
       pin.type = "button";
       pin.className = "paw-pin";
       pin.innerHTML = pinInnerHtml(r.average_overall);
+      const colors = pinColors(r.cuisines);
+      pin.style.setProperty("--pin-bg", colors.background);
+      pin.style.setProperty("--pin-ink", colors.ink);
+      const awaiting = isAwaitingMyReview(r, currentUserId);
+      if (awaiting) pin.dataset.awaiting = "true";
       pin.setAttribute(
         "aria-label",
         r.average_overall != null
           ? `${r.name}, rated ${r.average_overall.toFixed(1)}`
-          : `${r.name}, no reviews yet`,
+          : awaiting
+            ? `${r.name}, ${t("restaurant-card.awaiting-you")}`
+            : `${r.name}, no reviews yet`,
       );
       pin.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -140,6 +169,48 @@ export default function RestaurantsMap({
         </div>
       </div>
 
+      {/* Which colour is which. Collapsed to a row of dots by default: open, it
+          would sit over the pins of a phone-sized map, and after a few looks
+          the colours are learnt. Only when there is more than one colour —
+          a one-entry legend explains nothing. */}
+      {ready && legend.length > 1 && (
+        <div className="absolute left-3 top-3 z-20 max-w-[calc(100%-5rem)]">
+          <button
+            type="button"
+            onClick={() => setLegendOpen((open) => !open)}
+            aria-expanded={legendOpen}
+            className="flex h-9 cursor-pointer items-center gap-2 rounded-full border border-line bg-surface/95 px-3 text-xs font-semibold text-fg shadow-paw backdrop-blur transition-colors hover:border-tomato/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          >
+            <span className="flex items-center -space-x-1" aria-hidden>
+              {legend.slice(0, 5).map((cuisine) => (
+                <span
+                  key={cuisine}
+                  className="h-3 w-3 rounded-full ring-2 ring-surface"
+                  style={{ backgroundColor: pinColors(cuisine ? [cuisine] : []).background }}
+                />
+              ))}
+            </span>
+            {t("dine-filters.cuisine")}
+          </button>
+          {legendOpen && (
+            <ul className="mt-2 max-h-64 space-y-1.5 overflow-y-auto rounded-2xl border border-line bg-surface/95 px-3 py-2.5 text-xs text-fg shadow-paw backdrop-blur animate-fetch-in">
+              {legend.map((cuisine) => (
+                <li key={cuisine} className="flex items-center gap-2">
+                  <span
+                    aria-hidden
+                    className="h-3 w-3 shrink-0 rounded-full"
+                    style={{ backgroundColor: pinColors(cuisine ? [cuisine] : []).background }}
+                  />
+                  <span className="truncate">
+                    {cuisine ? t(`cuisines.${cuisine}` as MessageKey) : t("map.no-cuisine")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* Slide-up card for the tapped restaurant. */}
       {selected && (
         <div key={selected.id} className="absolute inset-x-3 bottom-3 z-20 mx-auto max-w-md animate-fetch-in">
@@ -158,7 +229,9 @@ export default function RestaurantsMap({
             </h3>
             {(selected.cuisines.length > 0 || selected.address) && (
               <p className="mt-0.5 min-w-0 truncate text-sm text-muted">
-                {[selected.cuisines.join(", "), selected.address].filter(Boolean).join(" · ")}
+                {[selected.cuisines.map((c) => t(`cuisines.${c}` as MessageKey)).join(", "), selected.address]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             )}
 
@@ -171,7 +244,7 @@ export default function RestaurantsMap({
                       {selected.average_overall.toFixed(1)}
                     </span>
                     <span className="min-w-0 truncate text-muted">
-                      · {selected.review_count} {selected.review_count === 1 ? "review" : "reviews"}
+                      · {tp("dine.reviews-count", selected.review_count)}
                     </span>
                   </>
                 ) : (

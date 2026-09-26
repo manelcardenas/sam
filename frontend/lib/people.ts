@@ -28,3 +28,24 @@ export function initialsOf(name: string): string {
   const last = [...words[words.length - 1]][0] ?? "";
   return (first + last).toLocaleUpperCase();
 }
+
+/** Somebody a list can be narrowed to — what the "Created by" / "Reviewed by" dropdown offers. */
+export interface PersonOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * You first, then everyone else by name — the order every people filter uses.
+ *
+ * You lead because it is your collection and "mine" is the filter you reach for
+ * most; the rest are sorted with `localeCompare` so Catalan and Spanish names
+ * with accents sort where a reader expects rather than after Z.
+ */
+export function youFirstThenByName(people: PersonOption[], currentUserId: string | null, locale: string): PersonOption[] {
+  return [...people].sort((a, b) => {
+    if (a.id === currentUserId) return -1;
+    if (b.id === currentUserId) return 1;
+    return a.name.localeCompare(b.name, locale);
+  });
+}

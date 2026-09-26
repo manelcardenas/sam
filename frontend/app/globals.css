@@ -115,8 +115,10 @@ body {
   padding: 5px 10px 6px;
   border: 2px solid var(--pin-border);
   border-radius: 9999px;
-  background: #e4572e; /* tomato */
-  color: #fff;
+  /* Set per pin from the restaurant's cuisine (see pinColors); tomato is the
+     fallback for pins that set nothing, like the picker's own pin. */
+  background: var(--pin-bg, #e4572e);
+  color: var(--pin-ink, #fff);
   font-family: inherit;
   font-size: 13px;
   font-weight: 800;
@@ -142,14 +144,14 @@ body {
   border-bottom-right-radius: 2px;
   transform: translateX(-50%) rotate(45deg);
 }
-/* Neutral variant: restaurants already on SAM inside the pin picker —
-   quiet enough that the user's own tomato pin stays the protagonist. */
-.paw-pin[data-variant="existing"] {
-  --pin-border: rgb(var(--line));
-  background: rgb(var(--surface));
-  color: rgb(var(--fg));
-  font-size: 12px;
-  padding: 4px 8px 5px;
+/* The pin you drop yourself on the add-restaurant map: the same tomato paw,
+   with a halo, so "where I am pointing" stands out from the restaurants the
+   map already knows around it. */
+.paw-pin[data-variant="drop"] {
+  box-shadow:
+    0 0 0 6px rgba(228, 87, 46, 0.28),
+    0 6px 16px -6px rgba(26, 26, 26, 0.55);
+  cursor: grab;
 }
 button.paw-pin:hover {
   transform: translateY(-2px) scale(1.06);
@@ -160,6 +162,34 @@ button.paw-pin:hover {
 .paw-pin:focus-visible {
   outline: 3px solid rgba(228, 87, 46, 0.5);
   outline-offset: 2px;
+}
+/* You, on the add-restaurant map: the blue dot every maps app uses for "here",
+   with a soft halo so it reads over the pins around it. */
+.you-dot {
+  cursor: pointer;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  border: 3px solid #fff;
+  border-radius: 9999px;
+  background: #2f7df6;
+  box-shadow:
+    0 0 0 6px rgba(47, 125, 246, 0.2),
+    0 2px 6px rgba(26, 26, 26, 0.35);
+}
+
+/* A place you added and never reviewed: an amber dot on the pin's shoulder,
+   the map's version of the card's "Your review is missing" tag. */
+.paw-pin[data-awaiting="true"]::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #fff;
+  border-radius: 9999px;
+  background: #f4a024; /* amber */
 }
 /* Selected pin flips to the theme's ink-on-cream (auto-inverts in dark). */
 .paw-pin[data-selected="true"] {

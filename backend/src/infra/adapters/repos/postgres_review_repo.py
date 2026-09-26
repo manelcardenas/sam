@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import desc, distinct, func
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.domain.entities import Review, ReviewAggregate, UserReview, UserStats
+from src.domain.entities import Person, Review, ReviewAggregate, UserReview, UserStats
 from src.domain.ports import ReviewRepository
 from src.infra.adapters.repos._score_sql import review_overall
 from src.infra.adapters.repos.ids import parse_uuid
@@ -82,11 +82,11 @@ class PostgresReviewRepository(ReviewRepository):
         # Shared with the restaurant repo's rating sort — see _score_sql.
         overall = review_overall()
         with self._session_factory() as session:
-            # Two batched queries over the whole id list — never per restaurant.
+            # Three batched queries over the whole id list — never per restaurant.
             # Keeping them separate rather than one clever join: the first is a
-            # GROUP BY over every review, the second picks exactly one row per
-            # restaurant, and fusing them would need a window function for no
-            # measurable gain at this size.
+            # GROUP BY over every review, the second lists who went, the third
+            # picks exactly one row per restaurant, and fusing them would need a
+            # window function for no measurable gain at this size.
             rows = (
                 session.query(
                     ReviewModel.restaurant_id,
@@ -97,11 +97,22 @@ class PostgresReviewRepository(ReviewRepository):
                     func.avg(ReviewModel.value_score),
                     func.avg(overall),
                     func.max(ReviewModel.visited_at),
-                    func.array_remove(func.array_agg(distinct(UserModel.display_name)), None),
                 )
-                .join(UserModel, UserModel.id == ReviewModel.user_id, isouter=True)
                 .filter(ReviewModel.restaurant_id.in_(ids))
                 .group_by(ReviewModel.restaurant_id)
+                .all()
+            )
+
+            # Who went, as (id, name) pairs: the names label the cards, the ids
+            # feed the "Reviewed by" filter. Its own query rather than two
+            # array_aggs, which Postgres does not promise to keep in step. An
+            # inner join, so a reviewer who has not chosen a name yet is left
+            # out — the same rule the names always followed.
+            reviewer_rows = (
+                session.query(ReviewModel.restaurant_id, UserModel.id, UserModel.display_name)
+                .join(UserModel, UserModel.id == ReviewModel.user_id)
+                .filter(ReviewModel.restaurant_id.in_(ids), UserModel.display_name.isnot(None))
+                .distinct()
                 .all()
             )
 
@@ -126,11 +137,16 @@ class PostgresReviewRepository(ReviewRepository):
                 .all()
             )
 
+        reviewers_by_restaurant: dict[str, list[Person]] = {}
+        for restaurant_id, user_id, name in reviewer_rows:
+            reviewers_by_restaurant.setdefault(str(restaurant_id), []).append(Person(id=user_id, display_name=name))
+
         latest_comments = {str(restaurant_id): (comment, visited_at, name) for restaurant_id, comment, visited_at, name in comment_rows}
 
         aggregates: dict[str, ReviewAggregate] = {}
-        for restaurant_id, count, avg_location, avg_food, avg_service, avg_value, avg_overall, last_visited_at, reviewers in rows:
+        for restaurant_id, count, avg_location, avg_food, avg_service, avg_value, avg_overall, last_visited_at in rows:
             key = str(restaurant_id)
+            reviewers = sorted(reviewers_by_restaurant.get(key, []), key=lambda person: person.display_name)
             comment, comment_at, comment_by = latest_comments.get(key, (None, None, None))
             aggregates[key] = ReviewAggregate(
                 review_count=count,
@@ -140,7 +156,8 @@ class PostgresReviewRepository(ReviewRepository):
                 average_value=round(float(avg_value), 1),
                 average_overall=round(float(avg_overall), 1),
                 last_visited_at=last_visited_at,
-                reviewer_names=sorted(reviewers or []),
+                reviewer_names=[person.display_name for person in reviewers],
+                reviewers=reviewers,
                 last_comment=comment,
                 last_comment_by=comment_by,
                 last_comment_at=comment_at,

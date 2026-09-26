@@ -53,3 +53,47 @@ export function cuisineAccent(name: string): string {
 export function cuisineIcon(name: string): LucideIcon | null {
   return ICONS[name] ?? null;
 }
+
+/**
+ * The neutral a pin takes for "Other", an untagged place, or anything unknown.
+ * A fixed colour rather than `--muted`: the basemap is light in both themes, and
+ * dark mode's muted is a pale beige that white text disappears into.
+ */
+const NEUTRAL_PIN = "#635E54";
+const WHITE = "#FFFFFF";
+const INK = "#1A1A1A";
+
+/**
+ * What a map pin is painted with: the colour of the restaurant's first cuisine —
+ * the same one the first dot on its card shows — and whichever text colour
+ * stays readable on it.
+ *
+ * **One colour, not a split pin.** A place tagged Chinese and Mediterranean
+ * could show both, but the score sits across the middle of the pin, so half of
+ * it would be on each colour, at two different contrasts. The slide-up card
+ * names every cuisine; the pin only has to be recognisable.
+ *
+ * **White unless white fails.** White text keeps the pins looking like one set.
+ * It only gives way where it drops below 3:1 — the bold-UI floor, and what the
+ * old tomato pin cleared at 3.7:1 — which today is Spanish's amber alone (2.5:1,
+ * against 7:1 for ink). Computed rather than listed, so a recoloured cuisine
+ * cannot quietly become unreadable.
+ */
+export function pinColors(cuisines: string[]): { background: string; ink: string } {
+  const background = (cuisines[0] && ACCENTS[cuisines[0]]) || NEUTRAL_PIN;
+  return { background, ink: contrast(background, WHITE) >= 3 ? WHITE : INK };
+}
+
+/** WCAG contrast ratio between two `#RRGGBB` colours. */
+export function contrast(a: string, b: string): number {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}

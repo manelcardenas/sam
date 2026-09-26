@@ -52,6 +52,7 @@ export function RecipeFilterChips({
     <>
       {showAuthors && (
         <AuthorSelect
+          label={t("common.created-by")}
           authors={authors}
           selected={state.authors}
           onChange={(next) => onChange({ ...state, authors: next })}

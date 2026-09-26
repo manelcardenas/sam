@@ -1,5 +1,6 @@
 import type { Recipe } from "@/lib/api-client";
 import { FOOD_TYPES, type FoodType } from "@/lib/constants";
+import { youFirstThenByName, type PersonOption } from "@/lib/people";
 
 /**
  * Narrowing a list of recipes — the logic behind the chip row, shared by
@@ -32,10 +33,7 @@ export interface RecipeFilterState {
 
 export const NO_FILTERS: RecipeFilterState = { q: "", category: null, authors: [] };
 
-export interface RecipeAuthor {
-  id: string;
-  name: string;
-}
+export type RecipeAuthor = PersonOption;
 
 /**
  * The people who wrote the given recipes: you first, then everyone else by name.
@@ -44,9 +42,7 @@ export interface RecipeAuthor {
  * gets the no-dead-end rule for free — somebody with no recipes cannot appear,
  * so no chip can select nothing.
  *
- * You lead because it is your collection and "mine" is the filter you reach for
- * most; the rest are sorted with `localeCompare` so Catalan and Spanish names
- * with accents sort where a reader expects rather than after Z.
+ * Ordered by `youFirstThenByName`, the rule every people filter shares.
  *
  * An author whose `created_by_name` is missing is left out: a chip needs a label,
  * and inventing one ("Unknown") would offer a filter for a person rather than
@@ -60,12 +56,11 @@ export function authorsOf(recipes: Recipe[], currentUserId: string | null, local
     }
   }
 
-  const authors = [...byId].map(([id, name]) => ({ id, name }));
-  return authors.sort((a, b) => {
-    if (a.id === currentUserId) return -1;
-    if (b.id === currentUserId) return 1;
-    return a.name.localeCompare(b.name, locale);
-  });
+  return youFirstThenByName(
+    [...byId].map(([id, name]) => ({ id, name })),
+    currentUserId,
+    locale,
+  );
 }
 
 /**

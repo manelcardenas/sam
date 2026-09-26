@@ -53,7 +53,7 @@ class InMemoryRestaurantRepository(RestaurantRepository):
         # falls back to name.
         if self.reviews is not None:
             if filters.reviewed_by:
-                restaurants = [r for r in restaurants if any(review.user_id == filters.reviewed_by for review in self.reviews.list_reviews_for_restaurant(r.id))]
+                restaurants = [r for r in restaurants if any(review.user_id in filters.reviewed_by for review in self.reviews.list_reviews_for_restaurant(r.id))]
             aggregates = self.reviews.aggregate_for_restaurants([r.id for r in restaurants])
             if filters.min_score is not None:
                 restaurants = [
