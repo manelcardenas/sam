@@ -1,6 +1,6 @@
 from collections import Counter
 
-from src.domain.entities import Review, ReviewAggregate, UserReview, UserStats
+from src.domain.entities import Person, Review, ReviewAggregate, UserReview, UserStats
 from src.domain.ports import ReviewRepository
 
 
@@ -64,6 +64,9 @@ class InMemoryReviewRepository(ReviewRepository):
             )
             latest_comment = commented[0] if commented else None
 
+            named = {r.user_id: name for r in reviews if (name := self._reviewer_name(r))}
+            reviewers = sorted((Person(id=user_id, display_name=name) for user_id, name in named.items()), key=lambda person: person.display_name)
+
             result[restaurant_id] = ReviewAggregate(
                 review_count=len(reviews),
                 average_location=_average([r.location_score for r in reviews]),
@@ -72,7 +75,8 @@ class InMemoryReviewRepository(ReviewRepository):
                 average_value=_average([r.value_score for r in reviews]),
                 average_overall=_average([r.overall for r in reviews]),
                 last_visited_at=max(r.visited_at for r in reviews),
-                reviewer_names=sorted({name for r in reviews if (name := self._reviewer_name(r))}),
+                reviewer_names=[person.display_name for person in reviewers],
+                reviewers=reviewers,
                 last_comment=latest_comment.comment if latest_comment else None,
                 last_comment_by=self._reviewer_name(latest_comment) if latest_comment else None,
                 last_comment_at=latest_comment.visited_at if latest_comment else None,

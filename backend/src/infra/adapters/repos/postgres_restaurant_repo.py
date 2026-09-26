@@ -100,10 +100,11 @@ class PostgresRestaurantRepository(RestaurantRepository):
                 q = q.filter(RestaurantModel.price_level.in_(filters.price_levels))
 
             if filters.reviewed_by:
+                # any-of, like cuisines: "reviewed by Manel or Martina".
                 q = q.filter(
                     exists().where(
                         ReviewModel.restaurant_id == RestaurantModel.id,
-                        ReviewModel.user_id == filters.reviewed_by,
+                        ReviewModel.user_id.in_(filters.reviewed_by),
                     )
                 )
 
