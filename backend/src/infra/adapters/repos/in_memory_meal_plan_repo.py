@@ -169,6 +169,15 @@ class InMemoryMealPlanRepository(MealPlanRepository):
         self._touch(plan)
         return self._name_of(item.model_copy(deep=True))
 
+    def set_item_amount(self, item_id: str, amount: float) -> ShoppingListItem | None:
+        plan = self._plan_of_item(item_id)
+        if plan is None:
+            return None
+        item = next(i for i in plan.items if i.id == item_id)
+        item.total_amount = amount
+        self._touch(plan)
+        return self._name_of(item.model_copy(deep=True))
+
     def set_item_grocery_key(self, item_id: str, grocery_key: str, amount: float | None = None, unit: str | None = None) -> ShoppingListItem | None:
         plan = self._plan_of_item(item_id)
         if plan is None:
@@ -235,13 +244,37 @@ class InMemoryMealPlanRepository(MealPlanRepository):
     def _has_source(plan: MealPlan, entry_id: str) -> bool:
         return any(s.entry_id == entry_id for item in plan.items for s in item.sources)
 
-    def set_status(self, plan_id: str, status: PlanStatus) -> MealPlan | None:
-        plan = self.plans.get(plan_id)
-        if plan is None:
-            return None
-        plan.status = status
-        self._touch(plan)
-        return self._copy(plan)
+    def _pending(self, kitchen_id: str, before: date) -> list[tuple[MealPlan, ShoppingListItem]]:
+        """Same selection as the SQL adapter's `_pending_lines`, in the same order."""
+        weeks = sorted(
+            (p for p in self.plans.values() if p.kitchen_id == kitchen_id and p.week_start < before and p.status is not PlanStatus.LIST_CLOSED),
+            key=lambda p: p.week_start,
+        )
+        return [(plan, item) for plan in weeks for item in plan.items if not item.is_checked]
+
+    def count_pending_before(self, kitchen_id: str, before: date) -> int:
+        return len(self._pending(kitchen_id, before))
+
+    def carry_forward(self, kitchen_id: str, into_plan_id: str, before: date) -> int:
+        target = self.plans[into_plan_id]
+        pending = self._pending(kitchen_id, before)
+
+        for source, line in pending:
+            source.items = [i for i in source.items if i.id != line.id]
+            key = merge_key(line.display_name, line.unit, line.grocery_key)
+            already = next((i for i in target.items if merge_key(i.display_name, i.unit, i.grocery_key) == key), None)
+            if already is None:
+                line.pending_since = line.pending_since or source.week_start
+                target.items.append(line)
+            else:
+                if line.total_amount is not None:
+                    already.total_amount = (already.total_amount or 0.0) + line.total_amount
+                already.sources.extend(s.model_copy(deep=True) for s in line.sources)
+                already.is_checked = False
+            self._touch(source)
+
+        self._touch(target)
+        return len(pending)
 
     def list_year(self, kitchen_ids: list[str], year: int) -> list[PlanSummary]:
         visible = [plan for plan in self.plans.values() if plan.week_start.year == year and plan.kitchen_id in kitchen_ids]
