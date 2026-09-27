@@ -34,8 +34,12 @@ export interface Recipe {
 // ── Meal planner (docs/plans/meal-planner-plan.md) ───────────────────────────
 
 export type Meal = "lunch" | "dinner";
-/** `list_closed` is what the UI calls *archived* — see §8.2 for why it isn't a fourth state. */
-export type PlanStatus = "planning" | "calendar_closed" | "list_closed";
+/**
+ * `list_closed` is a week archived under the old "done shopping" flow — read-only,
+ * and nothing can produce one any more (meal-planner-plan §8.14). Every new week
+ * is `planning` for its whole life.
+ */
+export type PlanStatus = "planning" | "list_closed";
 
 /** Why a line is on the list. `dish_name` is a snapshot, so it survives the recipe being deleted. */
 export interface ListItemSource {
@@ -133,6 +137,12 @@ export interface ShoppingListItem {
   total_amount: number | null;
   is_checked: boolean;
   is_manual: boolean;
+  /**
+   * The Saturday of the week this line was first meant for, when it was not
+   * bought there and followed you here. `null` for a line that belongs to this
+   * week. A date, not a flag, so the list can say how long it has been waiting.
+   */
+  pending_since: string | null;
   sources: ListItemSource[];
   /**
    * Who put the line on the list. Attribution, not permission — anyone in the
@@ -520,6 +530,16 @@ export class RecipeAPIClient {
   }
 
   /**
+   * The week containing `day`, after moving onto it whatever earlier weeks left
+   * unbought (§8.14). Called instead of `getPlan` when the planner opens the
+   * current week; idempotent, and `null` when there is neither a week nor
+   * anything to carry into one.
+   */
+  async carryForward(day: string): Promise<MealPlan | null> {
+    return this.request<MealPlan | null>("/plans/carry-forward", { method: "POST", body: JSON.stringify({ day }) });
+  }
+
+  /**
    * One exact week, by id — how the archive links to a week.
    *
    * The same route as `getPlan`, with the other parameter. A `/plans/{id}` path
@@ -585,6 +605,14 @@ export class RecipeAPIClient {
     return this.request<ShoppingListItem>(`/plans/${planId}/items/${itemId}`, {
       method: "PATCH",
       body: JSON.stringify({ is_checked: isChecked }),
+    });
+  }
+
+  /** A new total for a line, in its own unit. Same route as ticking; only what is sent changes. */
+  async setItemAmount(planId: string, itemId: string, amount: number): Promise<ShoppingListItem> {
+    return this.request<ShoppingListItem>(`/plans/${planId}/items/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ amount }),
     });
   }
 
@@ -724,19 +752,6 @@ export class RecipeAPIClient {
    */
   async removeFromKitchen(userId: string): Promise<Kitchen> {
     return this.request<Kitchen>(`/kitchen/members/${encodeURIComponent(userId)}`, { method: "DELETE" });
-  }
-
-  /** Takes the one transition available. `fromStatus` is what the client believes it is leaving — a mismatch is a 409, so a double tap can't close both the calendar and the list. */
-
-  async advancePlan(planId: string, fromStatus: "planning" | "calendar_closed", carryOver: string[] = []): Promise<MealPlan> {
-    return this.request<MealPlan>(`/plans/${planId}/status`, {
-      method: "POST",
-      // `carry_over` names the unticked lines to copy onto next week. It travels
-      // with the transition rather than as a second call because the lines have
-      // to be read while the plan is still open — once it is list_closed every
-      // write is refused, and a half-done carry-over would lose them.
-      body: JSON.stringify({ from_status: fromStatus, carry_over: carryOver }),
-    });
   }
 
   async deleteRecipe(id: string): Promise<void> {

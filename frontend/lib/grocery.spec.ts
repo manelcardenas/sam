@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GroceryItem, MealPlan, ShoppingListItem } from "@/lib/api-client";
-import { AISLES, aisleOrder, byKey, displayName, groceryFor, groupByAisle, isUnreviewed, lineToClassify, nameFor, narrowVocabulary, resolveKey, suggest } from "@/lib/grocery";
+import { AISLES, aisleOrder, byKey, displayName, groceryFor, groupByAisle, isUnreviewed, lineToClassify, nameFor, narrowVocabulary, readQuantity, resolveKey, suggest } from "@/lib/grocery";
 
 function grocery(key: string, overrides: Partial<GroceryItem> = {}): GroceryItem {
   return {
@@ -25,6 +25,7 @@ function line(normalised_name: string, grocery_key: string | null = null): Shopp
     total_amount: null,
     is_checked: false,
     is_manual: false,
+    pending_since: null,
     sources: [],
     created_by: null,
     created_by_name: null,
@@ -279,5 +280,27 @@ describe("the admin's ingredient list", () => {
   it("calls only the parser's unvouched guesses 'to review'", () => {
     expect(all.filter(isUnreviewed)).toEqual([guess]);
     expect(narrowVocabulary(all, "", "unreviewed")).toEqual([guess]);
+  });
+});
+
+describe("the quantity typed into the add box", () => {
+  it.each([
+    ["4 manzanas amarillas", { name: "manzanas amarillas", amount: 4, unit: null }],
+    ["manzana amarilla x4", { name: "manzana amarilla", amount: 4, unit: null }],
+    ["1,5 kg patatas", { name: "patatas", amount: 1.5, unit: "kg" }],
+    ["500g de queso feta", { name: "queso feta", amount: 500, unit: "g" }],
+    ["250 gr. de harina", { name: "harina", amount: 250, unit: "g" }],
+    ["2 litros de leche", { name: "leche", amount: 2, unit: "l" }],
+  ])("reads %s", (typed, expected) => {
+    expect(readQuantity(typed)).toEqual(expected);
+  });
+
+  it("does not mistake the start of a word for a unit", () => {
+    // `l` is litres, but not in "limones".
+    expect(readQuantity("2 limones")).toEqual({ name: "limones", amount: 2, unit: null });
+  });
+
+  it.each(["7up", "100% zumo", "0 azúcar", "4", "Papel de horno"])("leaves %s as a name — no quantity it could be sure of", (typed) => {
+    expect(readQuantity(typed)).toEqual({ name: typed, amount: null, unit: null });
   });
 });

@@ -7,6 +7,7 @@ import type { Meal, PlanStatus } from "@/lib/api-client";
  *           →  /plan?week=2026-09-14              (another week)
  *           →  /plan?plan=<id>                    (one exact week, from the archive)
  * slot      →  /plan?slot=2026-09-09:dinner       (the assign sheet, on this week)
+ * placing   →  /plan?place=<recipe id>            (choosing when to eat a recipe, from its page)
  * list      →  /plan?view=list
  *
  * **The week is a view, not a filter**, so paging through weeks pushes history
@@ -44,9 +45,18 @@ export interface PlanUrlState {
    * the same heading. So the archive always links by id (§8.12).
    */
   planId: string | null;
+  /**
+   * A recipe waiting for a slot — you tapped "plan this" on its page, and the
+   * next slot you open starts with it picked. Null the rest of the time.
+   *
+   * In the URL, like everything else here, so the back gesture from the week
+   * returns to the recipe instead of stranding you with a banner you did not
+   * ask for.
+   */
+  place: string | null;
 }
 
-export const INITIAL_STATE: PlanUrlState = { view: "calendar", week: null, slot: null, planId: null };
+export const INITIAL_STATE: PlanUrlState = { view: "calendar", week: null, slot: null, planId: null, place: null };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MEALS = new Set<string>(["lunch", "dinner"]);
@@ -94,11 +104,11 @@ export function weekDays(weekStart: string): string[] {
  * The week the planner should open on, given the calendar week and what state
  * that week's plan is in.
  *
- * **Once the shopping is home, the week you act on is the next one.** You close
- * the list on Sunday evening; everything you think of between then and Friday —
- * the sugar running out, the bin bags — belongs to the next shop, not to a week
- * already archived and read-only. So `list_closed` hands over to the following
- * Saturday and every other state stays put.
+ * **An archived week hands over to the next one.** Nothing archives a week any
+ * more (meal-planner-plan §8.14) — the list carries itself forward — but a week
+ * closed under the old flow is read-only, and anything you think of belongs to
+ * the next shop. So `list_closed` hands over to the following Saturday and every
+ * other state stays put.
  *
  * One hop, never a loop. Two closed weeks in a row means you planned a
  * fortnight ahead, and walking forward until something is open would be the app
@@ -116,14 +126,16 @@ function isIsoDate(value: string | null): value is string {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-export function toQuery({ view, week, slot, planId }: PlanUrlState): string {
+export function toQuery({ view, week, slot, planId, place }: PlanUrlState): string {
   const params = new URLSearchParams();
   if (week) params.set("week", week);
   if (planId) params.set("plan", planId);
   if (view === "list") params.set("view", "list");
   // The sheet belongs to the calendar; carrying it into the list would reopen
-  // it behind a view that never shows slots.
+  // it behind a view that never shows slots. Placing a recipe is choosing a
+  // slot, so it follows the same rule.
   if (slot && view === "calendar") params.set("slot", `${slot.date}:${slot.meal}`);
+  if (place && view === "calendar") params.set("place", place);
   return params.toString();
 }
 
@@ -140,5 +152,5 @@ export function fromQuery(params: URLSearchParams): PlanUrlState {
   // No validation beyond presence: an id that no longer resolves — a stale link,
   // or a kitchen you were never in — falls back to your own week at the page
   // level, where the server's answer is available to decide on.
-  return { view, week, slot, planId: params.get("plan") || null };
+  return { view, week, slot, planId: params.get("plan") || null, place: (view === "calendar" && params.get("place")) || null };
 }

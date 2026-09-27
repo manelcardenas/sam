@@ -14,32 +14,32 @@ describe("toQuery / fromQuery round trip", () => {
   });
 
   it("restores another week", () => {
-    const state: PlanUrlState = { view: "calendar", week: "2026-09-12", slot: null, planId: null };
+    const state: PlanUrlState = { view: "calendar", week: "2026-09-12", slot: null, planId: null, place: null };
     expect(toQuery(state)).toBe("week=2026-09-12");
     expect(roundTrip(state)).toEqual(state);
   });
 
   it("restores the list view", () => {
-    const state: PlanUrlState = { view: "list", week: null, slot: null, planId: null };
+    const state: PlanUrlState = { view: "list", week: null, slot: null, planId: null, place: null };
     expect(toQuery(state)).toBe("view=list");
     expect(roundTrip(state)).toEqual(state);
   });
 
   it("restores an open slot", () => {
-    const state: PlanUrlState = { view: "calendar", week: null, slot: { date: "2026-09-09", meal: "dinner" }, planId: null };
+    const state: PlanUrlState = { view: "calendar", week: null, slot: { date: "2026-09-09", meal: "dinner" }, planId: null, place: null };
     expect(toQuery(state)).toBe("slot=2026-09-09%3Adinner");
     expect(roundTrip(state)).toEqual(state);
   });
 
   it("restores a slot on a week that isn't this one", () => {
-    const state: PlanUrlState = { view: "calendar", week: "2026-09-12", slot: { date: "2026-09-16", meal: "lunch" }, planId: null };
+    const state: PlanUrlState = { view: "calendar", week: "2026-09-12", slot: { date: "2026-09-16", meal: "lunch" }, planId: null, place: null };
     expect(roundTrip(state)).toEqual(state);
   });
 
   it("drops the slot when the list is in view", () => {
     // The sheet belongs to the calendar; reopening it behind a view that never
     // shows slots would trap the user behind an invisible modal.
-    const state: PlanUrlState = { view: "list", week: null, slot: { date: "2026-09-09", meal: "lunch" }, planId: null };
+    const state: PlanUrlState = { view: "list", week: null, slot: { date: "2026-09-09", meal: "lunch" }, planId: null, place: null };
     expect(toQuery(state)).toBe("view=list");
     expect(roundTrip(state).slot).toBeNull();
   });
@@ -164,13 +164,13 @@ describe("shiftDate", () => {
 
 describe("opening one exact week from the archive", () => {
   it("encodes the plan id", () => {
-    const state: PlanUrlState = { view: "calendar", week: null, slot: null, planId: "p-123" };
+    const state: PlanUrlState = { view: "calendar", week: null, slot: null, planId: "p-123", place: null };
     expect(toQuery(state)).toBe("plan=p-123");
     expect(roundTrip(state)).toEqual(state);
   });
 
   it("survives alongside a week and a view", () => {
-    const state: PlanUrlState = { view: "list", week: "2026-09-12", slot: null, planId: "p-123" };
+    const state: PlanUrlState = { view: "list", week: "2026-09-12", slot: null, planId: "p-123", place: null };
     expect(roundTrip(state)).toEqual(state);
   });
 
@@ -183,6 +183,21 @@ describe("opening one exact week from the archive", () => {
   });
 });
 
+describe("placing a recipe from its own page", () => {
+  it("round-trips the recipe waiting for a slot", () => {
+    const state: PlanUrlState = { view: "calendar", week: null, slot: null, planId: null, place: "r-1" };
+
+    expect(toQuery(state)).toBe("place=r-1");
+    expect(fromQuery(new URLSearchParams(toQuery(state)))).toEqual(state);
+  });
+
+  it("belongs to the calendar, like the slot does", () => {
+    // Choosing a slot is a calendar thing; the list has none to choose.
+    expect(fromQuery(new URLSearchParams("view=list&place=r-1")).place).toBeNull();
+    expect(toQuery({ view: "list", week: null, slot: null, planId: null, place: "r-1" })).toBe("view=list");
+  });
+});
+
 describe("the week the planner opens on", () => {
   const THIS_WEEK = "2026-09-05"; // Saturday
   const NEXT_WEEK = "2026-09-12";
@@ -191,13 +206,7 @@ describe("the week the planner opens on", () => {
     expect(homeWeekOf(THIS_WEEK, "planning")).toBe(THIS_WEEK);
   });
 
-  it("stays on this week while you are still shopping for it", () => {
-    // `calendar_closed` *is* the shopping state — the list is still live, and
-    // moving on from it would hide the list you are holding in the shop.
-    expect(homeWeekOf(THIS_WEEK, "calendar_closed")).toBe(THIS_WEEK);
-  });
-
-  it("hands over to the next shop once the list is closed", () => {
+  it("hands over to the next shop when the week was archived under the old flow", () => {
     expect(homeWeekOf(THIS_WEEK, "list_closed")).toBe(NEXT_WEEK);
   });
 
