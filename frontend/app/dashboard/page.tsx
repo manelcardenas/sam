@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthGate } from "@/components/auth/useAuthGate";
-import { apiClient, type Recipe, type CreateRecipeInput } from "@/lib/api-client";
+import { apiClient, type Recipe, type CreateRecipeInput, type MealPlan } from "@/lib/api-client";
 import { FOOD_TYPES } from "@/lib/constants";
 import { RecipeFilterChips } from "@/components/recipes/RecipeFilterChips";
 import { NO_FILTERS, filterRecipes, type RecipeFilterState } from "@/lib/recipe-filters";
@@ -17,6 +17,8 @@ import { DashboardSkeleton } from "@/components/ui/PageSkeleton";
 import { NarrowRow } from "@/components/ui/NarrowRow";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
 import { RecipeRow } from "@/components/recipes/RecipeRow";
+import { RecipePlanRow } from "@/components/recipes/RecipePlanRow";
+import { weekStartOf } from "@/lib/plan-url";
 import { ArrowLeft, Plus, Edit, Trash2, ChefHat, SearchX, NotebookPen } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import type { MessageKey } from "@/lib/i18n/dictionary";
@@ -45,6 +47,9 @@ export default function DashboardPage() {
 
   // Data
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  // This week's plan, so a recipe can say when it is on the menu. Decoration:
+  // it never blocks the page, and a failure costs only the "planned on" chips.
+  const [week, setWeek] = useState<MealPlan | null>(null);
   const [error, setError] = useState("");
 
   // Navigation state
@@ -78,6 +83,12 @@ export default function DashboardPage() {
     void loadRecipes().then(() => {
       if (!cancelled) setLoading(false);
     });
+    void apiClient
+      .getPlan(weekStartOf(new Date()))
+      .then((plan) => {
+        if (!cancelled) setWeek(plan);
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -380,6 +391,8 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-6 px-6 py-6">
+              <RecipePlanRow recipe={selectedRecipe} week={week} />
+
               {/* No method means no heading — an Instructions heading over
                   nothing is the orphan ADR 0007 named. What replaces it is the
                   way to fix that, offered only to the person who can: the
