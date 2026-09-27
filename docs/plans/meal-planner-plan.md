@@ -296,6 +296,11 @@ one that *replaces* a phase: Phase D's sharing is gone, not extended.
 
 ### 8.2 The state machine
 
+> **Superseded 2026-09-26 — see §8.14.** Neither transition exists any more: every week is
+> `planning` for its whole life, unbought lines carry themselves forward, and `list_closed` survives
+> only on weeks archived before the change. What follows is the record of the design that was
+> removed and why it had seemed right.
+
 Three states. **`archived` is not a fourth state** — it is what `list_closed` is called in the
 UI, and collapsing it removes a state nothing could distinguish.
 
@@ -755,6 +760,9 @@ The rule lives in `lib/plan-url.ts` as a pure function rather than inside the pa
 the kind of thing that is only ever wrong at a boundary and those are cheap to test and expensive
 to reproduce by hand.
 
+> **Superseded 2026-09-26 by §8.14.** The carry-over below still happened only when somebody
+> pressed "done shopping"; now it happens on its own when the current week is opened.
+
 **Carry-over rides on the transition, not after it.** `POST /plans/{plan_id}/status` takes
 `carry_over`, a list of unticked line ids to copy onto next week. It has to be part of the same call
 because closing the list is one-way: once the plan is `list_closed` every write is refused, so a
@@ -957,3 +965,155 @@ language uses, and that it tightens to "12–18 Sept" inside one month while sta
 which puts the month first — so every date in this app, not only the range, went through a
 `dateLocale()` that asks for `en-GB`. Same English, the ordering the app actually means, and the
 odd one out among its three languages until now.
+
+### 8.14 The list keeps going; the week is only a date (2026-09-26)
+
+**The complaint.** *"What was 'finish the week' for? Is it really needed?"* — and, in the same
+breath, *"the things left unbought should stay on the list week after week."*
+
+The two were one problem. "Finish the week" (`planning → calendar_closed`) froze the dishes and did
+nothing else: it did not move the week, did not touch the list, did not change what the planner
+showed. It protected against changing the menu while shopping, which nobody does by accident. The
+second button, "done shopping" (`calendar_closed → list_closed`), was worse: it was **the only thing
+that brought unbought lines forward** (§8.11), so the Saturday nobody pressed it, the sugar stayed in
+a week nobody opened again — the exact failure §8.11 was written to fix, moved one step later.
+
+**What replaced both: nothing to press.**
+
+- `POST /plans/carry-forward {day}` moves every unticked line on the kitchen's *earlier* open weeks
+  onto the week containing `day`. The client calls it instead of `GET /plans` when it opens the
+  current week — on mount and when paging back to it, never on the live-list poll, which would turn
+  a read every few seconds into a write. Idempotent, one transaction, `FOR UPDATE` on the lines so
+  two phones opening the planner on the same Saturday cannot fold the same line in twice. With
+  nothing to move it returns the week as it is, `null` included, so looking still creates no rows
+  (§5.3).
+- **Moved, not copied.** The line leaves the old week with its sources, so "From Lentejas" still
+  answers "why is this here?". A line whose merge key the current week already has is folded into it
+  — amounts summed, sources appended, unticked, because part of it is still to buy.
+- **`shopping_list_items.pending_since`** records the week the line was first meant for, keeping
+  the *earliest* when it is carried again. The list says "pending since 29 Aug", so a line three
+  weeks old reads as a decision — buy it or let it go — rather than as this week's shopping.
+- **Only earlier weeks feed it.** A week planned ahead keeps its own list until it becomes the
+  current one; carrying this week's leftovers into next week while you are still shopping would take
+  them off the list in your hand.
+
+**Migration `a8d2e6f4c913`** adds the column and moves every `calendar_closed` week back to
+`planning` — left alone they would have a locked calendar and no button to unlock it.
+**`list_closed` weeks are left archived and read-only**, and carry-forward skips them: closing their
+list already offered the leftovers to the next week and a person chose, so bringing the rest back
+would undo that choice. `calendar_closed` stays in `plan_status_enum` because Postgres cannot drop an
+enum value without rebuilding the type; `test_enum_columns_match_migrations.py` lists it as retired
+rather than tolerating the mismatch silently. `AdvancePlan`, `set_status`, `CarryOverPicker` and the
+`/plans/{plan_id}/status` route (and its gateway entry) are gone.
+
+**The slot sheet changed in the same pass**, because "is this dish's shopping on the list?" was the
+other half of the same muddle:
+
+- **Choosing a recipe and deciding its shopping are one screen.** The picked row opens its
+  ingredients, ticked and scaled; one button adds the dish *and* the lines ("Add · 6 items to the
+  list"), with "Calendar only" as the quiet alternative. It used to be assign, then a second screen
+  with "add to the list" — closing in between left a dish with nothing bought for it. The list write
+  travels inside the page's `assign`, because on an untouched week the plan only exists once the
+  dish creates it.
+- **One headcount, at the top.** The picker had its own stepper, which is how the dish being added
+  and the dishes already there got to disagree.
+- **Three ways in, each saying what it does to the list**: a recipe (its ingredients go on the
+  list), a new dish written in place (the same), or a note with no recipe — "Comemos fuera",
+  "Sobras" — which buys nothing and now says so. Before, the footer silently turned any typed text
+  into that note.
+- **"I buy it ready-made"** in the new-dish form: the product becomes the one ingredient, sized by
+  "one pack feeds N". The salmorejo tub. **Where the line is:** a slot holds *what you eat at a
+  meal*; the list holds *what you buy*. Yoghurts for the week go on the list directly; yoghurt as
+  Tuesday's dessert can be a ready-made dish. The rule is about the slot, not the product.
+
+**Links, which did not exist in any direction:** a dish in a slot links to its recipe; "From
+Lentejas · Thu dinner" on a list line opens that meal; a recipe's page has "Plan it" (the planner
+opens with `?place=<id>`, and the next slot you tap starts with it picked) and a chip per meal it
+is already in this week.
+
+**Found on the way:** `CreateRecipeRequest` did not accept `guarnicion`, although the enum, the
+column and the client all did — so every side dish created from a slot, where it is the default, was
+refused with a 422. Fixed and tested.
+
+**Deferred, with their triggers:**
+
+- **Past weeks stay editable.** With their leftovers moved out there is little to edit, and
+  correcting what you actually ate is legitimate. Revisit if somebody edits a past week by mistake.
+- **Ready-made amounts are not rounded up.** A tub for two at a meal for three says 1.5 — honest,
+  and obvious to whoever is standing at the shelf. Revisit if people find it confusing.
+- **Nothing nudges a line that has been pending for weeks** beyond the date on it. Revisit if lists
+  start filling with lines nobody is going to buy.
+
+
+**How many, on a hand-typed line (2026-09-27).** The add box sent a name and nothing else, so
+"Manzana amarilla" could never be four of them — **all 20 lines on production's lists had no
+amount**. The background parse could read `6 huevos` out of the name, but only for words the
+vocabulary did not already know, so the commonest case lost its number. Now:
+
+- **The box reads the number itself, instantly**: `4 manzanas`, `1,5 kg patatas`, `500 g de queso`,
+  `manzana x4` (`lib/grocery.ts::readQuantity`), and says it back under the input — "Will add:
+  4 × manzanas". Only these unambiguous shapes; `7up`, `100% zumo` and a bare `4` stay names, and the
+  model still covers `media docena de huevos`.
+- **Any line's number can be changed**, from one edit panel per line that also holds the aisle
+  picker (the tag icon that used to open the aisle picker alone; the amount itself opens it too). A stepper for counted things, a number box for
+  grams and litres; the unit never changes there. Recipe lines too — the recipe says 200 g, the
+  packet is 250.
+- **No new route**: `PATCH /plans/{plan_id}/items/{item_id}` takes `amount` beside `is_checked`,
+  and only what is sent changes. An amount is always above zero — there is no "back to no number".
+
+### 8.15 Next, agreed 2026-09-27 — not built yet
+
+Two pieces of work, agreed in conversation and deliberately left for after the §8.14 deploy.
+Production had **0 dishes in any calendar** on 2026-09-27 (everything so far went through the
+list), so both can still reshape the slot without migrating anybody's data.
+
+#### A. A product is never a recipe — "do you cook it?"
+
+**The muddle:** "I buy it ready-made" (§8.14) turns the salmorejo tub into a *recipe* — so it lands
+in the recipe book next to the carrot cake, and the same salmorejo can be either a recipe or a list
+line depending on where you typed it. The people using it could not tell which to use.
+
+**The rule, one question — do you cook it?**
+
+| In a meal | What it is | What it does to the list |
+|---|---|---|
+| Lentejas, arroz blanco | **Recipe** — you cook it | Its ingredients go on |
+| Salmorejo Mercadona | **Product** — bought as it is; not a recipe | "Put it on the list: [2] tubs" — one line, linked to that meal ("From Salmorejo · Thu dinner") |
+| Sobras, cena con amigos | **Note** | Nothing |
+
+- The recipe book holds only what you cook. Weekly things (yoghurts, bleach) keep going straight on
+  the list.
+- **The food type is the dish's role in the meal** (main, side, dessert…), not whether it is cooked
+  or bought. That is where `guarnicion` got confusing: "New dish" from a slot always defaulted to
+  it. Proposal: the first dish in a slot defaults to `comida`, a second one to `guarnicion`.
+
+**Work:** remove the ready-made checkbox from the new-dish form; give "Note without a recipe" an
+optional "and put it on the list" with a quantity (uses `POST /plans/{id}/items` with `entry_id`,
+which exists). Frontend only, **~3–4 h**. **Lost:** the pack-size memory ("one tub feeds 2") —
+you type "5 tubs" yourself, which is how you think at the shelf anyway.
+
+#### B. Eating out, and tuppers — per person, per meal
+
+Three states for each member at each meal:
+
+| State | Counts in servings? | Anything to prepare? |
+|---|---|---|
+| At home (default) | yes | cook for that meal |
+| Tupper | yes | yes, **in advance** — the slot shows 🥡 "Tupper for Manel" |
+| Eating out | no | nothing |
+
+Example, a two-person kitchen, Tuesday lunch: one takes a tupper, the other eats out → 1 serving,
+and a tupper reminder. Both out → the slot says "Eating out" and counts nothing.
+
+**Phases:**
+
+1. **Per-meal states** (~6–8 h): a table for the non-default states (plan, date, meal, member,
+   state), one endpoint with its gateway route, a row of people with a 3-way toggle in the slot
+   sheet, the badge on the week grid, and the slot's default servings = people not eating out.
+2. **A weekly routine on the kitchen** (~6–8 h): "Manel: tupper Mon–Fri lunch", inherited by
+   every week and overridden per meal — without it the same thing is set ten times a week.
+3. **Later:** "Monday's dinner is Tuesday's tupper" — cook 3 servings (2 + 1 tupper). The usual
+   way a tupper happens, but only worth building once 1 and 2 are in use.
+
+**Open decision:** when somebody switches to "eating out" after dishes are on the meal, ask
+"Adjust Lentejas to 1 serving?" rather than silently changing the list. (Recommended.)
