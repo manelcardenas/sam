@@ -5,8 +5,8 @@ shape, rather than around the routes:
 
 1. **The shopping list's merge** (§4.6) — one line per (name, unit), summed,
    with every contributing dish still named on it.
-2. **The state machine** (§8.2) — what each state forbids, and that the server
-   enforces it rather than trusting a client that hides its buttons.
+2. **The list keeps going** (§8.14) — what you did not buy follows you into the
+   current week on its own, and a legacy archived week still refuses writes.
 3. **Drift** (§4.5) — the list never rewrites itself; removing a dish leaves the
    list alone unless the caller explicitly says otherwise.
 """
@@ -17,7 +17,7 @@ import pytest
 from fastapi import APIRouter, FastAPI
 from starlette.testclient import TestClient
 
-from src.domain.entities import Aisle, GroceryItem, IngredientParserError, ParsedIngredients
+from src.domain.entities import Aisle, GroceryItem, IngredientParserError, ParsedIngredients, PlanStatus
 from src.domain.ports import IngredientParser
 from src.infra.adapters.repos.in_memory_grocery_repo import InMemoryGroceryRepository
 from src.infra.adapters.repos.in_memory_kitchen_repo import InMemoryKitchenRepository
@@ -130,6 +130,15 @@ def _assign(client: TestClient, *, day: date = SATURDAY, meal: str = "dinner", n
 
 def _entry(plan: dict, name: str) -> dict:
     return next(e for e in plan["entries"] if e["dish_name"] == name)
+
+
+def _archive(repository: InMemoryMealPlanRepository, plan: dict) -> None:
+    """Make a week look like one archived under the old "done shopping" flow.
+
+    Written straight into the fake because nothing in the API can produce this
+    state any more (§8.14) — it only exists in data from before the change.
+    """
+    repository.plans[plan["id"]].status = PlanStatus.LIST_CLOSED
 
 
 def _item(plan: dict, name: str) -> dict:
@@ -669,10 +678,9 @@ class TestResyncingAfterAHeadcountChange:
 
         assert response.status_code == 404
 
-    def test_an_archived_week_refuses(self, client: TestClient) -> None:
+    def test_an_archived_week_refuses(self, client: TestClient, repository: InMemoryMealPlanRepository) -> None:
         plan, entry = self._dish_on_the_list(client)
-        assert client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"}).status_code == 200
-        assert client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed"}).status_code == 200
+        _archive(repository, plan)
 
         response = client.put(
             f"/plans/{plan['id']}/entries/{entry['id']}/items",
@@ -682,80 +690,44 @@ class TestResyncingAfterAHeadcountChange:
         assert response.status_code == 409
 
 
-class TestTheStateMachineOverHttp:
-    def _plan(self, client: TestClient) -> dict:
-        return _assign(client)
+class TestArchivedWeeks:
+    """What is left of the state machine: weeks archived before §8.14.
 
-    def test_closing_the_calendar_then_the_list(self, client: TestClient) -> None:
-        plan = self._plan(client)
+    Nothing can archive a week any more, but the ones that were stay read-only —
+    their unbought lines were already offered forward, and a person chose.
+    """
 
-        closed = client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
-        assert closed.json()["status"] == "calendar_closed"
+    def test_there_is_no_way_to_close_a_week_any_more(self, client: TestClient) -> None:
+        plan = _assign(client)
 
-        archived = client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed"})
-        assert archived.json()["status"] == "list_closed"
+        response = client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
 
-    def test_a_closed_calendar_refuses_new_dishes_with_409_not_403(self, client: TestClient) -> None:
+        assert response.status_code in (404, 405)
+
+    def test_an_archived_week_refuses_new_dishes_with_409_not_403(self, client: TestClient, repository: InMemoryMealPlanRepository) -> None:
         """409 means "not now", 403 means "not yours". A client that cannot tell
         them apart tells the user they lack permission to edit their own plan."""
-        plan = self._plan(client)
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
+        _archive(repository, _assign(client))
 
         response = client.put("/plans/entries", json={"date": SATURDAY.isoformat(), "meal": "lunch", "dish_name": "Paella", "servings": 2})
 
         assert response.status_code == 409
 
-    def test_a_closed_calendar_still_takes_manual_extras(self, client: TestClient) -> None:
-        """This is the shopping state — the fruit goes on during the walk out."""
-        plan = self._plan(client)
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
+    def test_an_archived_week_refuses_ticks(self, client: TestClient, repository: InMemoryMealPlanRepository) -> None:
+        plan = client.post(f"/plans/{_assign(client)['id']}/items", json={"items": [{"name": "fruta"}]}).json()
+        _archive(repository, plan)
 
-        assert client.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "fruta"}]}).status_code == 201
-
-    def test_a_closed_calendar_still_takes_ticks(self, client: TestClient) -> None:
-        plan = self._plan(client)
-        plan = client.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "fruta"}]}).json()
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
-        item = _item(plan, "fruta")
-
-        assert client.patch(f"/plans/{plan['id']}/items/{item['id']}", json={"is_checked": True}).status_code == 200
-
-    def test_a_closed_list_refuses_ticks(self, client: TestClient) -> None:
-        plan = self._plan(client)
-        plan = client.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "fruta"}]}).json()
-        item = _item(plan, "fruta")
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed"})
-
-        assert client.patch(f"/plans/{plan['id']}/items/{item['id']}", json={"is_checked": True}).status_code == 409
-
-    def test_a_stale_transition_is_rejected_rather_than_double_advancing(self, client: TestClient) -> None:
-        """Two taps on a slow connection must not close the calendar *and* the
-        list — which is unrecoverable in v1, where transitions are one-way."""
-        plan = self._plan(client)
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
-
-        response = client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
+        response = client.patch(f"/plans/{plan['id']}/items/{_item(plan, 'fruta')['id']}", json={"is_checked": True})
 
         assert response.status_code == 409
-        assert client.get("/plans", params={"day": SATURDAY.isoformat()}).json()["status"] == "calendar_closed"
 
-    def test_a_closed_plan_has_nowhere_left_to_go(self, client: TestClient) -> None:
-        plan = self._plan(client)
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed"})
+    def test_a_week_is_open_for_everything_otherwise(self, client: TestClient) -> None:
+        """No closed calendar: the dishes can change while you shop, because
+        whoever changes them wants them changed."""
+        plan = client.post(f"/plans/{_assign(client)['id']}/items", json={"items": [{"name": "fruta"}]}).json()
 
-        assert client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed"}).status_code == 409
-
-    def test_the_server_enforces_the_machine_even_though_the_ui_hides_the_buttons(self, client: TestClient) -> None:
-        """A client that hides a button is not a guard: a stale tab, a second
-        device or a replayed request all arrive with the UI's opinion out of
-        date."""
-        plan = self._plan(client)
-        entry = _entry(plan, "Lentejas")
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
-
-        assert client.delete(f"/plans/{plan['id']}/entries/{entry['id']}").status_code == 409
+        assert client.patch(f"/plans/{plan['id']}/items/{_item(plan, 'fruta')['id']}", json={"is_checked": True}).status_code == 200
+        assert client.put("/plans/entries", json={"date": SATURDAY.isoformat(), "meal": "lunch", "dish_name": "Paella", "servings": 2}).status_code == 200
 
 
 class TestOwnership:
@@ -767,12 +739,11 @@ class TestOwnership:
 
         assert theirs.delete(f"/plans/{plan['id']}/entries/{entry['id']}").status_code == 403
         assert theirs.post(f"/plans/{plan['id']}/items", json={"items": [{"name": "x"}]}).status_code == 403
-        assert theirs.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"}).status_code == 403
 
     def test_a_missing_plan_is_a_404(self, client: TestClient) -> None:
         missing = "00000000-0000-0000-0000-000000000000"
 
-        assert client.post(f"/plans/{missing}/status", json={"from_status": "planning"}).status_code == 404
+        assert client.post(f"/plans/{missing}/items", json={"items": [{"name": "x"}]}).status_code == 404
 
 
 class TestTheKitchen:
@@ -878,7 +849,7 @@ class TestTheKitchen:
         assert martina.delete(f"/plans/{plan['id']}/entries/{entry['id']}").status_code == 200
         assert _assign(martina, name="Tortilla")["entries"][0]["dish_name"] == "Tortilla"
 
-    def test_she_can_add_to_the_list_tick_it_and_close_the_week(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+    def test_she_can_add_to_the_list_and_tick_it(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
         nel, martina = _share_a_kitchen(repository, kitchens)
         plan = _assign(nel)
 
@@ -886,7 +857,17 @@ class TestTheKitchen:
         item = _item(plan, "yogur")
 
         assert martina.patch(f"/plans/{plan['id']}/items/{item['id']}", json={"is_checked": True}).status_code == 200
-        assert martina.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"}).status_code == 200
+
+    def test_her_opening_the_week_carries_the_kitchens_leftovers(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        """The leftovers belong to the kitchen, so whichever of them opens the
+        planner first brings them along — for both."""
+        nel, martina = _share_a_kitchen(repository, kitchens)
+        nel.post("/plans/items", json={"day": date(2026, 8, 29).isoformat(), "items": [{"name": "azucar"}]})
+
+        martina.post("/plans/carry-forward", json={"day": SATURDAY.isoformat()})
+
+        plan = nel.get("/plans", params={"day": SATURDAY.isoformat()}).json()
+        assert [i["display_name"] for i in plan["items"]] == ["azucar"]
 
     def test_her_list_line_says_it_was_hers(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
         """Attribution, not permission. Either of them can remove it; only one of
@@ -1148,12 +1129,10 @@ class TestTheArchive:
 
         assert [w["week_start"] for w in archive] == ["2026-09-05", "2026-05-30", "2026-02-28"]
 
-    def test_a_closed_week_is_still_in_the_archive(self, client: TestClient) -> None:
+    def test_an_archived_week_is_still_in_the_archive(self, client: TestClient, repository: InMemoryMealPlanRepository) -> None:
         """Archiving is the point. A week that disappeared when you finished
         shopping would make the whole feature pointless."""
-        plan = self._plan_week(client, SATURDAY)
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed"})
+        _archive(repository, self._plan_week(client, SATURDAY))
 
         archive = client.get("/plans/archive", params={"year": 2026}).json()
 
@@ -1291,10 +1270,8 @@ class TestAListBeforeAnyDish:
         assert _item(plan, "Azúcar")["is_manual"] is True
         assert _item(plan, "Azúcar")["sources"] == []
 
-    def test_a_closed_week_still_refuses(self, client: TestClient) -> None:
-        plan = _assign(client, name="Lentejas")
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"})
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed"})
+    def test_an_archived_week_still_refuses(self, client: TestClient, repository: InMemoryMealPlanRepository) -> None:
+        _archive(repository, _assign(client, name="Lentejas"))
 
         response = client.post("/plans/items", json={"day": SATURDAY.isoformat(), "items": [{"name": "Azúcar"}]})
 
@@ -1302,128 +1279,218 @@ class TestAListBeforeAnyDish:
         assert response.status_code == 409
 
 
-class TestCarryingOverWhatYouDidntGet:
-    """Closing the list offers the unticked lines to next week (§4.5's cycle).
+class TestHowMuchYouNeed:
+    """ "4 manzanas amarillas", not one (§8.14).
 
-    The week still closes clean — "everything renews" — but the thing Mercadona
-    was out of is not silently deleted.
+    The manual box sent a name and nothing else, so a hand-typed line could say
+    what but never how many — every one of the 20 lines on production's lists
+    had no amount. The box now sends the number it reads, and any line's number
+    can be changed afterwards.
     """
 
+    def _line(self, client: TestClient, **extra: object) -> tuple[dict, dict]:
+        plan = client.post("/plans/items", json={"day": SATURDAY.isoformat(), "items": [{"name": "Manzana amarilla", **extra}]}).json()
+        return plan, _item(plan, "Manzana amarilla")
+
+    def _patch(self, client: TestClient, plan: dict, item: dict, body: dict):  # noqa: ANN202 — the response
+        return client.patch(f"/plans/{plan['id']}/items/{item['id']}", json=body)
+
+    def test_a_hand_typed_line_can_arrive_with_its_amount(self, client: TestClient) -> None:
+        _, item = self._line(client, amount=4)
+
+        assert item["total_amount"] == 4
+        assert item["unit"] is None
+
+    def test_changing_the_amount_replaces_the_total(self, client: TestClient) -> None:
+        plan, item = self._line(client)
+
+        response = self._patch(client, plan, item, {"amount": 4})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["total_amount"] == 4
+        assert _item(client.get(f"/plans?day={SATURDAY.isoformat()}").json(), "Manzana amarilla")["total_amount"] == 4
+
+    def test_the_unit_stays(self, client: TestClient) -> None:
+        plan = client.post("/plans/items", json={"day": SATURDAY.isoformat(), "items": [{"name": "Queso feta", "amount": 200, "unit": "g"}]}).json()
+
+        after = self._patch(client, plan, _item(plan, "Queso feta"), {"amount": 250}).json()
+
+        assert (after["total_amount"], after["unit"]) == (250, "g")
+
+    def test_changing_the_amount_does_not_tick_or_untick(self, client: TestClient) -> None:
+        plan, item = self._line(client)
+        self._patch(client, plan, item, {"is_checked": True})
+
+        after = self._patch(client, plan, item, {"amount": 4}).json()
+
+        assert after["is_checked"] is True
+
+    def test_ticking_does_not_touch_the_amount(self, client: TestClient) -> None:
+        plan, item = self._line(client, amount=4)
+
+        after = self._patch(client, plan, item, {"is_checked": True}).json()
+
+        assert after["total_amount"] == 4
+
+    def test_a_recipe_line_can_be_corrected_too(self, client: TestClient) -> None:
+        """The recipe says 200 g, the packet is 250: whoever holds the list knows."""
+        plan = _assign(client, name="Ensalada")
+        plan = client.post(
+            f"/plans/{plan['id']}/items",
+            json={"entry_id": _entry(plan, "Ensalada")["id"], "dish_name": "Ensalada", "items": [{"name": "Queso feta", "amount": 200, "unit": "g"}]},
+        ).json()
+
+        after = self._patch(client, plan, _item(plan, "Queso feta"), {"amount": 250}).json()
+
+        assert after["total_amount"] == 250
+        assert after["sources"][0]["dish_name"] == "Ensalada", "where it came from is still on it"
+
+    @pytest.mark.parametrize("body", [{}, {"amount": 0}, {"amount": -1}, {"amount": None}])
+    def test_nothing_to_change_or_no_amount_is_refused(self, client: TestClient, body: dict) -> None:
+        """No zero and no "back to no number": a line you do not want is removed."""
+        plan, item = self._line(client, amount=4)
+
+        assert self._patch(client, plan, item, body).status_code == 422
+
+    def test_an_archived_week_refuses(self, client: TestClient, repository: InMemoryMealPlanRepository) -> None:
+        plan, item = self._line(client)
+        _archive(repository, plan)
+
+        assert self._patch(client, plan, item, {"amount": 4}).status_code == 409
+
+    def test_a_line_from_another_list_is_not_found(self, client: TestClient) -> None:
+        plan, _ = self._line(client)
+        other = client.post("/plans/items", json={"day": TestTheListKeepsGoing.NEXT_SATURDAY.isoformat(), "items": [{"name": "Café"}]}).json()
+
+        assert self._patch(client, plan, _item(other, "Café"), {"amount": 2}).status_code == 404
+
+
+class TestTheListKeepsGoing:
+    """What you did not buy follows you into the current week (§8.14).
+
+    It used to wait for somebody to press "done shopping" — and the Saturday
+    nobody did, the sugar stayed in a week nobody opens again. Now opening the
+    current week brings it along, whoever opens it and whenever.
+    """
+
+    LAST_SATURDAY = date(2026, 8, 29)
     NEXT_SATURDAY = date(2026, 9, 12)
 
-    def _shopped(self, client: TestClient) -> dict:
-        """A week with two lines, one of them bought, ready to close."""
-        plan = _assign(client, name="Lentejas")
+    def _carry(self, client: TestClient, day: date = SATURDAY):  # noqa: ANN202 — the JSON body, dict or None
+        response = client.post("/plans/carry-forward", json={"day": day.isoformat()})
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    def _last_week(self, client: TestClient) -> dict:
+        """Last week: Lentejas put two lines on the list, and only one was bought."""
+        plan = _assign(client, day=self.LAST_SATURDAY, name="Lentejas")
         entry = _entry(plan, "Lentejas")
-        client.post(
+        plan = client.post(
             f"/plans/{plan['id']}/items",
             json={
                 "entry_id": entry["id"],
                 "dish_name": "Lentejas",
-                "items": [{"name": "Lentejas", "amount": 500, "unit": "g"}, {"name": "Azúcar"}],
+                "items": [{"name": "Lentejas", "amount": 500, "unit": "g"}, {"name": "Azúcar", "amount": 1, "unit": "kg"}],
             },
-        )
-        plan = client.post(f"/plans/{plan['id']}/status", json={"from_status": "planning"}).json()
-        bought = _item(plan, "Lentejas")
-        client.patch(f"/plans/{plan['id']}/items/{bought['id']}", json={"is_checked": True})
-        return client.get(f"/plans?day={SATURDAY.isoformat()}").json()
-
-    def test_chosen_lines_land_on_next_weeks_list(self, client: TestClient) -> None:
-        plan = self._shopped(client)
-        sugar = _item(plan, "Azúcar")
-
-        response = client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed", "carry_over": [sugar["id"]]})
-
-        assert response.status_code == 200, response.text
-        assert response.json()["status"] == "list_closed"
-        following = client.get(f"/plans?day={self.NEXT_SATURDAY.isoformat()}").json()
-        assert [i["display_name"] for i in following["items"]] == ["Azúcar"]
-
-    def test_next_week_is_created_if_it_does_not_exist(self, client: TestClient) -> None:
-        plan = self._shopped(client)
-        assert client.get(f"/plans?day={self.NEXT_SATURDAY.isoformat()}").json() is None
-
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed", "carry_over": [_item(plan, "Azúcar")["id"]]})
-
-        following = client.get(f"/plans?day={self.NEXT_SATURDAY.isoformat()}").json()
-        assert following is not None
-        assert following["entries"] == []
-        assert following["status"] == "planning"
-
-    def test_a_carried_line_arrives_by_hand_not_attributed_to_last_weeks_dish(self, client: TestClient) -> None:
-        plan = self._shopped(client)
-        lentejas = _item(plan, "Lentejas")
-        # Untick it so it qualifies, then carry it: it came from a dish.
-        client.patch(f"/plans/{plan['id']}/items/{lentejas['id']}", json={"is_checked": False})
-
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed", "carry_over": [lentejas["id"]]})
-
-        carried = _item(client.get(f"/plans?day={self.NEXT_SATURDAY.isoformat()}").json(), "Lentejas")
-        # The dish that justified it belongs to the week that just closed; a
-        # breakdown row pointing there would go nowhere.
-        assert carried["sources"] == []
-        assert carried["is_manual"] is True
-        assert carried["total_amount"] == 500
-        assert carried["unit"] == "g"
-
-    def test_carrying_nothing_leaves_next_week_alone(self, client: TestClient) -> None:
-        plan = self._shopped(client)
-
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed"})
-
-        # No empty week created for a carry-over nobody asked for.
-        assert client.get(f"/plans?day={self.NEXT_SATURDAY.isoformat()}").json() is None
-
-    def test_a_line_ticked_in_the_meantime_is_skipped_not_fatal(self, client: TestClient) -> None:
-        plan = self._shopped(client)
-        bought = _item(plan, "Lentejas")
-
-        # The other person in the shop found it after all, between the modal
-        # opening and the confirm landing.
-        response = client.post(
-            f"/plans/{plan['id']}/status",
-            json={"from_status": "calendar_closed", "carry_over": [bought["id"], _item(plan, "Azúcar")["id"]]},
-        )
-
-        assert response.status_code == 200
-        following = client.get(f"/plans?day={self.NEXT_SATURDAY.isoformat()}").json()
-        assert [i["display_name"] for i in following["items"]] == ["Azúcar"]
-
-    def test_an_id_from_another_list_is_refused(self, client: TestClient) -> None:
-        plan = self._shopped(client)
-
-        response = client.post(
-            f"/plans/{plan['id']}/status",
-            json={"from_status": "calendar_closed", "carry_over": ["a4e6b8c0-2d19-4000-8000-000000000000"]},
-        )
-
-        assert response.status_code == 404
-        # And the week did not close on the way to failing.
-        assert client.get(f"/plans?day={SATURDAY.isoformat()}").json()["status"] == "calendar_closed"
-
-    def test_closing_the_calendar_cannot_carry_anything(self, client: TestClient) -> None:
-        plan = _assign(client, name="Lentejas")
-        entry = _entry(plan, "Lentejas")
-        plan = client.post(
-            f"/plans/{plan['id']}/items",
-            json={"entry_id": entry["id"], "dish_name": "Lentejas", "items": [{"name": "Azúcar"}]},
         ).json()
+        client.patch(f"/plans/{plan['id']}/items/{_item(plan, 'Lentejas')['id']}", json={"is_checked": True})
+        return plan
 
-        response = client.post(
-            f"/plans/{plan['id']}/status",
-            json={"from_status": "planning", "carry_over": [_item(plan, "Azúcar")["id"]]},
-        )
+    def test_what_you_did_not_buy_lands_on_this_week(self, client: TestClient) -> None:
+        self._last_week(client)
 
-        # Nothing has been shopped for yet, so every line would qualify.
-        assert response.status_code == 422
-        assert client.get(f"/plans?day={SATURDAY.isoformat()}").json()["status"] == "planning"
+        this_week = self._carry(client)
 
-    def test_carrying_into_a_week_that_already_has_a_list_merges(self, client: TestClient) -> None:
-        plan = self._shopped(client)
-        client.post("/plans/items", json={"day": self.NEXT_SATURDAY.isoformat(), "items": [{"name": "Azúcar"}]})
+        assert [i["display_name"] for i in this_week["items"]] == ["Azúcar"]
 
-        client.post(f"/plans/{plan['id']}/status", json={"from_status": "calendar_closed", "carry_over": [_item(plan, "Azúcar")["id"]]})
+    def test_it_leaves_the_old_week_rather_than_being_copied(self, client: TestClient) -> None:
+        """One sugar, not two: ticking it this week must not leave last week
+        saying you still need it."""
+        self._last_week(client)
 
-        following = client.get(f"/plans?day={self.NEXT_SATURDAY.isoformat()}").json()
-        # One line, not two — the ordinary merge key, doing its ordinary job.
-        assert [i["display_name"] for i in following["items"]] == ["Azúcar"]
+        self._carry(client)
+
+        last_week = client.get("/plans", params={"day": self.LAST_SATURDAY.isoformat()}).json()
+        assert [i["display_name"] for i in last_week["items"]] == ["Lentejas"]
+
+    def test_it_says_where_it_came_from_and_since_when(self, client: TestClient) -> None:
+        self._last_week(client)
+
+        sugar = _item(self._carry(client), "Azúcar")
+
+        # Still "from Lentejas": that is the answer to "why is this here?".
+        assert [s["dish_name"] for s in sugar["sources"]] == ["Lentejas"]
+        assert sugar["pending_since"] == self.LAST_SATURDAY.isoformat()
+        assert (sugar["total_amount"], sugar["unit"]) == (1, "kg")
+
+    def test_something_carried_twice_keeps_its_first_week(self, client: TestClient) -> None:
+        """Three weeks without sugar should read as three weeks, not one."""
+        self._last_week(client)
+        self._carry(client)
+
+        sugar = _item(self._carry(client, self.NEXT_SATURDAY), "Azúcar")
+
+        assert sugar["pending_since"] == self.LAST_SATURDAY.isoformat()
+
+    def test_it_merges_with_what_this_week_already_has(self, client: TestClient) -> None:
+        self._last_week(client)
+        plan = client.post("/plans/items", json={"day": SATURDAY.isoformat(), "items": [{"name": "Azúcar", "amount": 2, "unit": "kg"}]}).json()
+        client.patch(f"/plans/{plan['id']}/items/{_item(plan, 'Azúcar')['id']}", json={"is_checked": True})
+
+        sugar = _item(self._carry(client), "Azúcar")
+
+        # One line, summed — and unticked, because a kilo of it is still to buy.
+        assert sugar["total_amount"] == 3
+        assert sugar["is_checked"] is False
+        assert [s["dish_name"] for s in sugar["sources"]] == ["Lentejas"]
+
+    def test_a_second_call_moves_nothing(self, client: TestClient) -> None:
+        self._last_week(client)
+        first = self._carry(client)
+
+        second = self._carry(client)
+
+        assert second["items"] == first["items"]
+
+    def test_nothing_pending_creates_no_week(self, client: TestClient) -> None:
+        """Opening the planner must not fill the archive with empty weeks."""
+        assert self._carry(client) is None
+
+    def test_nothing_pending_returns_the_week_as_it_is(self, client: TestClient) -> None:
+        plan = _assign(client)
+
+        assert self._carry(client)["id"] == plan["id"]
+
+    def test_a_week_planned_ahead_keeps_its_own_list(self, client: TestClient) -> None:
+        """Only earlier weeks feed the current one. Next week's list is next
+        week's until next week comes."""
+        client.post("/plans/items", json={"day": self.NEXT_SATURDAY.isoformat(), "items": [{"name": "Café"}]})
+
+        assert self._carry(client) is None
+        following = client.get("/plans", params={"day": self.NEXT_SATURDAY.isoformat()}).json()
+        assert [i["display_name"] for i in following["items"]] == ["Café"]
+
+    def test_an_archived_week_is_left_alone(self, client: TestClient, repository: InMemoryMealPlanRepository) -> None:
+        """Closing a list under the old flow already offered its leftovers to the
+        next week, and a person chose. Bringing the rest back would undo that."""
+        _archive(repository, self._last_week(client))
+
+        assert self._carry(client) is None
+
+    def test_an_archived_current_week_waits_instead_of_failing(self, client: TestClient, repository: InMemoryMealPlanRepository) -> None:
+        self._last_week(client)
+        _archive(repository, _assign(client))
+
+        this_week = self._carry(client)
+
+        assert this_week["items"] == []
+        last_week = client.get("/plans", params={"day": self.LAST_SATURDAY.isoformat()}).json()
+        assert "Azúcar" in [i["display_name"] for i in last_week["items"]]
+
+    def test_another_kitchens_list_is_not_touched(self, repository: InMemoryMealPlanRepository, kitchens: InMemoryKitchenRepository) -> None:
+        mine = _app(repository, kitchens, OWNER)
+        theirs = _app(repository, kitchens, SOMEONE_ELSE)
+        self._last_week(theirs)
+
+        assert self._carry(mine) is None
+        assert [i["display_name"] for i in self._carry(theirs)["items"]] == ["Azúcar"]

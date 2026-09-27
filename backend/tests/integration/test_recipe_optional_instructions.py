@@ -58,6 +58,15 @@ def _seed(repository: InMemoryRecipeRepository, title: str, instructions: str | 
 
 
 class TestSavingWithoutAMethod:
+    def test_a_side_dish_can_be_saved(self, client: TestClient) -> None:
+        """`guarnicion` is what the planner's "new dish" defaults to. The enum,
+        the column and the client all had it; the request schema did not, so
+        every side dish made from a slot was refused with a 422."""
+        response = client.post("/recipes", json={**BODY, "title": "Arroz blanco", "food_type": "guarnicion"})
+
+        assert response.status_code == 201, response.text
+        assert response.json()["food_type"] == "guarnicion"
+
     def test_omitting_instructions_is_accepted(self, client: TestClient) -> None:
         response = client.post("/recipes", json=BODY)
 

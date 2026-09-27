@@ -151,10 +151,62 @@ class TestTheEnumsRoundTrip:
 
         assert {e.meal.value for e in repository.get_plan(plan.id).entries} == {"lunch", "dinner"}
 
-    def test_every_status_can_be_written(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
+    def test_every_status_reads_back(self, repository: PostgresMealPlanRepository, pool: DatabaseConnectionPool, kitchen: str) -> None:
+        """Written by hand because nothing in the app writes a status any more
+        (§8.14) — but archived weeks from before that still have to load."""
         plan = repository.create_plan(kitchen, MONDAY, None)
         for status in PlanStatus:
-            assert repository.set_status(plan.id, status).status is status
+            with pool.session_factory() as session:
+                session.execute(text("UPDATE meal_plans SET status = :s WHERE id = :id"), {"s": status.value, "id": plan.id})
+                session.commit()
+            assert repository.get_plan(plan.id).status is status
+
+
+class TestCarryingForward:
+    """The move itself, which the fake cannot be wrong about the same way: rows
+    change plan under a unique index, and FOR UPDATE has to be valid SQL."""
+
+    LAST_WEEK = date(2026, 8, 29)
+    THIS_WEEK = date(2026, 9, 5)
+
+    def test_unbought_lines_move_and_bought_ones_stay(self, repository: PostgresMealPlanRepository, kitchen: str, cook: str) -> None:
+        last = repository.create_plan(kitchen, self.LAST_WEEK, cook)
+        bought, _ = repository.add_items(last.id, [_line("Pan"), _line("Azúcar", 1, "kg")])
+        repository.set_item_checked(bought.id, True)
+        this = repository.create_plan(kitchen, self.THIS_WEEK, cook)
+
+        assert repository.count_pending_before(kitchen, self.THIS_WEEK) == 1
+        assert repository.carry_forward(kitchen, this.id, self.THIS_WEEK) == 1
+
+        sugar = repository.get_plan(this.id).items[0]
+        assert (sugar.display_name, sugar.total_amount, sugar.pending_since) == ("Azúcar", 1, self.LAST_WEEK)
+        assert [s.dish_name for s in sugar.sources] == ["Tortilla"]
+        assert [i.display_name for i in repository.get_plan(last.id).items] == ["Pan"]
+        assert repository.count_pending_before(kitchen, self.THIS_WEEK) == 0
+
+    def test_a_line_this_week_already_has_is_folded_in(self, repository: PostgresMealPlanRepository, kitchen: str, cook: str) -> None:
+        last = repository.create_plan(kitchen, self.LAST_WEEK, cook)
+        repository.add_items(last.id, [_line("Azúcar", 1, "kg", dish="Bizcocho")])
+        this = repository.create_plan(kitchen, self.THIS_WEEK, cook)
+        (mine,) = repository.add_items(this.id, [_line("azucar", 2, "kg", dish="Flan")])
+        repository.set_item_checked(mine.id, True)
+
+        repository.carry_forward(kitchen, this.id, self.THIS_WEEK)
+
+        (sugar,) = repository.get_plan(this.id).items
+        assert sugar.total_amount == 3
+        assert sugar.is_checked is False
+        assert sorted(s.dish_name for s in sugar.sources) == ["Bizcocho", "Flan"]
+        assert repository.get_plan(last.id).items == []
+
+    def test_an_archived_week_is_skipped(self, repository: PostgresMealPlanRepository, pool: DatabaseConnectionPool, kitchen: str, cook: str) -> None:
+        last = repository.create_plan(kitchen, self.LAST_WEEK, cook)
+        repository.add_items(last.id, [_line("Azúcar")])
+        with pool.session_factory() as session:
+            session.execute(text("UPDATE meal_plans SET status = 'list_closed' WHERE id = :id"), {"id": last.id})
+            session.commit()
+
+        assert repository.count_pending_before(kitchen, self.THIS_WEEK) == 0
 
 
 class TestTheMergeUpsert:
@@ -194,6 +246,18 @@ class TestTheMergeUpsert:
 
         assert repository.get_plan(plan.id).items[0].total_amount == 66.67
 
+    def test_a_person_can_set_the_amount_and_the_unit_stays(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
+        plan = repository.create_plan(kitchen, MONDAY, None)
+        [feta] = repository.add_items(plan.id, [_line("queso feta", 200, "g")])
+
+        repository.set_item_amount(feta.id, 250)
+
+        [item] = repository.get_plan(plan.id).items
+        assert (item.total_amount, item.unit) == (250, "g")
+
+    def test_setting_the_amount_of_a_missing_line_is_none(self, repository: PostgresMealPlanRepository) -> None:
+        assert repository.set_item_amount(str(uuid.uuid4()), 4) is None
+
 
 class TestHistorySurvives:
     def test_removing_an_entry_leaves_the_list_line_and_its_dish_name(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
@@ -224,15 +288,17 @@ class TestHistorySurvives:
         assert items[0].total_amount == 2
         assert [s.dish_name for s in items[0].sources] == ["Lentejas"]
 
-    def test_the_slot_is_unique_so_reassigning_replaces(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
-        """uq_plan_entries_slot. A fake enforces this by looking; Postgres
-        enforces it with an index, and only one of those can be wrong."""
+    def test_a_slot_holds_several_dishes_but_not_the_same_one_twice(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
+        """A slot is a flat list (ingredient-capture-plan §5), and the same
+        one-off name twice is one dish — the part the partial index leaves to
+        `upsert_entry`, so only a real database can say it holds."""
         plan = repository.create_plan(kitchen, MONDAY, None)
         repository.upsert_entry(plan.id, PlanEntry(date=MONDAY, meal="dinner", dish_name="Tortilla", servings=4))
         repository.upsert_entry(plan.id, PlanEntry(date=MONDAY, meal="dinner", dish_name="Lentejas", servings=2))
+        repository.upsert_entry(plan.id, PlanEntry(date=MONDAY, meal="dinner", dish_name="Lentejas", servings=3))
 
         entries = repository.get_plan(plan.id).entries
-        assert [e.dish_name for e in entries] == ["Lentejas"]
+        assert sorted((e.dish_name, e.servings) for e in entries) == [("Lentejas", 3), ("Tortilla", 4)]
 
 
 class TestOrdering:
