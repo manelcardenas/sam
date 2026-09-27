@@ -300,12 +300,11 @@ export class LambdaApiStack extends Stack {
 
     // ── Meal planner (docs/plans/meal-planner-plan.md §8) ──────────────────
     //
-    // Eight routes, and the shape is driven partly by this file: HTTP API
-    // matches exactly, so every path costs an entry here. That is why the slot
-    // upsert is one PUT rather than a create/update pair, why closing the
-    // calendar and closing the list share one endpoint that takes the status it
-    // is leaving, and why reading one week by id is a query parameter on /plans
-    // rather than a /plans/{plan_id} that would sit next to /plans/archive.
+    // The shape is driven partly by this file: HTTP API matches exactly, so
+    // every path costs an entry here. That is why the slot upsert is one PUT
+    // rather than a create/update pair, and why reading one week by id is a
+    // query parameter on /plans rather than a /plans/{plan_id} that would sit
+    // next to /plans/archive.
     httpApi.addRoutes({
       path: "/plans",
       methods: [HttpMethod.GET],
@@ -391,8 +390,11 @@ export class LambdaApiStack extends Stack {
       authorizer,
     });
 
+    // Unbought lines from earlier weeks, moved onto the current one when the
+    // planner opens it (§8.14). A literal path beside /plans/archive and
+    // /plans/items, for the same reason as those two.
     httpApi.addRoutes({
-      path: "/plans/{plan_id}/status",
+      path: "/plans/carry-forward",
       methods: [HttpMethod.POST],
       integration,
       authorizer,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, DoorOpen, ListChecks, Lock } from "lucide-react";
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, DoorOpen, ListChecks, Lock, X } from "lucide-react";
 import { useAuthGate } from "@/components/auth/useAuthGate";
 import {
   ApiError,
@@ -32,7 +32,6 @@ import { SlotSheet } from "@/components/plan/SlotSheet";
 import { ShoppingList } from "@/components/plan/ShoppingList";
 import { KitchenBar } from "@/components/plan/KitchenBar";
 import { InvitationCard } from "@/components/plan/InvitationCard";
-import { CarryOverPicker } from "@/components/plan/CarryOverPicker";
 import { useLivePlan } from "@/lib/useLivePlan";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { formatWeekRange, formatWeekday } from "@/lib/format";
@@ -45,16 +44,16 @@ import { formatWeekRange, formatWeekday } from "@/lib/format";
  * is the right home for *history* (the year view, §5.3) and the wrong one for
  * the week you are shopping for right now.
  *
- * **The plan's status gates the page** (§8.2). `planning` edits everything;
- * `calendar_closed` is the shopping state — recipes fixed, list still editable;
- * `list_closed` is archived and read-only. The server enforces all of it and
- * answers 409, so the disabled controls here are a courtesy, not the guard.
+ * **A week has no workflow** (§8.14). It used to be walked through "finish the
+ * week" and "done shopping", and the second button was the only thing that
+ * brought unbought lines forward — so the Saturday nobody pressed it, the sugar
+ * stayed in a week nobody opened again. Now opening the current week carries
+ * them along on its own (`carryForward`), and every week is editable. The one
+ * exception is a week archived under the old flow, which stays read-only; the
+ * server answers 409 there, so the disabled controls are a courtesy, not the
+ * guard.
  *
- * **The status is now the only thing that gates it** (§8.12). There used to be a
- * second axis — owner or guest — and a guest got a read-only calendar and a
- * banner explaining why. A week belongs to a kitchen now, everybody in it can
- * change everything, and that whole branch is gone along with the week selector
- * that let you switch between your copy and somebody else's.
+ * A week belongs to a kitchen (§8.12): everybody in it can change everything.
  */
 export default function PlanPage() {
   const { locale, t } = useI18n();
@@ -78,11 +77,9 @@ export default function PlanPage() {
   const [week, setWeek] = useState<string | null>(null);
   const [slot, setSlot] = useState<{ date: string; meal: Meal } | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<"finish" | "close" | "leave" | null>(null);
-  // Which unbought lines follow the week out. Seeded when the confirm opens,
-  // not derived on render: the user unticks things in here, and a derived set
-  // would put them straight back.
-  const [carryOver, setCarryOver] = useState<Set<string>>(new Set());
+  // A recipe waiting for a slot, from "plan this" on its page. See `PlanUrlState.place`.
+  const [place, setPlace] = useState<string | null>(null);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
 
   // Read once per mount, not per render: a page left open across midnight
   // should not silently re-mark which column is "today" mid-interaction.
@@ -107,12 +104,21 @@ export default function PlanPage() {
    * by date means "the week my kitchen is planning", by id means "this exact
    * week", and they diverge for anybody who has moved between kitchens — an
    * archive row from August belongs to a household they may have left.
+   *
+   * `carry` makes opening the *current* week bring along whatever earlier weeks
+   * left unbought (§8.14). Only on opening it — the mount and paging back to it
+   * — and never on the live-list poll, which would turn a read every few
+   * seconds into a write.
    */
   const loadPlan = useCallback(
-    async (saturday: string, id: string | null = null): Promise<MealPlan | null> => {
+    async (saturday: string, id: string | null = null, carry = false): Promise<MealPlan | null> => {
       try {
         setError("");
-        const loaded = id ? await apiClient.getPlanById(id) : await apiClient.getPlan(saturday);
+        const loaded = id
+          ? await apiClient.getPlanById(id)
+          : carry && saturday === today
+            ? await apiClient.carryForward(saturday)
+            : await apiClient.getPlan(saturday);
         setPlan(loaded);
         return loaded;
       } catch (err) {
@@ -121,13 +127,13 @@ export default function PlanPage() {
         // screen. The link stopped working; the page did not.
         if (id) {
           setPlanId(null);
-          return loadPlan(saturday);
+          return loadPlan(saturday, null, carry);
         }
         setError(err instanceof Error ? err.message : t("plan.load-failed"));
         return null;
       }
     },
-    [t],
+    [t, today],
   );
 
   const loadKitchen = useCallback(async () => {
@@ -143,7 +149,7 @@ export default function PlanPage() {
       // Every recipe is plannable, method or not, so the picker asks
       // for both. The ADR-0007 lens is left unset on purpose.
       const [mine, loaded, groceries] = await Promise.all([
-        loadPlan(weekStart, currentParams().get("plan")),
+        loadPlan(weekStart, currentParams().get("plan"), true),
         apiClient.listRecipes().catch(() => [] as Recipe[]),
         // Swallowed on purpose, like the recipes above: this is decoration on a
         // page whose job is the week and the list.
@@ -155,9 +161,9 @@ export default function PlanPage() {
       setVocabulary(groceries);
 
       // **The home week is the one you are shopping for next**, not the one the
-      // calendar happens to be in. Once this week's list is closed the shopping
-      // is home, and anything you think of for the rest of the week belongs to
-      // the next shop — so that is where the planner opens.
+      // calendar happens to be in. That only differs for a week archived under
+      // the old flow (§8.14), whose leftovers belong to the next shop — so that
+      // is where the planner opens.
       //
       // Only when the URL did not name a week: a link to a specific week must
       // land on it, closed or not. One hop only; two closed weeks in a row means
@@ -182,7 +188,7 @@ export default function PlanPage() {
   // Paging between weeks refetches the plan; the recipe list is week-independent.
   useEffect(() => {
     if (loading) return;
-    void loadPlan(weekStart, planId);
+    void loadPlan(weekStart, planId, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart, planId]);
 
@@ -199,6 +205,7 @@ export default function PlanPage() {
     setWeek(next.week);
     setSlot(next.slot);
     setPlanId(next.planId);
+    setPlace(next.place);
   }, []);
 
   useEffect(() => {
@@ -218,7 +225,7 @@ export default function PlanPage() {
       applyingHistory.current = false;
       return;
     }
-    const query = toQuery({ view, week, slot, planId });
+    const query = toQuery({ view, week, slot, planId, place });
     const before = window.location.search;
     // Everything here is a view — the week, the list, the sheet — so everything
     // pushes, and the back gesture walks out of the sheet and then back through
@@ -226,17 +233,15 @@ export default function PlanPage() {
     writeUrl(query, "push");
     if (window.location.search !== before) history.recordPush();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, week, slot, planId]);
+  }, [view, week, slot, planId, place]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const status = plan?.status ?? "planning";
-  // **Two gates, both about the plan's state and neither about who you are.**
-  // Everybody in the kitchen has the same reach (§8.12); what varies is how far
-  // the week has got. `calendar_closed` is the state you are actually shopping
-  // in, so it keeps the list and the ticking open.
-  const calendarEditable = status === "planning";
-  const listEditable = status === "planning" || status === "calendar_closed";
+  // **One gate, about the week and not about who you are.** Everybody in the
+  // kitchen has the same reach (§8.12), and a week is open unless it was
+  // archived under the old flow (§8.14).
+  const archived = status === "list_closed";
   // The one week you can see but not touch: one planned in a kitchen you have
   // since left, reached from the archive. The server refuses the writes; this
   // keeps the controls from offering them.
@@ -245,8 +250,8 @@ export default function PlanPage() {
   // in state so removing a dish inside the sheet updates the sheet's own list.
   const openEntries = slot ? (plan?.entries.filter((e) => e.date === slot.date && e.meal === slot.meal) ?? []) : [];
   const days = weekDays(weekStart);
-  // What the shop did not have. Offered to next week when the list closes.
-  const unbought = plan?.items.filter((item) => !item.is_checked) ?? [];
+  const editable = !archived && !readOnly;
+  const placing = place ? (recipes.find((r) => r.id === place) ?? null) : null;
   const sharedKitchen = (kitchen?.kitchen.members.length ?? 0) > 1;
 
   // ── Live ────────────────────────────────────────────────────────────────────
@@ -256,7 +261,7 @@ export default function PlanPage() {
   // two people have open in the same shop. See `useLivePlan` for the rest of the
   // gates and for why this polls rather than holding a connection open.
   useLivePlan({
-    enabled: sharedKitchen && view === "list" && Boolean(plan) && status !== "list_closed",
+    enabled: sharedKitchen && view === "list" && Boolean(plan) && !archived,
     onRefresh: () => void loadPlan(weekStart, planId),
   });
 
@@ -306,7 +311,7 @@ export default function PlanPage() {
   };
 
   const leaveKitchen = async () => {
-    setConfirming(null);
+    setConfirmingLeave(false);
     try {
       setError("");
       await apiClient.removeFromKitchen(me?.id ?? "");
@@ -383,11 +388,19 @@ export default function PlanPage() {
     }
   };
 
-  const assign = async (recipe: Recipe | null, name: string, servings: number): Promise<PlanEntry | null> => {
+  /**
+   * Put a dish in the open slot and, with `lines`, its shopping on the list.
+   *
+   * One function for both because the list write needs the plan the assignment
+   * returns: on a week nobody had touched, there is no plan id until the dish
+   * creates one, and a list write reaching for the page's `plan` would find the
+   * one from before — none at all.
+   */
+  const assign = async (recipe: Recipe | null, name: string, servings: number, lines?: ScaledLine[]): Promise<PlanEntry | null> => {
     if (!slot) return null;
     try {
       setError("");
-      const updated = await apiClient.assignDish({
+      let updated = await apiClient.assignDish({
         date: slot.date,
         meal: slot.meal,
         recipe_id: recipe?.id ?? null,
@@ -396,11 +409,22 @@ export default function PlanPage() {
         dish_name: name,
         servings,
       });
-      applyUpdatedPlan(updated);
       // The dish that was just written, not whichever one is first in the slot
       // — see `entryForDish`. With several dishes to a slot the difference is
-      // the sheet opening the wrong one's ingredients.
-      return entryForDish(updated.entries, slot, recipe?.id ?? null, name);
+      // the list crediting the wrong one.
+      const saved = entryForDish(updated.entries, slot, recipe?.id ?? null, name);
+      if (saved && lines && lines.length > 0) {
+        updated = await apiClient.addToList(
+          updated.id,
+          lines.map((l) => ({ name: l.name, amount: l.amount, unit: l.unit })),
+          saved.id,
+          saved.dish_name,
+        );
+      }
+      applyUpdatedPlan(updated);
+      // Placed: the recipe that was waiting for a slot has one now.
+      if (recipe && recipe.id === place) setPlace(null);
+      return saved;
     } catch (err) {
       setError(err instanceof Error ? err.message : t("plan.save-failed"));
       return null;
@@ -477,23 +501,6 @@ export default function PlanPage() {
     });
   };
 
-  const advance = async () => {
-    if (!plan) return;
-    const from = confirming === "finish" ? "planning" : "calendar_closed";
-    // Only the list transition carries anything: nothing has been shopped for
-    // when the calendar closes, so every line would qualify. The server refuses
-    // the other combination too — this just never sends it.
-    const carry = confirming === "close" ? [...carryOver] : [];
-    setConfirming(null);
-    await withPlan(() => apiClient.advancePlan(plan.id, from, carry));
-  };
-
-  /** Open a transition's confirmation, seeding what it offers to carry. */
-  const askToAdvance = (which: "finish" | "close") => {
-    if (which === "close") setCarryOver(new Set(unbought.map((item) => item.id)));
-    setConfirming(which);
-  };
-
   const goToWeek = (saturday: string) => {
     setSlot(null);
     // A plan id names one exact week, so carrying it across would leave `?plan=`
@@ -526,16 +533,18 @@ export default function PlanPage() {
             <h1 className="font-display text-lg font-bold tracking-tight text-fg sm:text-xl">
               {formatWeekRange(days[0], days[days.length - 1], locale)}
             </h1>
-            {/* Stateless on purpose: "next shop" is true of the week after this
-                one whenever its list is still open, however you arrived — landed
-                here automatically, paged here, or followed a link. A flag set at
-                load would go stale the moment you paged away and back. */}
+            {/* Where this week sits relative to now — the only state a week has
+                left (§8.14), apart from the archived ones from before. */}
             <p className="text-xs text-muted">
-              {weekStart === today
-                ? t("plan.this-week")
-                : weekStart === shiftDate(today, DAYS_IN_WEEK) && status !== "list_closed"
-                  ? t("plan.next-shop")
-                  : t(`plan.status-${status.replace("_", "-")}` as "plan.status-planning")}
+              {archived
+                ? t("plan.status-list-closed")
+                : weekStart === today
+                  ? t("plan.this-week")
+                  : weekStart === shiftDate(today, DAYS_IN_WEEK)
+                    ? t("plan.following-week")
+                    : weekStart < today
+                      ? t("plan.past-week")
+                      : t("plan.later-week")}
             </p>
           </div>
           <PagerButton label={t("plan.next-week")} onClick={() => goToWeek(shiftDate(weekStart, 7))}>
@@ -563,7 +572,7 @@ export default function PlanPage() {
               onInvite={invite}
               onLoadPeople={loadPeople}
               onWithdraw={withdraw}
-              onLeave={() => setConfirming("leave")}
+              onLeave={() => setConfirmingLeave(true)}
             />
           )}
 
@@ -607,19 +616,38 @@ export default function PlanPage() {
         <InvitationCard key={invite.kitchen_id} invite={invite} onAnswer={(accept) => answerInvitation(invite.kitchen_id, accept)} />
       ))}
 
-      {/* What the current state permits, said once rather than left to be
-          inferred from disabled buttons — v1's transitions are one-way, so the
-          consequence is worth a sentence. */}
-      {plan && status !== "planning" && (
+      {/* Only for a week archived under the old flow (§8.14) — said once rather
+          than left to be inferred from disabled buttons. */}
+      {plan && archived && (
         <div className="mb-5 flex items-start gap-2.5 rounded-2xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
           <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <p>{status === "calendar_closed" ? t("plan.calendar-closed-note") : t("plan.archived-note")}</p>
+          <p>{t("plan.archived-note")}</p>
+        </div>
+      )}
+
+      {/* "Plan this" from a recipe's page: the recipe is chosen, the slot is
+          not. The next slot you open starts with it picked. */}
+      {view === "calendar" && placing && editable && (
+        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-tomato/40 bg-tomato/10 px-4 py-3">
+          <CalendarPlus className="h-5 w-5 shrink-0 text-tomato" aria-hidden />
+          <p className="min-w-0 flex-1 text-sm text-fg">
+            <span className="font-semibold [overflow-wrap:anywhere]">{t("plan.placing-title", { name: placing.title })}</span>{" "}
+            <span className="text-muted">{t("plan.placing-body")}</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => setPlace(null)}
+            aria-label={t("common.cancel")}
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
       {view === "calendar" ? (
         <>
-          {!plan && (
+          {!plan && !placing && (
             <div className="mb-5">
               <EmptyPanel
                 icon={<CalendarDays className="mx-auto mb-3 h-10 w-10 text-muted" aria-hidden />}
@@ -632,7 +660,7 @@ export default function PlanPage() {
             weekStart={weekStart}
             plan={plan}
             today={todayIso}
-            editable={calendarEditable && !readOnly}
+            editable={editable}
             onOpenSlot={(date, meal) => setSlot({ date, meal })}
             currentUserId={me?.id ?? null}
           />
@@ -644,7 +672,7 @@ export default function PlanPage() {
           // line is what creates the week, so an empty-state panel here instead
           // would be a dead end with the one control you came for missing.
           plan={plan}
-          editable={listEditable && !readOnly}
+          editable={editable}
           onTick={tick}
           currentUserId={me?.id ?? null}
           onRemove={(item) => {
@@ -654,30 +682,26 @@ export default function PlanPage() {
           // Always the week-keyed route, never the plan-keyed one. It covers
           // both cases — creating the week or merging into it — so there is no
           // branch here that could pick wrong.
-          onAddExtra={async (name) => {
+          onAddExtra={async (line) => {
             await withPlan(async () => {
-              const updated = await apiClient.addToWeekList(weekStart, [{ name }]);
-              classifyInBackground(updated, name);
+              const updated = await apiClient.addToWeekList(weekStart, [line]);
+              classifyInBackground(updated, line.name);
               return updated;
             });
           }}
+          onSetAmount={async (item, amount) => {
+            if (!plan) return;
+            await withPlan(async () => void (await apiClient.setItemAmount(plan.id, item.id, amount)));
+          }}
           onFileAisle={fileAisle}
           classifying={classifying}
+          // "De Lentejas" answers why a line is here; tapping it goes to the
+          // meal that put it there.
+          onOpenSlot={(date, meal) => {
+            setView("calendar");
+            setSlot({ date, meal });
+          }}
         />
-      )}
-
-      {/* The one-way transitions sit at the bottom, out of the way of the thing
-          you came here to do. */}
-      {plan && !readOnly && status !== "list_closed" && (
-        <div className="mt-8 flex justify-end border-t border-line pt-5">
-          <button
-            type="button"
-            onClick={() => askToAdvance(status === "planning" ? "finish" : "close")}
-            className="cursor-pointer rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/50 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-          >
-            {status === "planning" ? t("plan.finish-week") : t("plan.close-list")}
-          </button>
-        </div>
       )}
 
       {slot && (
@@ -688,8 +712,9 @@ export default function PlanPage() {
           mealLabel={t(`plan.${slot.meal}`)}
           recipes={recipes}
           vocabulary={vocabulary}
-          editable={calendarEditable && !readOnly}
-          listEditable={listEditable && !readOnly}
+          editable={editable}
+          listEditable={editable}
+          preselect={editable ? placing : null}
           onAssign={assign}
           onCreateRecipe={createRecipe}
           onAddToList={addToList}
@@ -700,51 +725,16 @@ export default function PlanPage() {
         />
       )}
 
-      {confirming === "leave" && (
+      {confirmingLeave && (
         <ConfirmModal
           title={t("kitchen.leave-title")}
           message={t("kitchen.leave-body")}
           confirmLabel={t("kitchen.leave")}
           icon={<DoorOpen className="h-5 w-5 text-tomato" />}
           onConfirm={leaveKitchen}
-          onCancel={() => setConfirming(null)}
+          onCancel={() => setConfirmingLeave(false)}
         />
       )}
-
-      {(confirming === "finish" || confirming === "close") && (
-        <ConfirmModal
-          title={t(confirming === "finish" ? "plan.finish-week-title" : "plan.close-list-title")}
-          message={
-            confirming === "finish" ? (
-              t("plan.finish-week-body")
-            ) : (
-              <>
-                <p>{t("plan.close-list-body")}</p>
-                {unbought.length > 0 && (
-                  <CarryOverPicker
-                    items={unbought}
-                    chosen={carryOver}
-                    onToggle={(itemId) =>
-                      setCarryOver((current) => {
-                        const next = new Set(current);
-                        if (!next.delete(itemId)) next.add(itemId);
-                        return next;
-                      })
-                    }
-                  />
-                )}
-              </>
-            )
-          }
-          confirmLabel={t(confirming === "finish" ? "plan.finish-week" : "plan.close-list")}
-          // Not a deletion: a bin here would make an ordinary, if irreversible,
-          // step read as destructive.
-          icon={<CalendarCheck className="h-5 w-5 text-tomato" />}
-          onConfirm={advance}
-          onCancel={() => setConfirming(null)}
-        />
-      )}
-
     </AppShell>
   );
 }

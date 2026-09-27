@@ -331,6 +331,9 @@ class ShoppingListItemModel(Base):
     total_amount: Mapped[float | None] = mapped_column(Numeric(10, 3), nullable=True, comment="NULL for things with no quantity — 'sal' is a real ingredient")
     is_checked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     is_manual: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    pending_since: Mapped[date | None] = mapped_column(
+        Date, nullable=True, comment="week_start of the week this line was first meant for, once it has been carried forward unbought; NULL otherwise"
+    )
     # Who put the line on the list (§8.12). A line two people both contributed to
     # keeps the first name: the question is who added it, and that happened once.
     created_by: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

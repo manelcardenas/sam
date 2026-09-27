@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import Select, and_, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.domain.entities import (
@@ -59,6 +59,7 @@ class PostgresMealPlanRepository(MealPlanRepository):
             total_amount=float(model.total_amount) if model.total_amount is not None else None,
             is_checked=model.is_checked,
             is_manual=model.is_manual,
+            pending_since=model.pending_since,
             created_by=model.created_by,
             created_by_name=model.author.display_name if model.author else None,
             sources=[
@@ -231,6 +232,16 @@ class PostgresMealPlanRepository(MealPlanRepository):
             session.refresh(model)
             return self._item_to_entity(model)
 
+    def set_item_amount(self, item_id: str, amount: float) -> ShoppingListItem | None:
+        with self._session_factory() as session:
+            model = session.get(ShoppingListItemModel, uuid.UUID(item_id))
+            if model is None:
+                return None
+            model.total_amount = amount
+            session.commit()
+            session.refresh(model)
+            return self._item_to_entity(model)
+
     def set_item_grocery_key(self, item_id: str, grocery_key: str, amount: float | None = None, unit: str | None = None) -> ShoppingListItem | None:
         with self._session_factory() as session:
             model = session.get(ShoppingListItemModel, uuid.UUID(item_id))
@@ -302,15 +313,64 @@ class PostgresMealPlanRepository(MealPlanRepository):
             session.commit()
             return removed
 
-    def set_status(self, plan_id: str, status: PlanStatus) -> MealPlan | None:
+    def _pending_lines(self, kitchen_id: str, before: date) -> Select[tuple[ShoppingListItemModel, date]]:
+        """Unticked lines on the kitchen's open weeks before `before`, oldest week first."""
+        return (
+            select(ShoppingListItemModel, MealPlanModel.week_start)
+            .join(MealPlanModel, ShoppingListItemModel.plan_id == MealPlanModel.id)
+            .where(
+                MealPlanModel.kitchen_id == uuid.UUID(kitchen_id),
+                MealPlanModel.week_start < before,
+                MealPlanModel.status != PlanStatus.LIST_CLOSED,
+                ShoppingListItemModel.is_checked.is_(False),
+            )
+            .order_by(MealPlanModel.week_start, ShoppingListItemModel.created_at)
+        )
+
+    def count_pending_before(self, kitchen_id: str, before: date) -> int:
         with self._session_factory() as session:
-            model = session.get(MealPlanModel, uuid.UUID(plan_id))
-            if model is None:
-                return None
-            model.status = status
+            return session.scalar(select(func.count()).select_from(self._pending_lines(kitchen_id, before).subquery())) or 0
+
+    def carry_forward(self, kitchen_id: str, into_plan_id: str, before: date) -> int:
+        with self._session_factory() as session:
+            target = uuid.UUID(into_plan_id)
+            # FOR UPDATE OF the lines only: two people opening the planner on the
+            # same Saturday both try this, and the second must wait and then find
+            # nothing left rather than fold the same line in twice.
+            rows = session.execute(self._pending_lines(kitchen_id, before).with_for_update(of=ShoppingListItemModel)).all()
+
+            for line, week_start in rows:
+                name_key, unit_key = merge_key(line.display_name, line.unit, line.grocery_key)
+                already = session.scalars(
+                    select(ShoppingListItemModel).where(
+                        ShoppingListItemModel.plan_id == target,
+                        _NAME_KEY == name_key,
+                        _UNIT_KEY == unit_key,
+                    )
+                ).one_or_none()
+
+                if already is None:
+                    line.plan_id = target
+                    # The earliest week wins: a line carried twice is still the
+                    # sugar you meant to buy three weeks ago.
+                    line.pending_since = line.pending_since or week_start
+                else:
+                    # Folded, the way `set_item_grocery_key` folds: two rows on one
+                    # merge key is what the unique index exists to refuse.
+                    if line.total_amount is not None:
+                        current = float(already.total_amount) if already.total_amount is not None else 0.0
+                        already.total_amount = current + float(line.total_amount)
+                    for source in line.sources:
+                        already.sources.append(ListItemSourceModel(entry_id=source.entry_id, dish_name=source.dish_name, amount=source.amount))
+                    # Part of it is still to buy, whatever the target said.
+                    already.is_checked = False
+                    session.delete(line)
+                # Flushed per line so a second week's line with the same key finds
+                # the first one where it now lives.
+                session.flush()
+
             session.commit()
-            session.refresh(model)
-            return self._to_entity(model)
+            return len(rows)
 
     def list_year(self, kitchen_ids: list[str], year: int) -> list[PlanSummary]:
         if not kitchen_ids:

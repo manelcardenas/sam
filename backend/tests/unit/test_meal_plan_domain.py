@@ -1,9 +1,9 @@
-"""The planner's domain rules: the state machine, the merge key, and membership.
+"""The planner's domain rules: the permission table, the merge key, and membership.
 
 All pure functions with no database, which is the point — they are the places a
-bug is silent. A wrong state transition locks someone out of their own week with
-no way back (v1 transitions are one-way). A wrong merge key produces a shopping
-list that looks fine and is wrong, which you discover at the till. And a wrong
+bug is silent. A wrong permission locks someone out of their own week. A wrong
+merge key produces a shopping list that looks fine and is wrong, which you
+discover at the till. And a wrong
 membership predicate hands somebody's week to somebody who was only asked.
 """
 
@@ -19,7 +19,6 @@ from src.domain.entities import (
     PlanStatus,
     is_member,
     merge_key,
-    next_status,
     normalise_ingredient_name,
     permits,
     require,
@@ -27,26 +26,20 @@ from src.domain.entities import (
 )
 
 
-class TestTheStateMachine:
+class TestThePermissionTable:
+    """Two states now: a week is open, or it is a legacy archive (§8.14).
+
+    The one-way workflow is gone, but the table still guards the archived weeks
+    that the old "done shopping" button produced — their leftovers were already
+    offered forward by a person, and reopening them would bring back lines
+    somebody deliberately let go.
+    """
+
     def test_planning_permits_everything(self) -> None:
         for action in PlanAction:
             assert permits(PlanStatus.PLANNING, action)
 
-    def test_calendar_closed_still_permits_list_edits_and_ticking(self) -> None:
-        """This is the *shopping* state, not a frozen one.
-
-        §2's flow closes the calendar before you leave the house; the fruit and
-        yoghurt go on during the walk out, and the ticking happens in the shop.
-        Freezing the list here would make the feature useless at the moment it
-        is most used.
-        """
-        assert permits(PlanStatus.CALENDAR_CLOSED, PlanAction.EDIT_LIST)
-        assert permits(PlanStatus.CALENDAR_CLOSED, PlanAction.TICK)
-
-    def test_calendar_closed_forbids_changing_the_dishes(self) -> None:
-        assert not permits(PlanStatus.CALENDAR_CLOSED, PlanAction.EDIT_CALENDAR)
-
-    def test_list_closed_permits_nothing(self) -> None:
+    def test_an_archived_week_permits_nothing(self) -> None:
         for action in PlanAction:
             assert not permits(PlanStatus.LIST_CLOSED, action)
 
@@ -61,15 +54,10 @@ class TestTheStateMachine:
         with pytest.raises(PlanStateError):
             require(PlanStatus.LIST_CLOSED, PlanAction.TICK)
 
-    def test_the_transitions_run_one_way_in_order(self) -> None:
-        assert next_status(PlanStatus.PLANNING) is PlanStatus.CALENDAR_CLOSED
-        assert next_status(PlanStatus.CALENDAR_CLOSED) is PlanStatus.LIST_CLOSED
-
-    def test_the_terminal_state_is_visibly_terminal(self) -> None:
-        """Not a silent no-op: v1 cannot reopen, so the caller has to hear about
-        it rather than get a success response that changed nothing."""
-        with pytest.raises(PlanStateError):
-            next_status(PlanStatus.LIST_CLOSED)
+    def test_there_is_no_closed_calendar_state_any_more(self) -> None:
+        """The migration moved every such week back to planning; a value that
+        nothing can write should not be one a reader has to handle."""
+        assert {s.value for s in PlanStatus} == {"planning", "list_closed"}
 
 
 class TestNormalisation:

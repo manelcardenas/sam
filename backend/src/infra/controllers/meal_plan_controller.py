@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from src.app.use_cases import (
     AddToList,
     AddToWeekList,
-    AdvancePlan,
     AssignDish,
+    CarryForward,
     ClassifyListItem,
     DropEntryFromList,
     FileListItem,
@@ -16,6 +16,7 @@ from src.app.use_cases import (
     RemoveDish,
     RemoveListItem,
     ResyncEntryList,
+    SetItemAmount,
     TickItem,
 )
 from src.app.use_cases.kitchen_access import current_kitchen
@@ -26,7 +27,6 @@ from src.domain.entities import (
     MealPlan,
     PlanEntry,
     PlanStateError,
-    PlanStatus,
     PlanSummary,
     ShoppingListItem,
 )
@@ -34,11 +34,11 @@ from src.domain.ports import GroceryRepository, IngredientParser, KitchenReposit
 from src.infra.controllers.schemas import (
     AddToListRequest,
     AddToWeekListRequest,
-    AdvancePlanRequest,
     AssignDishRequest,
+    CarryForwardRequest,
     ResyncEntryListRequest,
     SetAisleRequest,
-    TickItemRequest,
+    UpdateItemRequest,
 )
 from src.infra.security import TokenPayload, get_current_user
 
@@ -140,11 +140,14 @@ class MealPlanController:
         )
         self.router.add_api_route(
             "/plans/{plan_id}/items/{item_id}",
-            self.tick_item,
+            self.update_item,
             methods=["PATCH"],
             response_model=ShoppingListItem,
-            summary="Tick a list line",
-            description="Allowed while the plan is planning or calendar_closed — the latter is the state you are actually shopping in.",
+            summary="Tick a list line, or change how much of it you need",
+            description=(
+                "Only the fields sent change: `is_checked`, `amount` (a new total above zero, in the line's own unit), or both. "
+                "Anyone in the kitchen, on any week that is not archived."
+            ),
             **common,
         )
         self.router.add_api_route(
@@ -189,12 +192,16 @@ class MealPlanController:
             **common,
         )
         self.router.add_api_route(
-            "/plans/{plan_id}/status",
-            self.advance,
+            "/plans/carry-forward",
+            self.carry_forward,
             methods=["POST"],
-            response_model=MealPlan,
-            summary="Close the calendar, then close the list",
-            description="Takes the one transition available. One-way in v1: planning → calendar_closed → list_closed.",
+            response_model=MealPlan | None,
+            summary="Bring unbought lines from earlier weeks onto this one",
+            description=(
+                "Moves every unticked line on the kitchen's earlier open weeks onto the week containing `day`, merging where the list "
+                "already has it. Called when the planner opens the current week; idempotent, and creates no week when there is nothing "
+                "to move — null is a normal answer, as on GET /plans."
+            ),
             **common,
         )
 
@@ -358,9 +365,16 @@ class MealPlanController:
             self._raise(e)
         return self._reload(plan.id)
 
-    def tick_item(self, plan_id: str, item_id: str, request: TickItemRequest, current_user: TokenPayload = Depends(get_current_user)) -> ShoppingListItem:
+    def update_item(self, plan_id: str, item_id: str, request: UpdateItemRequest, current_user: TokenPayload = Depends(get_current_user)) -> ShoppingListItem:
         try:
-            return TickItem(self.meal_plan_repository).execute(self._kitchen_id(current_user.sub), plan_id, item_id, request.is_checked)
+            kitchen_id = self._kitchen_id(current_user.sub)
+            item = None
+            if request.amount is not None:
+                item = SetItemAmount(self.meal_plan_repository).execute(kitchen_id, plan_id, item_id, request.amount)
+            if request.is_checked is not None:
+                item = TickItem(self.meal_plan_repository).execute(kitchen_id, plan_id, item_id, request.is_checked)
+            assert item is not None  # the request refuses a body with neither
+            return item
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
             raise  # pragma: no cover — _raise always raises
@@ -390,11 +404,9 @@ class MealPlanController:
             self._raise(e)
         return self._reload(plan_id)
 
-    def advance(self, plan_id: str, request: AdvancePlanRequest, current_user: TokenPayload = Depends(get_current_user)) -> MealPlan:
+    def carry_forward(self, request: CarryForwardRequest, current_user: TokenPayload = Depends(get_current_user)) -> MealPlan | None:
         try:
-            return AdvancePlan(self.meal_plan_repository).execute(
-                self._kitchen_id(current_user.sub), current_user.sub, plan_id, PlanStatus(request.from_status), request.carry_over
-            )
+            return CarryForward(self.meal_plan_repository).execute(self._kitchen_id(current_user.sub), current_user.sub, request.day)
         except (PermissionError, PlanStateError, KeyError, ValueError) as e:
             self._raise(e)
             raise  # pragma: no cover — _raise always raises

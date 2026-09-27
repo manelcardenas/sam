@@ -20,10 +20,11 @@ class ClassifyListItem:
     genuinely new thing becomes a vocabulary row marked `source='ai'`, unvouched
     for, exactly like one proposed while writing a recipe.
 
-    **It carries the quantity too.** The manual box sends a name and nothing
-    else, so `6 huevos` is a line called "6 huevos" with no amount. Once it is
-    filed it renders as `Huevos` from the vocabulary — and without taking the 6
-    the parse read out of the name, the number would vanish from the screen.
+    **It carries the quantity too.** The manual box reads a plain `6 huevos`
+    itself now (meal-planner-plan §8.14), but only the unambiguous shapes —
+    `media docena de huevos` still arrives as one name with no amount. Once it
+    is filed it renders as `Huevos` from the vocabulary, and without taking the
+    number the parse read out of the name, it would vanish from the screen.
 
     Four no-ops, all deliberate rather than errors:
 

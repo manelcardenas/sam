@@ -228,3 +228,70 @@ export function narrowVocabulary(items: GroceryItem[], q: string, shelf: Aisle |
     .filter((item) => !needle || [item.key, item.name_es, item.name_ca, item.name_en].some((name) => normaliseName(name).includes(needle)))
     .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? "") || a.key.localeCompare(b.key));
 }
+
+/** What the add box understood: the thing, and how much of it when it said. */
+export interface TypedLine {
+  name: string;
+  amount: number | null;
+  unit: string | null;
+}
+
+// The metric units a shopping list is written in, and the spellings people
+// actually type for them. Nothing else: "2 bolsas de basura" is two of a thing
+// called "bolsas de basura", not a unit of "bolsa" — and the parser, which
+// knows cups and cloves, still runs behind this for anything it misses.
+const UNITS: Record<string, string> = {
+  g: "g",
+  gr: "g",
+  grs: "g",
+  gramo: "g",
+  gramos: "g",
+  kg: "kg",
+  kilo: "kg",
+  kilos: "kg",
+  ml: "ml",
+  cl: "cl",
+  l: "l",
+  litro: "l",
+  litros: "l",
+};
+
+// A number, maybe a unit straight after it (`500g`, `500 g`, `250 gr.`), then
+// the name — skipping the "de" in `1 l de leche`. The lookahead insists on a
+// name, so `4` on its own stays a line called "4".
+const LEADING = new RegExp(`^(\\d+(?:[.,]\\d+)?)(?:\\s*(${Object.keys(UNITS).join("|")})\\b\\.?)?\\s+(?:de\\s+)?(?=\\S)`, "i");
+const TRAILING = /\s+x\s?(\d+)$/i;
+
+/**
+ * Read the quantity out of what was typed into the add box — `4 manzanas
+ * amarillas` is four of them, not a thing called "4 manzanas amarillas"
+ * (meal-planner-plan §8.14).
+ *
+ * **Here, and instantly**, rather than left to the background parse: that one
+ * takes seconds, needs a provider, and only runs for lines the vocabulary does
+ * not know — so `4 huevos` never reached it at all, and the 4 was lost. The
+ * model still runs afterwards for the aisle; it just no longer owns the number.
+ *
+ * Only what is unambiguous: a number first (`4 …`, `1,5 kg …`, `500g de …`),
+ * or `x4` at the end. A number that is part of a name (`7up`, `100% zumo`) has
+ * no space after it and is left alone; so is a zero, which is not a quantity.
+ */
+export function readQuantity(typed: string): TypedLine {
+  const text = typed.trim().replace(/\s+/g, " ");
+  const whole: TypedLine = { name: text, amount: null, unit: null };
+
+  const trailing = TRAILING.exec(text);
+  if (trailing) {
+    const amount = Number(trailing[1]);
+    const name = text.slice(0, trailing.index).trim();
+    return amount > 0 && name ? { name, amount, unit: null } : whole;
+  }
+
+  const leading = LEADING.exec(text);
+  if (!leading) return whole;
+  const amount = Number(leading[1].replace(",", "."));
+  const unit = leading[2];
+  const name = text.slice(leading[0].length).trim();
+  if (!(amount > 0) || !name) return whole;
+  return { name, amount, unit: unit ? UNITS[unit.toLowerCase()] : null };
+}

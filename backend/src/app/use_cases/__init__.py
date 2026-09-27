@@ -1,8 +1,8 @@
 from src.app.use_cases.add_to_list import AddToList
 from src.app.use_cases.add_to_week_list import AddToWeekList
-from src.app.use_cases.advance_plan import AdvancePlan
 from src.app.use_cases.answer_invitation import AnswerInvitation
 from src.app.use_cases.assign_dish import AssignDish
+from src.app.use_cases.carry_forward import CarryForward
 from src.app.use_cases.classify_list_item import ClassifyListItem
 from src.app.use_cases.create_recipe import CreateRecipe
 from src.app.use_cases.create_restaurant import CreateRestaurant
@@ -40,6 +40,7 @@ from src.app.use_cases.search_areas import SearchAreas
 from src.app.use_cases.search_places import SearchPlaces
 from src.app.use_cases.search_restaurants import SearchRestaurants
 from src.app.use_cases.set_grocery_aisle import SetGroceryAisle
+from src.app.use_cases.set_item_amount import SetItemAmount
 from src.app.use_cases.tick_item import TickItem
 from src.app.use_cases.update_display_name import UpdateDisplayName
 from src.app.use_cases.update_grocery_item import UpdateGroceryItem
@@ -50,9 +51,9 @@ from src.app.use_cases.update_review import UpdateReview
 __all__ = [
     "AddToList",
     "AddToWeekList",
-    "AdvancePlan",
     "AnswerInvitation",
     "AssignDish",
+    "CarryForward",
     "ClassifyListItem",
     "CreateRecipe",
     "CreateRestaurant",
@@ -90,6 +91,7 @@ __all__ = [
     "SearchPlaces",
     "SearchRestaurants",
     "SetGroceryAisle",
+    "SetItemAmount",
     "TickItem",
     "UpdateDisplayName",
     "UpdateGroceryItem",

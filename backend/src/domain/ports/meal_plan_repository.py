@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import date
 
-from src.domain.entities import MealPlan, PlanEntry, PlanStatus, PlanSummary, ShoppingListItem
+from src.domain.entities import MealPlan, PlanEntry, PlanSummary, ShoppingListItem
 
 
 class MealPlanRepository(ABC):
@@ -61,6 +61,15 @@ class MealPlanRepository(ABC):
         pass
 
     @abstractmethod
+    def set_item_amount(self, item_id: str, amount: float) -> ShoppingListItem | None:
+        """Replace a line's total with what a person says they need. None if there is no such line.
+
+        **The unit stays**: "500 g" corrected to 750 is 750 g. The sources keep
+        their own amounts, so the total can stop being their sum — which is the
+        point, and why removing a dish clamps at zero rather than trusting it.
+        """
+
+    @abstractmethod
     def set_item_grocery_key(self, item_id: str, grocery_key: str, amount: float | None = None, unit: str | None = None) -> ShoppingListItem | None:
         """Say which vocabulary row a line means, after the fact. None if there is no such line.
 
@@ -87,8 +96,27 @@ class MealPlanRepository(ABC):
         pass
 
     @abstractmethod
-    def set_status(self, plan_id: str, status: PlanStatus) -> MealPlan | None:
-        pass
+    def count_pending_before(self, kitchen_id: str, before: date) -> int:
+        """Unticked lines on this kitchen's open weeks that start before `before`.
+
+        Archived weeks (`LIST_CLOSED`) do not count: their leftovers were already
+        offered forward by a person under the old flow.
+        """
+
+    @abstractmethod
+    def carry_forward(self, kitchen_id: str, into_plan_id: str, before: date) -> int:
+        """Move every line `count_pending_before` counts onto `into_plan_id`. Returns how many moved.
+
+        **Moved, not copied**: the line leaves the old week, sources and all, so
+        "why is this on the list?" still answers with the dish that put it
+        there. A line whose merge key the target already holds is folded into
+        it — amounts summed with `add_items`' None-is-not-zero rule, sources
+        appended, and unticked, because part of it is still to buy. A line that
+        lands on its own keeps the *earliest* week it was meant for in
+        `pending_since`, so something carried twice still says how old it is.
+
+        One transaction: a half-moved list would put the same sugar in two weeks.
+        """
 
     @abstractmethod
     def list_year(self, kitchen_ids: list[str], year: int) -> list[PlanSummary]:

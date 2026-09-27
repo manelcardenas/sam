@@ -255,6 +255,7 @@ export default function ProfilePage() {
                     view: "calendar",
                     week: week.week_start,
                     slot: null,
+                    place: null,
                     // Always by id, never only by date. They are the same week
                     // for anybody who has stayed in one kitchen, and different
                     // weeks for anybody who has moved — the archive links to the
