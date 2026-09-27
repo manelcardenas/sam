@@ -84,21 +84,34 @@ class AddToWeekListRequest(BaseModel):
     items: list[ListLineRequest] = Field(min_length=1)
 
 
-class TickItemRequest(BaseModel):
-    is_checked: bool
+class UpdateItemRequest(BaseModel):
+    """Tick a line, change how much of it you need, or both.
 
+    One PATCH for the two because they are two fields of the same line, and the
+    gateway already routes it (meal-planner-plan §8.14). **Only what is sent
+    changes**: ticking must not touch the amount, and fixing "4 manzanas" must
+    not untick it.
 
-class AdvancePlanRequest(BaseModel):
-    """Take the plan's one available transition.
-
-    `from_status` is the client stating what it believes it is leaving. A
-    mismatch is a 409, so two taps on a slow connection cannot close the calendar
-    *and* the list — which is unrecoverable in v1, where transitions are one-way.
+    The amount is a new total, **always above zero**. There is no "no amount"
+    to go back to: a line you no longer want is removed, and one you want but
+    not counted is what it was before you typed a number.
     """
 
-    from_status: Literal["planning", "calendar_closed"]
-    carry_over: list[str] = Field(
-        default_factory=list,
-        max_length=200,
-        description="Ids of unticked lines to copy onto next week's list. Only valid when closing the list — nothing has been shopped for yet when the calendar closes.",
-    )
+    is_checked: bool | None = None
+    amount: float | None = Field(default=None, gt=0, le=100_000)
+
+    @model_validator(mode="after")
+    def _something_to_change(self) -> "UpdateItemRequest":
+        if self.is_checked is None and self.amount is None:
+            raise ValueError("Send is_checked, amount, or both")
+        return self
+
+
+class CarryForwardRequest(BaseModel):
+    """Which week the unbought lines should follow you into.
+
+    A day rather than a plan id, like `AddToWeekListRequest`, because the week
+    may not exist yet — and it only gets created if there is something to move.
+    """
+
+    day: datetime.date = Field(description="Any day inside the week to carry into — the client's today")

@@ -10,10 +10,10 @@ from src.infra.controllers.schemas.kitchen import AnswerInvitationRequest, Invit
 from src.infra.controllers.schemas.meal_plan import (
     AddToListRequest,
     AddToWeekListRequest,
-    AdvancePlanRequest,
     AssignDishRequest,
+    CarryForwardRequest,
     ResyncEntryListRequest,
-    TickItemRequest,
+    UpdateItemRequest,
 )
 from src.infra.controllers.schemas.place import ReverseGeocodeResponse
 from src.infra.controllers.schemas.recipe import CreateRecipeRequest, UpdateRecipeRequest
@@ -24,9 +24,9 @@ from src.infra.controllers.schemas.user import MeResponse, UpdateMeRequest
 __all__ = [
     "AddToListRequest",
     "AddToWeekListRequest",
-    "AdvancePlanRequest",
     "AnswerInvitationRequest",
     "AssignDishRequest",
+    "CarryForwardRequest",
     "CreateRecipeRequest",
     "CreateRestaurantRequest",
     "CreateReviewRequest",
@@ -35,8 +35,8 @@ __all__ = [
     "ResyncEntryListRequest",
     "ReverseGeocodeResponse",
     "SetAisleRequest",
-    "TickItemRequest",
     "UpdateGroceryItemRequest",
+    "UpdateItemRequest",
     "UpdateMeRequest",
     "UpdateRecipeRequest",
     "UpdateRestaurantRequest",

@@ -49,7 +49,7 @@ class CreateRecipeRequest(BaseModel):
     title: str
     instructions: str | None = Field(default=None, description="Optional — omit it for something you already know how to make")
     ingredients: IngredientsInput
-    food_type: Literal["bebida", "postre", "comida", "aperitivo"]
+    food_type: Literal["bebida", "postre", "comida", "aperitivo", "guarnicion"]
     source_url: HttpUrl | None = None
     prep_time_minutes: int | None = None
     cook_time_minutes: int | None = None
@@ -68,7 +68,7 @@ class UpdateRecipeRequest(BaseModel):
     title: str
     instructions: str | None = Field(default=None, description="Optional — empty or omitted clears the method")
     ingredients: IngredientsInput
-    food_type: Literal["bebida", "postre", "comida", "aperitivo"]
+    food_type: Literal["bebida", "postre", "comida", "aperitivo", "guarnicion"]
     source_url: HttpUrl | None = None
     prep_time_minutes: int | None = None
     cook_time_minutes: int | None = None
