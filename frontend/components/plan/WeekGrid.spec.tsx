@@ -30,6 +30,7 @@ function item(dishName: string, entryId: string): ShoppingListItem {
     total_amount: 1,
     is_checked: false,
     is_manual: false,
+    pending_since: null,
     sources: [{ entry_id: entryId, dish_name: dishName, amount: 1 }],
     created_by: null,
     created_by_name: null,

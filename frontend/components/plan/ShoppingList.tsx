@@ -1,14 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Plus, ShoppingBasket, Sparkles, Tag, Trash2 } from "lucide-react";
-import type { Aisle, GroceryItem, MealPlan, ShoppingListItem } from "@/lib/api-client";
+import { Check, History, Minus, Plus, ShoppingBasket, Sparkles, Tag, Trash2 } from "lucide-react";
+import type { Aisle, GroceryItem, Meal, MealPlan, PlanEntry, ShoppingListItem } from "@/lib/api-client";
 import { AisleIcon } from "@/components/AisleIcon";
 import { AislePicker } from "@/components/AislePicker";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
 import { PersonMark } from "@/components/ui/PersonMark";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
-import { byKey, displayName, groceryFor, groupByAisle, nameFor, suggest } from "@/lib/grocery";
+import { byKey, displayName, groceryFor, groupByAisle, nameFor, readQuantity, suggest, type TypedLine } from "@/lib/grocery";
+import { formatDayAndMonth, formatWeekday } from "@/lib/format";
 
 /**
  * The list you walk into the shop with.
@@ -49,6 +50,20 @@ import { byKey, displayName, groceryFor, groupByAisle, nameFor, suggest } from "
  * line says so, and when it lands the line moves. The two never race in the
  * person's disfavour: the server ignores the model for a line somebody already
  * filed.
+ *
+ * **The list keeps going from week to week** (meal-planner-plan §8.14). A line
+ * you did not buy follows you into the current week on its own and says since
+ * when — "pending since 29 Aug" — so something three weeks old reads as a
+ * decision to make, buy it or let it go, rather than as this week's shopping.
+ *
+ * **"From Lentejas" is a link** to the meal that put the line there, when that
+ * meal is in this week. It is the other half of the slot sheet's "on the list ·
+ * 6": one says what a dish added, this says which dish a line is for.
+ *
+ * **A line says how many** (§8.14). `4 manzanas amarillas` typed into the box
+ * is four of them, read here as you type, and any line's number can be changed
+ * from its edit panel — the same panel that moves it to another aisle, so a
+ * line has one way in to "change this" rather than an icon per field.
  */
 export function ShoppingList({
   plan,
@@ -56,10 +71,12 @@ export function ShoppingList({
   onTick,
   onRemove,
   onAddExtra,
+  onSetAmount,
   onFileAisle,
   classifying = new Set<string>(),
   currentUserId,
   vocabulary,
+  onOpenSlot,
 }: {
   /** Null for a week nothing has been put in yet — still a week you can add to. */
   plan: MealPlan | null;
@@ -74,7 +91,10 @@ export function ShoppingList({
   editable: boolean;
   onTick: (item: ShoppingListItem, checked: boolean) => void;
   onRemove: (item: ShoppingListItem) => void;
-  onAddExtra: (name: string) => Promise<void>;
+  /** A hand-typed line, with the quantity read out of it when there was one. */
+  onAddExtra: (line: TypedLine) => Promise<void>;
+  /** A new total for a line, in its own unit. */
+  onSetAmount: (item: ShoppingListItem, amount: number) => Promise<void>;
   /** File a line in an aisle — its vocabulary row moves, or the typed words become one. */
   onFileAisle: (item: ShoppingListItem, aisle: Aisle) => Promise<void>;
   /** Lines the model is still placing, so they can say so instead of sitting silently in `Other`. */
@@ -83,6 +103,8 @@ export function ShoppingList({
   currentUserId: string | null;
   /** Empty until it loads, and empty forever if it fails — see the note above. */
   vocabulary: GroceryItem[];
+  /** Open the meal a line came from. */
+  onOpenSlot: (date: string, meal: Meal) => void;
 }) {
   const { t, tp, locale } = useI18n();
   const [draft, setDraft] = useState("");
@@ -93,12 +115,15 @@ export function ShoppingList({
   const done = items.filter((i) => i.is_checked);
 
   const index = useMemo(() => byKey(vocabulary), [vocabulary]);
+  const entries = useMemo(() => new Map((plan?.entries ?? []).map((e) => [e.id, e])), [plan?.entries]);
   const groups = useMemo(() => groupByAisle(outstanding, index), [outstanding, index]);
   // One unnamed group means nothing was recognised — every line fell into
   // `other`. Headings would then be a row of "Otros" above the whole list, which
   // is worse than no headings at all.
   const grouped = groups.length > 1 || (groups.length === 1 && groups[0].aisle !== "other");
-  const suggestions = useMemo(() => suggest(draft, vocabulary), [draft, vocabulary]);
+  const typed = useMemo(() => readQuantity(draft), [draft]);
+  // Suggest from the name alone: "4 manz" is looking for manzanas.
+  const suggestions = useMemo(() => suggest(typed.name, vocabulary), [typed.name, vocabulary]);
 
   const renderLine = (item: ShoppingListItem) => (
     <Line
@@ -108,17 +133,20 @@ export function ShoppingList({
       onTick={onTick}
       onRemove={onRemove}
       onFileAisle={onFileAisle}
+      onSetAmount={onSetAmount}
       classifying={classifying.has(item.id)}
       currentUserId={currentUserId}
       vocabulary={index}
+      entries={entries}
+      onOpenSlot={onOpenSlot}
     />
   );
 
-  const add = async (name: string) => {
-    if (!name || adding) return;
+  const add = async (line: TypedLine) => {
+    if (!line.name || adding) return;
     setAdding(true);
     try {
-      await onAddExtra(name);
+      await onAddExtra(line);
       setDraft("");
     } finally {
       setAdding(false);
@@ -131,7 +159,7 @@ export function ShoppingList({
     // substituting `Pan` for a deliberate `Pan de centeno` would put the wrong
     // thing in the basket, and the suggestion rail is one tap away for anyone
     // who wanted it.
-    void add(draft.trim());
+    void add(typed);
   };
 
   return (
@@ -199,6 +227,14 @@ export function ShoppingList({
             </button>
           </form>
 
+          {/* Said back while typing, so it is clear the 4 was understood as a
+              quantity and not as part of the name. */}
+          {typed.amount != null && (
+            <p aria-live="polite" className="px-1 text-xs text-muted">
+              {t("plan.typed-amount", { amount: formatQuantity(typed.amount, typed.unit), name: typed.name })}
+            </p>
+          )}
+
           {/* Picking one of these is what gets the line its aisle: typed text
               the vocabulary does not recognise lands in `other` and sorts last.
               A horizontal rail rather than a dropdown — it never covers the
@@ -209,7 +245,8 @@ export function ShoppingList({
                 <li key={item.key}>
                   <button
                     type="button"
-                    onClick={() => add(nameFor(item, locale))}
+                    // The number typed so far comes along: "4 manz" → 4 × Manzana.
+                    onClick={() => add({ ...typed, name: nameFor(item, locale) })}
                     disabled={adding}
                     className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-fg transition-colors hover:border-tomato hover:bg-tomato/5 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
                   >
@@ -232,33 +269,40 @@ function Line({
   onTick,
   onRemove,
   onFileAisle,
+  onSetAmount,
   classifying,
   currentUserId,
   vocabulary,
+  entries,
+  onOpenSlot,
 }: {
   item: ShoppingListItem;
   editable: boolean;
   onTick: (item: ShoppingListItem, checked: boolean) => void;
   onRemove: (item: ShoppingListItem) => void;
   onFileAisle: (item: ShoppingListItem, aisle: Aisle) => Promise<void>;
+  onSetAmount: (item: ShoppingListItem, amount: number) => Promise<void>;
   classifying: boolean;
   currentUserId: string | null;
   vocabulary: Map<string, GroceryItem>;
+  /** This week's dishes, by id — what a source can link to. */
+  entries: Map<string, PlanEntry>;
+  onOpenSlot: (date: string, meal: Meal) => void;
 }) {
   const { t, locale } = useI18n();
-  const [picking, setPicking] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [filing, setFiling] = useState(false);
 
   const grocery = groceryFor(item, vocabulary);
-  // Only lines still to buy. Re-filing something already in the basket is a
-  // correction nobody is standing in the shop waiting for.
+  // Only lines still to buy. Re-filing or recounting something already in the
+  // basket is a correction nobody is standing in the shop waiting for.
   const canFile = editable && !item.is_checked;
 
   const file = async (aisle: Aisle) => {
     setFiling(true);
     try {
       await onFileAisle(item, aisle);
-      setPicking(false);
+      setEditing(false);
     } finally {
       setFiling(false);
     }
@@ -269,11 +313,20 @@ function Line({
   // the kitchen. Unmatched lines keep the words somebody actually used.
   const name = displayName(item, vocabulary, locale);
 
-  // Deduplicated: two helpings of the same recipe in one week are two sources
-  // but one answer to "where is this from?". These are the names as they were
-  // when the week was planned, not a live lookup — see `dish_name` in the API.
-  const recipes = [...new Set(item.sources.map((s) => s.dish_name))];
-  const amount = item.total_amount != null ? `${item.total_amount}${item.unit ? ` ${item.unit}` : ""}` : null;
+  // One per meal: two dishes can share a name across the week and are two
+  // answers to "where is this from?", while the same dish counted twice is one.
+  // The names are snapshots from when the week was planned (`dish_name` in the
+  // API). A source whose meal is not in this week — a line carried from an
+  // earlier one — stays a plain name, because there is nowhere here to go.
+  const origins = [
+    ...new Map(
+      item.sources.map((source) => {
+        const entry = source.entry_id ? entries.get(source.entry_id) : undefined;
+        return [entry ? entry.id : `name:${source.dish_name}`, { name: source.dish_name, entry }] as const;
+      }),
+    ).values(),
+  ];
+  const amount = item.total_amount != null ? formatQuantity(item.total_amount, item.unit) : null;
 
   return (
     <li
@@ -300,11 +353,35 @@ function Line({
           <span className={`block text-sm font-semibold [overflow-wrap:anywhere] ${item.is_checked ? "text-muted line-through" : "text-fg"}`}>
             {name}
           </span>
-          <span className="block truncate text-xs text-muted">
-            {item.is_manual && recipes.length === 0
-              ? t("plan.added-by-hand")
-              : t("plan.from-recipes", { recipes: recipes.join(" · ") })}
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted">
+            {origins.length === 0 ? (
+              t("plan.added-by-hand")
+            ) : (
+              <>
+                <span>{t("plan.from")}</span>
+                {origins.map(({ name, entry }, i) =>
+                  entry ? (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => onOpenSlot(entry.date, entry.meal)}
+                      className="cursor-pointer rounded font-semibold text-fg underline decoration-line underline-offset-2 transition-colors hover:text-tomato hover:decoration-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    >
+                      {name} · {formatWeekday(entry.date, locale)} {t(`plan.${entry.meal}`).toLowerCase()}
+                    </button>
+                  ) : (
+                    <span key={`${name}-${i}`}>{name}</span>
+                  ),
+                )}
+              </>
+            )}
           </span>
+          {item.pending_since && !item.is_checked && (
+            <span className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber">
+              <History className="h-3 w-3 shrink-0" aria-hidden />
+              {t("plan.pending-since", { date: formatDayAndMonth(item.pending_since, locale) })}
+            </span>
+          )}
           {/* The model's guess in flight, or — when there is none and nothing
               knows this line — the question, asked on the line itself. */}
           {canFile && classifying && (
@@ -316,8 +393,8 @@ function Line({
           {canFile && !classifying && !grocery && (
             <button
               type="button"
-              onClick={() => setPicking((open) => !open)}
-              aria-expanded={picking}
+              onClick={() => setEditing((open) => !open)}
+              aria-expanded={editing}
               className="mt-1 inline-flex cursor-pointer items-center gap-1 rounded-full border border-dashed border-line px-2.5 py-1 text-xs font-semibold text-muted transition-colors hover:border-tomato/50 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
             >
               <Tag className="h-3 w-3" aria-hidden />
@@ -326,9 +403,20 @@ function Line({
           )}
         </span>
 
-        {amount && (
-          <span className={`shrink-0 text-sm font-semibold tabular-nums ${item.is_checked ? "text-muted" : "text-fg"}`}>{amount}</span>
-        )}
+        {amount &&
+          (canFile ? (
+            <button
+              type="button"
+              onClick={() => setEditing((open) => !open)}
+              aria-expanded={editing}
+              aria-label={`${t("plan.change-amount")}: ${name}, ${amount}`}
+              className="shrink-0 cursor-pointer rounded-full px-2 py-1 text-sm font-semibold tabular-nums text-fg transition-colors hover:bg-tomato/10 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            >
+              {amount}
+            </button>
+          ) : (
+            <span className={`shrink-0 text-sm font-semibold tabular-nums ${item.is_checked ? "text-muted" : "text-fg"}`}>{amount}</span>
+          ))}
 
         {/* Left of the amount would push the number around as names come and go.
             Here it sits in the row's quiet end, next to the delete button it will
@@ -340,14 +428,14 @@ function Line({
           label={(name) => t("kitchen.added-by", { name })}
         />
 
-        {/* A line with an aisle moves with a quiet icon; one without has the
-            louder question above instead, so it never gets both. */}
-        {canFile && grocery && (
+        {/* One quiet way in to everything about the line — how many, which
+            aisle. The unfiled line's louder "which aisle?" opens the same panel. */}
+        {canFile && (
           <button
             type="button"
-            onClick={() => setPicking((open) => !open)}
-            aria-expanded={picking}
-            aria-label={`${t("grocery.change-aisle")}: ${name}`}
+            onClick={() => setEditing((open) => !open)}
+            aria-expanded={editing}
+            aria-label={`${t("plan.edit-line")}: ${name}`}
             className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/10 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
           >
             <Tag className="h-3.5 w-3.5" />
@@ -366,12 +454,101 @@ function Line({
         )}
       </div>
 
-      {picking && canFile && (
-        <div className="space-y-2 border-t border-line px-3 pb-3 pt-2.5">
-          <p className="text-xs text-muted">{t("grocery.pick-aisle-hint")}</p>
-          <AislePicker current={grocery?.aisle} onPick={(aisle) => void file(aisle)} disabled={filing} />
+      {editing && canFile && (
+        <div className="space-y-3 border-t border-line px-3 pb-3 pt-2.5">
+          <AmountEditor
+            item={item}
+            name={name}
+            onSave={async (value) => {
+              await onSetAmount(item, value);
+              setEditing(false);
+            }}
+          />
+          <div className="space-y-2">
+            <p className="text-xs text-muted">
+              <span className="font-semibold text-fg">{t("plan.aisle")}</span> · {t("grocery.pick-aisle-hint")}
+            </p>
+            <AislePicker current={grocery?.aisle} onPick={(aisle) => void file(aisle)} disabled={filing} />
+          </div>
         </div>
       )}
     </li>
+  );
+}
+
+/** "4", "500 g", "1.5 kg" — how a quantity reads on the list. */
+function formatQuantity(amount: number, unit: string | null): string {
+  return `${amount}${unit ? ` ${unit}` : ""}`;
+}
+
+/**
+ * How many of a line — typed, or nudged one at a time.
+ *
+ * **The stepper only for counted things.** One more manzana is a tap; one more
+ * gram of feta is not a step anybody takes, so a line with a unit gets the
+ * number box alone. The unit is shown and never changed here: "200 g" corrected
+ * is still grams.
+ */
+function AmountEditor({ item, name, onSave }: { item: ShoppingListItem; name: string; onSave: (amount: number) => Promise<void> }) {
+  const { t } = useI18n();
+  const [value, setValue] = useState(item.total_amount != null ? String(item.total_amount) : "");
+  const [saving, setSaving] = useState(false);
+
+  const parsed = Number(value.replace(",", "."));
+  const valid = value.trim() !== "" && Number.isFinite(parsed) && parsed > 0;
+  const current = valid ? parsed : 0;
+  const counted = !item.unit;
+
+  const step = (delta: number) => setValue(String(Math.max(1, Math.floor(current) + delta)));
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!valid || saving || parsed === item.total_amount) return;
+    setSaving(true);
+    try {
+      await onSave(parsed);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const round = "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line text-fg transition-colors hover:border-tomato hover:text-tomato disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50";
+
+  return (
+    <form onSubmit={save} className="flex flex-wrap items-center gap-2">
+      <label htmlFor={`amount-${item.id}`} className="text-xs font-semibold text-fg">
+        {t("plan.amount")}
+      </label>
+      <div className="flex items-center gap-1.5">
+        {counted && (
+          <button type="button" onClick={() => step(-1)} disabled={current <= 1} aria-label={`${t("plan.amount-less")}: ${name}`} className={round}>
+            <Minus className="h-4 w-4" aria-hidden />
+          </button>
+        )}
+        <input
+          id={`amount-${item.id}`}
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="1"
+          autoComplete="off"
+          className="h-10 w-16 rounded-xl border border-line bg-surface px-2 text-center text-sm font-semibold tabular-nums text-fg focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+        />
+        {item.unit && <span className="text-sm text-muted">{item.unit}</span>}
+        {counted && (
+          <button type="button" onClick={() => step(1)} aria-label={`${t("plan.amount-more")}: ${name}`} className={round}>
+            <Plus className="h-4 w-4" aria-hidden />
+          </button>
+        )}
+      </div>
+      <button
+        type="submit"
+        disabled={!valid || saving || parsed === item.total_amount}
+        className="ml-auto rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      >
+        {saving ? t("common.saving") : t("plan.save-amount")}
+      </button>
+    </form>
   );
 }

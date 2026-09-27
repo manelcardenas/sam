@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SlotSheet } from "./SlotSheet";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { apiClient, type MealPlan, type ParsedIngredientLine, type PlanEntry, type Recipe, type ShoppingListItem } from "@/lib/api-client";
+import type { ScaledLine } from "@/lib/plan-ingredients";
 
 /**
  * The one modal the planner has, now that **a slot holds several dishes**
@@ -41,6 +42,7 @@ function listed(name: string, entryId: string, dishName: string): ShoppingListIt
     total_amount: 2,
     is_checked: false,
     is_manual: false,
+    pending_since: null,
     sources: [{ entry_id: entryId, dish_name: dishName, amount: 2 }],
     created_by: null,
     created_by_name: null,
@@ -62,11 +64,12 @@ function recipe(id: string, title: string, overrides: Partial<Recipe> = {}): Rec
   } as Recipe;
 }
 
-function setup(entries: PlanEntry[], recipes: Recipe[] = [], items: ShoppingListItem[] = []) {
+function setup(entries: PlanEntry[], recipes: Recipe[] = [], items: ShoppingListItem[] = [], preselect: Recipe | null = null) {
   // Echoes what it was given, the way the server does: the sheet scales the
   // ingredient step by the entry it gets back, so a mock with a fixed headcount
   // would let a wrong one through unnoticed.
-  const onAssign = vi.fn(async (recipe: Recipe | null, name: string, servings: number) =>
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `lines` is asserted on through `mock.calls`
+  const onAssign = vi.fn(async (recipe: Recipe | null, name: string, servings: number, lines?: ScaledLine[]) =>
     entry("new", name, { servings, recipe_id: recipe?.id ?? null }),
   );
   const onCreateRecipe = vi.fn().mockImplementation(async () => recipe("r-new", "Arroz blanco"));
@@ -91,8 +94,9 @@ function setup(entries: PlanEntry[], recipes: Recipe[] = [], items: ShoppingList
         vocabulary={[]}
         editable
         listEditable
-        onAssign={async (recipe, name, servings) => {
-          const saved = await onAssign(recipe, name, servings);
+        preselect={preselect}
+        onAssign={async (recipe, name, servings, lines) => {
+          const saved = await onAssign(recipe, name, servings, lines);
           // Upsert by dish, the way `upsert_entry` does: re-assigning a dish
           // that is already in the slot *replaces* it — which is exactly what a
           // headcount change is. Appending instead would leave the old servings
@@ -126,6 +130,9 @@ function setup(entries: PlanEntry[], recipes: Recipe[] = [], items: ShoppingList
 }
 
 beforeEach(() => vi.restoreAllMocks());
+
+/** The create form's own button — not the "Create “…”" offer that opens it. */
+const CREATE = /^create dish$/i;
 
 /** One structured line, as a reachable provider would answer. */
 const ARROZ: ParsedIngredientLine = {
@@ -259,7 +266,7 @@ describe("inventing a dish without leaving the week", () => {
     expect(screen.getByRole("button", { name: "Side", pressed: true })).toBeInTheDocument();
     // Said out loud, because 80g for a meal for four looks like a mistake.
     expect(screen.getByText(/scaled up for the 4 people/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /create and add/i }));
+    fireEvent.click(screen.getByRole("button", { name: CREATE }));
 
     await waitFor(() => expect(onCreateRecipe).toHaveBeenCalled());
     expect(onCreateRecipe.mock.calls[0][0].ingredients.servings).toBe(1);
@@ -271,7 +278,7 @@ describe("inventing a dish without leaving the week", () => {
 
     await openCreateForm("Lentejas");
     fireEvent.click(screen.getByRole("button", { name: "Mains" }));
-    fireEvent.click(screen.getByRole("button", { name: /create and add/i }));
+    fireEvent.click(screen.getByRole("button", { name: CREATE }));
 
     await waitFor(() => expect(onCreateRecipe).toHaveBeenCalled());
     expect(onCreateRecipe.mock.calls[0][0].ingredients.servings).toBe(4);
@@ -286,7 +293,7 @@ describe("inventing a dish without leaving the week", () => {
     await openCreateForm("Arroz blanco");
     fireEvent.click(screen.getByRole("button", { name: "Mains" }));
     fireEvent.click(screen.getByRole("button", { name: "Side" }));
-    fireEvent.click(screen.getByRole("button", { name: /create and add/i }));
+    fireEvent.click(screen.getByRole("button", { name: CREATE }));
 
     await waitFor(() => expect(onCreateRecipe).toHaveBeenCalled());
     expect(onCreateRecipe.mock.calls[0][0].ingredients.servings).toBe(1);
@@ -300,40 +307,45 @@ describe("inventing a dish without leaving the week", () => {
     fireEvent.click(screen.getByRole("button", { name: "+" }));
     // Switching category after deciding must not silently undo the decision.
     fireEvent.click(screen.getByRole("button", { name: "Mains" }));
-    fireEvent.click(screen.getByRole("button", { name: /create and add/i }));
+    fireEvent.click(screen.getByRole("button", { name: CREATE }));
 
     await waitFor(() => expect(onCreateRecipe).toHaveBeenCalled());
     expect(onCreateRecipe.mock.calls[0][0].ingredients.servings).toBe(2);
   });
 
-  it("saves the dish and puts it in the slot in one action", async () => {
+  it("saves the dish and comes back with it picked, its shopping still to decide", async () => {
+    // Not straight into the slot: the list decision is the one every other dish
+    // gets, and a dish you just typed "sal" into is the one where unticking
+    // matters. It also pins that the sheet can show the dish it just invented —
+    // the parent has not necessarily folded it into `recipes` yet.
     const { onCreateRecipe, onAssign } = setup([entry("a", "Carne en salsa", { servings: 4 })]);
     parses();
 
     await openCreateForm("Arroz blanco");
-    fireEvent.click(screen.getByRole("button", { name: /create and add/i }));
+    fireEvent.click(screen.getByRole("button", { name: CREATE }));
 
-    await waitFor(() => expect(onAssign).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole("button", { name: /add · 1 item to the list/i })).toBeInTheDocument());
     expect(onCreateRecipe).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Arroz blanco", food_type: "guarnicion", instructions: null }),
     );
-    // The slot's headcount, not the recipe's: 80g for one, cooked for four.
-    expect(onAssign).toHaveBeenCalledWith(expect.objectContaining({ id: "r-new" }), "Arroz blanco", 4);
+    expect(onAssign).not.toHaveBeenCalled();
+    // 80g written for one person, four people eating: 320g.
+    expect(screen.getByText("320 g")).toBeInTheDocument();
   });
 
-  it("lands on the new dish's ingredients, already scaled to the meal", async () => {
-    // The payoff, and the whole reason this beats typing "arroz" as free text:
-    // 80g written for one person, four people eating, 320g on the list. It also
-    // pins that the sheet can read the dish it just invented — the parent has
-    // not necessarily folded it into `recipes` yet.
-    setup([entry("a", "Carne en salsa", { servings: 4 })]);
+  it("then puts it in the slot and on the list in one tap", async () => {
+    const { onAssign } = setup([entry("a", "Carne en salsa", { servings: 4 })]);
     parses();
 
     await openCreateForm("Arroz blanco");
-    fireEvent.click(screen.getByRole("button", { name: /create and add/i }));
+    fireEvent.click(screen.getByRole("button", { name: CREATE }));
+    fireEvent.click(await screen.findByRole("button", { name: /add · 1 item to the list/i }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Add to the list" })).toBeInTheDocument());
-    expect(screen.getByText("320 g")).toBeInTheDocument();
+    await waitFor(() => expect(onAssign).toHaveBeenCalled());
+    // The slot's headcount, not the recipe's: 80g for one, cooked for four.
+    expect(onAssign).toHaveBeenCalledWith(expect.objectContaining({ id: "r-new" }), "Arroz blanco", 4, [
+      expect.objectContaining({ name: "arroz", amount: 320, unit: "g" }),
+    ]);
   });
 
   it("still works with every provider down", async () => {
@@ -344,7 +356,7 @@ describe("inventing a dish without leaving the week", () => {
     vi.spyOn(apiClient, "parseIngredients").mockRejectedValue(new Error("503"));
 
     await openCreateForm("Arroz blanco", "80 g de arroz");
-    fireEvent.click(screen.getByRole("button", { name: /create and add/i }));
+    fireEvent.click(screen.getByRole("button", { name: CREATE }));
 
     await waitFor(() => expect(onCreateRecipe).toHaveBeenCalled());
     expect(onCreateRecipe.mock.calls[0][0].ingredients.items).toEqual([{ name: "80 g de arroz", amount: undefined, unit: undefined }]);
@@ -359,7 +371,7 @@ describe("inventing a dish without leaving the week", () => {
     fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: "Arroz blanco" } });
     fireEvent.click(screen.getByRole("button", { name: /create.*arroz blanco/i }));
 
-    expect(screen.getByRole("button", { name: /create and add/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: CREATE })).toBeDisabled();
     expect(screen.getByText(/tidy the ingredients up/i)).toBeInTheDocument();
   });
 
@@ -370,7 +382,7 @@ describe("inventing a dish without leaving the week", () => {
     await openCreateForm("Arroz blanco");
     fireEvent.change(screen.getByRole("textbox", { name: /^title/i }), { target: { value: "  " } });
 
-    expect(screen.getByRole("button", { name: /create and add/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: CREATE })).toBeDisabled();
   });
 });
 
@@ -461,5 +473,149 @@ describe("the shopping list after a headcount change", () => {
 
     expect(onResyncList).not.toHaveBeenCalled();
     expect(screen.queryByText(/still has the amounts/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("choosing a dish and its shopping together", () => {
+  const LENTEJAS = recipe("r-len", "Lentejas", {
+    food_type: "comida",
+    ingredients: {
+      servings: 2,
+      items: [
+        { name: "lentejas", amount: 200, unit: "g" },
+        { name: "sal" },
+      ],
+    },
+  });
+
+  it("opens the recipe's ingredients under it, all ticked, scaled to the meal", () => {
+    setup([], [LENTEJAS]);
+
+    fireEvent.click(screen.getByRole("button", { name: /lentejas/i, pressed: false }));
+
+    expect(screen.getByRole("checkbox", { name: /lentejas/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /sal/i })).toBeChecked();
+    expect(screen.getByText("200 g")).toBeInTheDocument();
+  });
+
+  it("adds the dish and what is still ticked in one tap", async () => {
+    const { onAssign, onAddToList } = setup([], [LENTEJAS]);
+
+    fireEvent.click(screen.getByRole("button", { name: /lentejas/i, pressed: false }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /sal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /add · 1 item to the list/i }));
+
+    await waitFor(() => expect(onAssign).toHaveBeenCalled());
+    expect(onAssign.mock.calls[0][3]).toEqual([expect.objectContaining({ name: "lentejas", amount: 200 })]);
+    // One call, not assign-then-add: the list write needs the plan the
+    // assignment creates, which a second call made from here would not have.
+    expect(onAddToList).not.toHaveBeenCalled();
+  });
+
+  it("can put it on the calendar alone, for the dish you already have everything for", async () => {
+    const { onAssign } = setup([], [LENTEJAS]);
+
+    fireEvent.click(screen.getByRole("button", { name: /lentejas/i, pressed: false }));
+    fireEvent.click(screen.getByRole("button", { name: "Calendar only" }));
+
+    await waitFor(() => expect(onAssign).toHaveBeenCalled());
+    expect(onAssign.mock.calls[0][3]).toBeUndefined();
+  });
+
+  it("returns to the meal once the dish is in", async () => {
+    setup([], [LENTEJAS]);
+
+    fireEvent.click(screen.getByRole("button", { name: /lentejas/i, pressed: false }));
+    fireEvent.click(screen.getByRole("button", { name: /add · 2 items to the list/i }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add a dish" })).toBeInTheDocument());
+  });
+
+  it("offers nothing to add until a dish is picked", () => {
+    setup([], [LENTEJAS]);
+
+    expect(screen.getByRole("button", { name: "Pick a dish" })).toBeDisabled();
+  });
+
+  it("asks how many people once, for the whole meal", () => {
+    // There used to be a second stepper inside the picker, which is how the
+    // dish being added and the dishes already there got to disagree.
+    setup([entry("a", "Ensalada", { servings: 3 })], [LENTEJAS]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add a dish" }));
+
+    expect(screen.getAllByRole("button", { name: "+" })).toHaveLength(1);
+    expect(screen.getByText("3")).toBeInTheDocument();
+  });
+
+  it("does not offer a recipe that is already in this meal", () => {
+    setup([entry("a", "Lentejas", { recipe_id: "r-len" })], [LENTEJAS]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add a dish" }));
+
+    expect(screen.getByRole("button", { name: /lentejas/i, pressed: false })).toBeDisabled();
+  });
+
+  it("starts with the recipe you came from already picked", () => {
+    // "Plan it" on the recipe's own page: the recipe is chosen, the slot is
+    // what you picked here.
+    setup([entry("a", "Ensalada")], [LENTEJAS], [], LENTEJAS);
+
+    expect(screen.getByRole("button", { name: /lentejas/i, pressed: true })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /lentejas/i })).toBeChecked();
+  });
+});
+
+describe("something that is not a recipe", () => {
+  it("can be a note on the calendar that buys nothing, and says so", async () => {
+    const { onAssign } = setup([]);
+
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: "Comemos fuera" } });
+    const note = screen.getByRole("button", { name: /note “comemos fuera” without a recipe/i });
+    expect(note).toHaveTextContent(/nothing goes on the list/i);
+    fireEvent.click(note);
+
+    await waitFor(() => expect(onAssign).toHaveBeenCalled());
+    // No recipe and no lines: the calendar remembers it, the shop never hears of it.
+    expect(onAssign.mock.calls[0]).toEqual([null, "Comemos fuera", 2, undefined]);
+  });
+
+  it("offers the note only once there is something to call it", () => {
+    setup([]);
+
+    expect(screen.queryByRole("button", { name: /without a recipe/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("a dish you buy ready-made", () => {
+  async function openReadyMade(title: string) {
+    setup([entry("a", "Ensalada", { servings: 4 })]);
+    fireEvent.click(screen.getByRole("button", { name: "Add a dish" }));
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: title } });
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`create.*${title}`, "i") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /ready-made/i }));
+  }
+
+  it("needs no ingredients — the thing you buy is the ingredient", async () => {
+    await openReadyMade("Salmorejo");
+
+    expect(screen.queryByRole("textbox", { name: /ingredients/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: CREATE })).toBeEnabled();
+  });
+
+  it("is saved as one of itself, for however many one pack feeds", async () => {
+    const { onCreateRecipe } = setup([entry("a", "Ensalada", { servings: 4 })]);
+    fireEvent.click(screen.getByRole("button", { name: "Add a dish" }));
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: "Salmorejo" } });
+    fireEvent.click(screen.getByRole("button", { name: /create.*salmorejo/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /ready-made/i }));
+    fireEvent.click(screen.getByRole("button", { name: "+" }));
+
+    // A tub for two, and four at this meal: two tubs, said before you save.
+    expect(screen.getByText("This meal needs 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: CREATE }));
+
+    await waitFor(() => expect(onCreateRecipe).toHaveBeenCalled());
+    expect(onCreateRecipe.mock.calls[0][0].ingredients).toEqual({ servings: 2, items: [{ name: "Salmorejo", amount: 1, unit: undefined }] });
   });
 });
