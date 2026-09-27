@@ -1,5 +1,6 @@
 import unicodedata
 import uuid
+from datetime import date
 
 from pydantic import BaseModel, Field
 
@@ -68,6 +69,11 @@ class ShoppingListItem(BaseModel):
     total_amount: float | None = None
     is_checked: bool = False
     is_manual: bool = False  # hand-added extra rather than implied by a dish
+    # The week this line was first meant for, when it was not bought there and
+    # followed you here (`CarryForward`). NULL for a line that belongs to this
+    # week. A date rather than a flag so the list can say *how long* something
+    # has been pending — a line three weeks old is one to buy or to let go.
+    pending_since: date | None = None
     sources: list[ListItemSource] = Field(default_factory=list)
     created_by: str | None = None
     created_by_name: str | None = None

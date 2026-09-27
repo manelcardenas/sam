@@ -14,7 +14,6 @@ from src.domain.entities.plan_lifecycle import (
     PlanAction,
     PlanStateError,
     PlanStatus,
-    next_status,
     permits,
     require,
 )
@@ -77,7 +76,6 @@ __all__ = [
     "merge_key",
     "name_index",
     "near_duplicates",
-    "next_status",
     "normalise_ingredient_name",
     "permits",
     "require",

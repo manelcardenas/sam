@@ -2,14 +2,27 @@ import enum
 
 
 class PlanStatus(enum.StrEnum):
-    """The plan's lifecycle.
+    """Whether a week can still be changed.
 
-    Three states, not four: `archived` is what `list_closed` is *called* in the
-    UI, and nothing could distinguish them, so it is not a state here.
+    **There is no workflow any more** (meal-planner-plan §8.14). Weeks used to be
+    walked through `planning → calendar_closed → list_closed` by two buttons, and
+    the second one was the only thing that carried unbought lines forward — so a
+    Saturday nobody pressed it stranded the sugar in a week nobody would open
+    again. Unbought lines now follow you on their own (`CarryForward`), and a new
+    week is always `planning`.
+
+    `LIST_CLOSED` stays for the weeks that were archived under the old flow. Their
+    leftovers were already dealt with — offered to the next week, kept or let go
+    by a person — so they stay read-only and `CarryForward` skips them; reopening
+    them would bring back lines somebody deliberately dropped.
+
+    `calendar_closed` is gone from this enum: the migration that removed the
+    button set every such week back to `planning`. The label survives in the
+    Postgres type (`plan_status_enum`), because dropping an enum value there means
+    rebuilding the type, and nothing can write it any more.
     """
 
     PLANNING = "planning"
-    CALENDAR_CLOSED = "calendar_closed"
     LIST_CLOSED = "list_closed"
 
 
@@ -21,25 +34,10 @@ class PlanAction(enum.StrEnum):
     TICK = "tick"
 
 
-# What each state permits.
-#
-# `CALENDAR_CLOSED` is the *shopping* state, which is why it still allows list
-# edits and ticking: §2's flow closes the calendar before you leave the house,
-# and the last additions — fruit, yoghurt, the things no dish implies — happen on
-# the way out. `LIST_CLOSED` is what you do when the shopping is home.
+# What each state permits. Two rows: a week is open, or it is a legacy archive.
 _PERMITTED: dict[PlanStatus, frozenset[PlanAction]] = {
     PlanStatus.PLANNING: frozenset({PlanAction.EDIT_CALENDAR, PlanAction.EDIT_LIST, PlanAction.TICK}),
-    PlanStatus.CALENDAR_CLOSED: frozenset({PlanAction.EDIT_LIST, PlanAction.TICK}),
     PlanStatus.LIST_CLOSED: frozenset(),
-}
-
-# One-way, one step at a time (§5.2 defers reopening). Expressed as a map rather
-# than as `if` branches so "what comes next" has exactly one answer and the
-# terminal state is visibly terminal.
-_NEXT: dict[PlanStatus, PlanStatus | None] = {
-    PlanStatus.PLANNING: PlanStatus.CALENDAR_CLOSED,
-    PlanStatus.CALENDAR_CLOSED: PlanStatus.LIST_CLOSED,
-    PlanStatus.LIST_CLOSED: None,
 }
 
 
@@ -48,7 +46,7 @@ class PlanStateError(Exception):
 
     Deliberately distinct from "not yours": the controller maps this to 409 and
     ownership failures to 403, because a client that cannot tell them apart tells
-    the user they lack permission when in fact they closed the week an hour ago.
+    the user they lack permission when in fact the week is archived.
     """
 
 
@@ -61,11 +59,3 @@ def require(status: PlanStatus, action: PlanAction) -> None:
     cannot forget to check the result."""
     if not permits(status, action):
         raise PlanStateError(f"Cannot {action.value} while the plan is {status.value}")
-
-
-def next_status(status: PlanStatus) -> PlanStatus:
-    """The one transition available from here. Raises at the terminal state."""
-    following = _NEXT[status]
-    if following is None:
-        raise PlanStateError(f"A plan that is {status.value} has nowhere left to go")
-    return following
