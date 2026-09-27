@@ -6,8 +6,7 @@ from src.domain.ports import MealPlanRepository
 class TickItem:
     """Check or uncheck a line.
 
-    Allowed in every state a plan is still open in, because `calendar_closed` is
-    the state you are actually shopping in — and allowed to **anyone in the
+    Allowed on any week that is not archived, and to **anyone in the
     kitchen**, which used to be the one permission sharing granted and is now
     simply what membership means (§8.12).
     """
