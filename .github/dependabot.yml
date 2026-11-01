@@ -1,0 +1,90 @@
+version: 2
+updates:
+  # One entry covers the root, frontend and infra: they are npm workspaces
+  # sharing the single package-lock.json at the repo root.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # `next` is declared in both package.json and frontend/package.json
+      # (see scripts/check-next-pin.mjs). Keep it in one PR with its peers so
+      # both pins move together; CI's check:next-pin fails if they don't.
+      next-react:
+        patterns:
+          - next
+          - eslint-config-next
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      aws-cdk:
+        patterns:
+          - aws-cdk
+          - aws-cdk-lib
+          - "@aws-cdk/*"
+          - constructs
+      testing:
+        patterns:
+          - vitest
+          - "@vitejs/*"
+          - "@testing-library/*"
+          - jsdom
+          - jest
+          - ts-jest
+          - "@types/jest"
+      lint:
+        patterns:
+          - eslint
+          - "@eslint/*"
+          - knip
+      dev-dependencies:
+        dependency-type: development
+
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      backend:
+        dependency-type: production
+      dev-dependencies:
+        dependency-type: development
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
+      include: scope
+    ignore:
+      # The Lambda runtime and requires-python are pinned to 3.13.
+      - dependency-name: python
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
