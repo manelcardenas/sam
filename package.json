@@ -16,7 +16,7 @@
     "next": "15.5.28"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1",
+    "concurrently": "^9.2.5",
     "knip": "^6.44.0"
   },
   "scripts": {
