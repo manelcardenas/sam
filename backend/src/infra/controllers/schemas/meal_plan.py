@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -19,10 +19,10 @@ class AssignDishRequest(BaseModel):
     id resolves; the field is what keeps the row readable when it stops resolving.
     """
 
-    # `datetime.date`, not a bare `date` import: a field *named* `date` shadows
+    # `dt.date`, not a bare `date` import: a field *named* `date` shadows
     # that name in the class namespace, and Pydantic then fails to resolve its own
     # annotation ("field name clashing with a type annotation").
-    date: datetime.date = Field(description="Any day inside the plan's week; the plan itself is keyed to that week's Saturday")
+    date: dt.date = Field(description="Any day inside the plan's week; the plan itself is keyed to that week's Saturday")
     meal: Literal["lunch", "dinner"]
     recipe_id: str | None = Field(default=None, description="Null for a dish typed straight into the planner")
     dish_name: str = Field(min_length=1, max_length=255)
@@ -80,7 +80,7 @@ class AddToWeekListRequest(BaseModel):
     day to its Saturday and creates the week on first use.
     """
 
-    day: datetime.date = Field(description="Any day inside the week the lines belong to")
+    day: dt.date = Field(description="Any day inside the week the lines belong to")
     items: list[ListLineRequest] = Field(min_length=1)
 
 
@@ -114,4 +114,4 @@ class CarryForwardRequest(BaseModel):
     may not exist yet — and it only gets created if there is something to move.
     """
 
-    day: datetime.date = Field(description="Any day inside the week to carry into — the client's today")
+    day: dt.date = Field(description="Any day inside the week to carry into — the client's today")

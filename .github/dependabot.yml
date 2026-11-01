@@ -11,6 +11,17 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    # Groups bundle minor and patch updates only — a major version is a
+    # migration, and inside a group one of them turns the whole PR red (the
+    # first run did this five times: Next 16, ESLint 10, Tailwind 4,
+    # TypeScript 7, maplibre 6). Outside the groups each major arrives as a PR
+    # of its own, to take or postpone on its merits. The exceptions are
+    # next-react and aws-cdk, whose members have to move together.
+    ignore:
+      # Tracks the Node major in .nvmrc, not the newest Node there is.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
     groups:
       # `next` is declared in both package.json and frontend/package.json
       # (see scripts/check-next-pin.mjs). Keep it in one PR with its peers so
@@ -38,13 +49,16 @@ updates:
           - jest
           - ts-jest
           - "@types/jest"
+        update-types: [minor, patch]
       lint:
         patterns:
           - eslint
           - "@eslint/*"
           - knip
+        update-types: [minor, patch]
       dev-dependencies:
         dependency-type: development
+        update-types: [minor, patch]
 
   - package-ecosystem: uv
     directory: /backend
@@ -55,11 +69,14 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    # Same rule as npm: majors (Starlette 1.x was the first) come on their own.
     groups:
       backend:
         dependency-type: production
+        update-types: [minor, patch]
       dev-dependencies:
         dependency-type: development
+        update-types: [minor, patch]
 
   - package-ecosystem: docker
     directory: /backend

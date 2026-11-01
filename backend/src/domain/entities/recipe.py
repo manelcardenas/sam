@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pydantic import BaseModel, Field
 
 
-class FoodType(str, enum.Enum):
+class FoodType(enum.StrEnum):
     """What kind of thing this is, as a person would say it.
 
     `GUARNICION` was added for the planner (ingredient-capture-plan §5.3): rice,
