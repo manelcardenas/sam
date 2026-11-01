@@ -14,7 +14,7 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
-    "@lottiefiles/dotlottie-react": "^0.19.4",
+    "@lottiefiles/dotlottie-react": "^0.20.0",
     "aws-amplify": "^6.22.2",
     "lucide-react": "^1.64.0",
     "maplibre-gl": "^5.24.0",
