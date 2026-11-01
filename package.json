@@ -13,7 +13,7 @@
   },
   "//next": "NOT unused, and NOT an accidental duplicate of frontend's. Added so AWS Amplify would detect Next at the repo root. NOTE: the CDK stack deploys platform WEB (static export), not WEB_COMPUTE, so this may now be obsolete - see docs/plans/tooling-and-tests-plan.md Phase 3. Left in place deliberately: removing it is a separate one-line experiment that needs its own deploy to verify, not a change to bundle with the workspace move. The single lockfile makes this and frontend's pin resolve to one physical package; `npm run check:next-pin` keeps the two declarations equal.",
   "dependencies": {
-    "next": "15.5.12"
+    "next": "15.5.28"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
