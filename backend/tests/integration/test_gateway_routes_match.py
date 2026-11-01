@@ -24,10 +24,6 @@ import pytest
 
 STACK = Path(__file__).resolve().parents[3] / "infra" / "lib" / "application" / "lambda-api-stack.ts"
 
-# FastAPI serves these itself; they are not part of the product's surface and
-# are deliberately not exposed through the gateway.
-DOCS_ROUTES = {"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"}
-
 
 def _app_paths() -> set[str]:
     # build_dsn() reads these; nothing connects until the lifespan runs, so the
@@ -44,7 +40,15 @@ def _app_paths() -> set[str]:
 
     from src.main import create_app
 
-    return {route.path for route in create_app().routes if hasattr(route, "methods")} - DOCS_ROUTES
+    # Read from the OpenAPI schema, not `app.routes`. FastAPI 0.162 stopped
+    # copying an included router's routes into `app.routes` — it keeps one
+    # `_IncludedRouter` there instead — so walking `app.routes` found no route
+    # at all and this test failed on every path. The schema is the public view
+    # of what the app serves, the same in both versions, and it already leaves
+    # out FastAPI's own /docs, /redoc and /openapi.json. The price: a route
+    # registered with `include_in_schema=False` would be invisible here. There
+    # is none; add it to this set by hand if one ever appears.
+    return set(create_app().openapi()["paths"])
 
 
 def _gateway_paths() -> set[str]:
