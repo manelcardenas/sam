@@ -9,7 +9,7 @@ certifi==2026.10.23
 cffi==2.1.1 ; platform_python_implementation != 'PyPy'
 click==8.5.0
 colorama==0.4.6 ; sys_platform == 'win32'
-cryptography==46.0.5
+cryptography==50.0.2
 dnspython==2.9.1
 ecdsa==0.19.2
 email-validator==2.3.0
