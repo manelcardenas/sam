@@ -32,6 +32,16 @@ jobs:
         working-directory: backend
         run: uv sync --group dev
 
+      # The Lambda is built from requirements.txt, the tests below run on
+      # uv.lock: if they disagree, production runs versions nobody tested.
+      # Catches a Dependabot PR that bumps only one of the two. Fix locally with
+      # `uv lock --upgrade-package <name>` and commit (the pre-commit hook
+      # regenerates requirements.txt). Comments are ignored: uv versions word
+      # them differently.
+      - name: requirements.txt matches uv.lock
+        working-directory: backend
+        run: diff <(uv export --no-dev --no-hashes --frozen --quiet | grep -v '^\s*#') <(grep -v '^\s*#' requirements.txt)
+
       - name: Ruff check
         working-directory: backend
         run: uv run ruff check .
