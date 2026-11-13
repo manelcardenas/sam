@@ -303,6 +303,8 @@ field on every ingredient line is a real cost to pay for it.
 
 ## Queue as of 2026-09-07
 
+> **Superseded 2026-11-08:** the live queue is [`../todo/README.md`](../todo/README.md) — one file per task, with a status banner. This table stays as history.
+
 Agreed order, replacing "pick whichever item looks interesting":
 
 | | | |
