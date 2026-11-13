@@ -1,6 +1,6 @@
 # TODO — Quick wins on the web app
 
-> **Status: Proposed — not started.**
+> **Status: In progress — 1 done (branch `bugfix/dine-back-navigation`), 2 and 3 next.**
 
 Three small problems on the current web app. Worth fixing now, whatever is decided in
 [web or mobile](./TODO_web-or-mobile-decision.md), because the app is in daily use.
@@ -18,12 +18,17 @@ The detail is `/dine?place=<id>`; views push history, filters replace (AGENTS.md
 - **Bug 2 — deep links** (`/profile` → `/dine?place=X`): back returns to `/profile`, and the
   in-app Back pushes `/dine`, so the next back gesture loops into the detail again.
 
-- [ ] Clear the flag when `applyUrl` changes nothing (or drop the flag and rely on
-      `writeUrl`'s same-URL no-op, special-casing `edit-review`)
-- [ ] On a deep link with no history depth: `replaceState('/dine?<filters>')`, then
-      `pushState(current)` — both back paths land on the list
-- [ ] Optional: `view=map` as a replace-only param, and restore `scrollY` from history state
-- [ ] A test for each bug (none exists today)
+- [x] Flag dropped: `applyUrl` records the view it applies in `lastViewKey`, so the writer's
+      echo is a same-URL no-op. Popping onto an `edit-review` entry now rewrites it to the
+      detail URL, which is what it decodes to anyway.
+- [x] On landing in a non-list view: the entry is rewritten as the list and the view pushed on
+      top — both back paths land on the list. Known leftover: refreshing a restaurant you
+      opened from the list leaves two list entries below it (one extra back press).
+- [x] Tests: `app/dine/page.spec.tsx` (both fail on the old code) and
+      `app/plan/page.spec.tsx`. /plan never had the bug: its URL is restored on mount, so the
+      writer's mount run clears the flag; the test keeps it that way.
+- [ ] Optional, not done: `view=map` as a replace-only param, and restore `scrollY` from
+      history state
 
 ## 2. Long Spanish/Catalan strings deform the page on phones
 

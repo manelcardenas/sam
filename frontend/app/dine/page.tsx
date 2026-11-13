@@ -338,23 +338,34 @@ export default function DinePage() {
   // ── URL sync ────────────────────────────────────────────────────────────────
 
   const history = useHistoryDepth();
-  const applyingHistory = useRef(false);
   const urlRestored = useRef(false);
+  // The view the URL currently shows, as `view|placeId`. The writer below
+  // pushes only when the view moves away from it.
+  const lastViewKey = useRef("");
 
   /** Load the restaurant a URL names, then put the view where the URL says. */
   const applyUrl = useCallback(
     async (params: URLSearchParams) => {
       const next = parseView(params);
-      applyingHistory.current = true;
+      // State that came *from* the URL must not be pushed back onto it. Marking
+      // the view as already shown makes the writer's next run a same-URL
+      // replace, which `writeUrl` skips. This used to be a flag cleared by the
+      // writer — but when the URL matched the state already on screen (landing
+      // on /dine) the writer never ran, the flag stayed set, and it swallowed
+      // the push of the first restaurant you opened: back then left /dine.
+      const show = (view: DineView, placeId: string | null) => {
+        lastViewKey.current = `${view}|${placeId ?? ""}`;
+        setView(view);
+      };
 
       if (!next.placeId) {
         setSelectedRestaurant(null);
         setReviewToEdit(null);
-        setView(next.view);
+        show(next.view, null);
         return;
       }
       if (next.placeId === selectedRestaurant?.id) {
-        setView(next.view);
+        show(next.view, next.placeId);
         return;
       }
       try {
@@ -364,12 +375,12 @@ export default function DinePage() {
         ]);
         setSelectedRestaurant(detail);
         setReviews(restaurantReviews);
-        setView(next.view);
+        show(next.view, detail.id);
       } catch {
         // A link to a restaurant that's been deleted, or a mangled id — show
         // the list rather than an empty detail page.
         setSelectedRestaurant(null);
-        setView("list");
+        show("list", null);
       }
     },
     [selectedRestaurant?.id],
@@ -378,8 +389,20 @@ export default function DinePage() {
   useEffect(() => {
     if (urlRestored.current || loading) return;
     urlRestored.current = true;
-    void applyUrl(currentParams());
-  }, [loading, applyUrl]);
+    const params = currentParams();
+    if (parseView(params).view !== "list") {
+      // Opened straight into a restaurant (a link from /profile, a refresh):
+      // there is no list underneath in history. Put one there — rewrite this
+      // entry as the list and push the restaurant on top — so both the device
+      // back gesture and the in-app Back land on the list. Without it the
+      // gesture left /dine and the in-app Back pushed a list entry, after
+      // which the gesture walked back into the restaurant you had just left.
+      writeUrl(composeQuery(toSearchParams(fromSearchParams(params)), "list", null), "replace");
+      writeUrl(params.toString(), "push");
+      history.recordPush();
+    }
+    void applyUrl(params);
+  }, [loading, applyUrl, history]);
 
   useBrowserNavigation((params) => {
     history.recordPop();
@@ -389,16 +412,9 @@ export default function DinePage() {
   // One writer for the whole query string, because filters and view share it.
   // A view change pushes, so the device back gesture dismisses it; a filter
   // change replaces, so tweaking five chips doesn't cost five back presses.
-  const lastViewKey = useRef("");
-
   useEffect(() => {
     if (!urlRestored.current) return;
     const viewKey = `${view}|${selectedRestaurant?.id ?? ""}`;
-    if (applyingHistory.current) {
-      applyingHistory.current = false;
-      lastViewKey.current = viewKey;
-      return;
-    }
     const viewChanged = viewKey !== lastViewKey.current;
     lastViewKey.current = viewKey;
 

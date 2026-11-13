@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 /**
  * Page state in the URL, for a statically exported app.
@@ -62,13 +62,17 @@ export function useBrowserNavigation(onNavigate: (params: URLSearchParams) => vo
  */
 export function useHistoryDepth() {
   const depth = useRef(0);
-  return {
-    recordPush: () => {
-      depth.current += 1;
-    },
-    recordPop: () => {
-      depth.current = Math.max(0, depth.current - 1);
-    },
-    canGoBack: () => depth.current > 0,
-  };
+  // One object for the page's lifetime, so effects can list it as a dependency.
+  return useMemo(
+    () => ({
+      recordPush: () => {
+        depth.current += 1;
+      },
+      recordPop: () => {
+        depth.current = Math.max(0, depth.current - 1);
+      },
+      canGoBack: () => depth.current > 0,
+    }),
+    [],
+  );
 }
