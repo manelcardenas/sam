@@ -21,6 +21,19 @@ repos:
   #   hooks:
   #     - id: actionlint
 
+  # backend/requirements.txt is what the Lambda is built from — the CDK Python
+  # bundler reads requirements.txt and ignores uv.lock — while tests and local
+  # dev run on uv.lock. Regenerate it whenever the lock changes so production
+  # and tests run the same versions. Uses your installed uv, no pinned hook.
+  - repo: local
+    hooks:
+      - id: backend-requirements-from-uv-lock
+        name: backend/requirements.txt from uv.lock
+        language: system
+        entry: uv export --directory backend --no-dev --no-hashes --frozen --quiet -o requirements.txt
+        files: ^backend/(uv\.lock|pyproject\.toml)$
+        pass_filenames: false
+
   # Ruff - fast Python linter and formatter
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.9
