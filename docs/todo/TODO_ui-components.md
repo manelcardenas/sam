@@ -1,7 +1,8 @@
 # TODO — Shared UI components and the copy-fits check
 
-> **Status: In progress** — PR A done (branch `refactor/ui-buttons`): the components, the
-> screens that were overflowing, and the check. B and C next.
+> **Status: DONE — 2026-11-14 (A only).** *Outcome:* PR A shipped the components, the
+> overflowing screens and the check; B and C were cancelled by
+> [ADR 0008](../adr/0008-expo-app-replaces-the-web-frontend.md) (Expo replaces this frontend).
 
 **Why.** On 2026-11-14 the frontend had 131 hand-written `<button>`s in 37 files and no `Button`
 component, so every button decided on its own what to do when its label did not fit. Catalan
@@ -48,11 +49,14 @@ link variant).
 - [ ] Optional: an ESLint rule (`no-restricted-syntax` on JSX `button` outside `components/ui/`)
       so a new hand-written button fails lint
 
-**Depends on** the [web or mobile decision](./TODO_web-or-mobile-decision.md): if Expo replaces
-this frontend, B is ~1 day spent on code that is thrown away. The rules and the check carry over;
-the migration does not. Revisit when that decision is made.
+**Cancelled 2026-11-14** by [ADR 0008](../adr/0008-expo-app-replaces-the-web-frontend.md): Expo
+replaces this frontend, so B would be ~1 day on code that is thrown away. The rules carry over to
+Expo; the migration does not. **Revisit if** the Expo move is abandoned and the web app stays.
 
 ## C — Run the check in CI
+
+**Cancelled 2026-11-14** with B, same reason and same revisit trigger. The Expo app needs its
+own version of the check (labels fit at 360 px in Catalan); that belongs to the Expo setup.
 
 - [ ] The test needs the whole stack: Postgres (a service container), the API, the web app and a
       Cognito test user (secrets `E2E_EMAIL`/`E2E_PASSWORD`). About +1 min a run and ~150 MB of

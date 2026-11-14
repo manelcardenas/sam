@@ -1,6 +1,8 @@
 # TODO — Web or mobile app: decide
 
-> **Status: Proposed — not started.** A decision, recorded as an ADR, before the plan redesign.
+> **Status: DONE — 2026-11-14.** *Outcome:* B, in phases — backend to Vercel first, then an Expo
+> app starting with a redesigned Plan, an APK for daily use, and the store fees paid only when it
+> is ready. See [ADR 0008](../adr/0008-expo-app-replaces-the-web-frontend.md).
 
 The app is used almost only on phones, by two people. Options:
 
@@ -47,6 +49,6 @@ storage of a site not installed and unused for a while. On Android a PWA can do 
 (`docs/plans/future-roadmap.md` §9 — link import from TikTok needs the share sheet), a shared
 shopping list that two people edit (a push when the other adds a line), offline use in a
 supermarket aisle.
-- [ ] Grill the options and write ADR 0008
-- [ ] If B or C: copy the mywally-app conventions (Expo Router, NativeWind, i18next, an Orval
+- [x] Grill the options and write ADR 0008
+- [ ] B chosen: copy the mywally-app conventions (Expo Router, NativeWind, i18next, an Orval
       client generated from FastAPI's OpenAPI)

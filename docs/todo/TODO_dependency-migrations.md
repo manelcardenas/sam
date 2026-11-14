@@ -1,7 +1,10 @@
 # TODO — Heavy dependency migrations
 
-> **Status: Proposed — not started.** Waits for [web or mobile](./TODO_web-or-mobile-decision.md):
-> if Expo replaces the Next.js frontend, most of these disappear.
+> **Status: Proposed — not started.** Narrowed by
+> [ADR 0008](../adr/0008-expo-app-replaces-the-web-frontend.md): Expo replaces the Next.js
+> frontend, which stays live (frozen) until the Expo app reaches parity. Security fixes still
+> apply to it; the web-only upgrades (#98, #104, #81, #83) are dropped — **revisit if** the Expo
+> move is abandoned.
 
 Dependabot PRs left open on purpose. Next is already on 16 in production (#96 merged it as a
 postcss security fix; builds, deploys and smoke tests passed).
@@ -18,7 +21,7 @@ postcss security fix; builds, deploys and smoke tests passed).
 - [ ] #98 first: new `eslint.config.mjs` (`defineConfig` + `eslint-config-next/core-web-vitals` +
       `/typescript`, drop `@eslint/eslintrc`), then the 43 React Compiler findings
 - [ ] #104 after it
-- [ ] #71, then test the map by hand
+- [ ] #71, then test the map by hand — **still needed**: a security fix for the live web app
 - [ ] #81 and #83 only if the Next.js frontend stays
 - [ ] Minimatch alert: bundled inside `aws-cdk-lib`, build-time only; goes away with CDK or the move off AWS
 

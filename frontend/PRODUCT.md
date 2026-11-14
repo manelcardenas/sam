@@ -7,9 +7,10 @@
 web
 
 An installable PWA (`app/manifest.ts`, `appleWebApp` in `app/layout.tsx`), used almost only on
-phones. Whether it stays a PWA or becomes an Expo app is an open decision:
-[`docs/todo/TODO_web-or-mobile-decision.md`](../docs/todo/TODO_web-or-mobile-decision.md). The two
-people using it today have one iPhone and one Android phone, so any answer must cover both.
+phones. It is being replaced by an Expo app
+([ADR 0008](../docs/adr/0008-expo-app-replaces-the-web-frontend.md)); this web app stays live,
+frozen to fixes, until the Expo app reaches parity. The two people using it today have one iPhone
+and one Android phone, so both must be covered.
 
 ## Users
 
@@ -59,7 +60,7 @@ by invitation, so the week and the list belong to the household, not to one acco
   Catalan (`e2e/copy-fits.e2e.ts`).
 - One admin account.
 - Undecided: how strangers will be grouped once the app opens up (today every account sees every
-  restaurant and review); web vs Expo.
+  restaurant and review).
 
 ## Brand Commitments
 
