@@ -1,4 +1,5 @@
 import logging
+import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -26,6 +27,7 @@ from src.infra.middleware import (
     RateLimitMiddleware,
     RequestTimingMiddleware,
 )
+from src.infra.observability.boot import BootTimer
 from src.infra.security import configure_user_repository
 
 # Load .env for local development. On Lambda, env vars are injected directly
@@ -36,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
+    boot = BootTimer()
     db = DatabaseConnectionPool(dsn=build_dsn())
     settings = MiddlewareSettings()
 
@@ -43,7 +46,9 @@ def create_app() -> FastAPI:
     # On Lambda this runs once per cold start via Mangum's lifespan support.
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+        started = time.perf_counter()
         db.open()
+        boot.db_opened((time.perf_counter() - started) * 1000)
         yield
         db.close()
 
@@ -86,6 +91,7 @@ def create_app() -> FastAPI:
     GroceryController(grocery_repository, recipe_repository, ingredient_parser, router)
     app.include_router(router)
 
+    boot.app_created()
     return app
 
 
