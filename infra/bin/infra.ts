@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import { App } from "aws-cdk-lib";
-import { GithubOidcProviderStack } from "../lib/foundation/github-oidc-provider-stack";
-import { CiRoleStack } from "../lib/foundation/ci-role-stack";
-import { LambdaApiStack } from "../lib/application/lambda-api-stack";
 import { CognitoStack } from "../lib/foundation/cognito-stack";
-import { AmplifyStack } from "../lib/application/amplify-stack";
 
+// Since ADR 0008 the API and the web run on Vercel, so the only AWS resource
+// left is Cognito (sign-in). Deploy it by hand:
+//   npx cdk diff RecipeManagerCognitoStack
+//   npx cdk deploy RecipeManagerCognitoStack
 const app = new App();
 
 const env = {
@@ -14,35 +14,10 @@ const env = {
   region: "eu-west-3",
 };
 
-// ── Foundation (deploy once) ────────────────────────────────────────────────
-new GithubOidcProviderStack(app, "RecipeManagerOidcProviderStack", { env });
-new CiRoleStack(app, "RecipeManagerCiRoleStack", { env });
-
-// Cognito (foundation layer). Its OAuth callback/logout URLs are the web's
-// origins from cdk.json: `webDomain` (Vercel) and, until Amplify is deleted,
-// `amplifyDomain`. Changing either means redeploying this stack.
-const amplifyDomain = app.node.tryGetContext("amplifyDomain");
-const webDomain = app.node.tryGetContext("webDomain");
-const cognitoStack = new CognitoStack(app, "RecipeManagerCognitoStack", {
+// Its OAuth callback/logout URLs include the web's origin, `webDomain` in
+// cdk.json. Changing it means redeploying this stack (and updating the API's
+// CORS_ALLOW_ORIGINS on Vercel).
+new CognitoStack(app, "RecipeManagerCognitoStack", {
   env,
-  amplifyDomain,
-  webDomain,
+  webDomain: app.node.tryGetContext("webDomain"),
 });
-
-// ── Application (deploy frequently via CI/CD) ────────────────────────────────
-new LambdaApiStack(
-  app,
-  "RecipeManagerLambdaApiStack",
-  { env },
-  cognitoStack,
-);
-
-// ── Frontend (Amplify) ───────────────────────────────────────────────────────
-new AmplifyStack(
-  app,
-  "RecipeManagerAmplifyStack",
-  { env },
-  {
-    cognitoStack,
-  },
-);

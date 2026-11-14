@@ -15,11 +15,6 @@ import type { KnipConfig } from "knip";
 const config: KnipConfig = {
   workspaces: {
     ".": {
-      entry: ["scripts/*.mjs"],
-      // WHY: declared solely so AWS Amplify finds Next at the repo root. It is
-      // never imported here and never will be — see the "//next" note in
-      // package.json and docs/plans/tooling-and-tests-plan.md Phase 3.
-      ignoreDependencies: ["next"],
       // WHY: `npm run dev:api` shells out to uv. Python's package manager is
       // not an npm dependency and never appears in one.
       ignoreBinaries: ["uv"],

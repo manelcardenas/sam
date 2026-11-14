@@ -82,7 +82,7 @@ not production. **Revisit when** a PR needs testing before merge.
 |---|---|
 | Vercel `sam-api` env (sensitive) | `POSTGRES_DSN` (Neon pooler), LLM and Geoapify keys, Cognito ids, `CORS_ALLOW_ORIGINS` |
 | Vercel `sam-web` env (plain) | `NEXT_PUBLIC_*` — public by design, they ship in the bundle |
-| SSM `/recipe-manager/google-client-*` | Google sign-in for the Cognito stack |
+| SSM `/recipe-manager/google-client-*` | Google sign-in for the Cognito stack (see below) |
 
 Changing an env var does not redeploy: trigger a new production deployment afterwards. The
 Vercel CLI refuses `vercel env rm` from an agent (it needs a typed confirmation); use
@@ -97,7 +97,7 @@ both list every web origin. A new origin means updating both.
 
 - **Redeploy `main`** (e.g. after an env change): Vercel dashboard → Deployments → Redeploy,
   or create a deployment from the Git source `main` through the API.
-- **Cognito** (the only stack still deployed by CDK):
+- **Cognito** (the only AWS stack):
   `cd infra && npx cdk diff RecipeManagerCognitoStack`, then
   `npx cdk deploy RecipeManagerCognitoStack --exclusively`.
 - **Migrations from a laptop**, against the direct (non-`-pooler`) endpoint:
@@ -105,19 +105,35 @@ both list every web origin. A new origin means updating both.
 
 ---
 
-## Being retired (ADR 0008)
+## What is left on AWS
 
-Still deployed as a frozen rollback for a few days, no longer updated by anything:
+Only sign-in. Everything else was deleted on 2026-11-14 (Lambda + API Gateway, Amplify, the
+GitHub Actions OIDC role and provider, their SSM parameters and log groups).
 
+| Resource | Why it stays |
+|---|---|
+| `RecipeManagerCognitoStack` | The user pool, its web client, the Google provider and the `admins` group |
+| `CDKToolkit` | CDK's bootstrap (asset bucket + roles); needed to deploy the Cognito stack |
+| SSM `/recipe-manager/google-client-id`, `/recipe-manager/google-client-secret` | Read by the Cognito stack at deploy time |
+
+**Old assets don't pile up.** Every deploy uploads its template and assets to the CDK
+bucket and nothing removes them (it had reached 173 objects, 1.56 GB of old Lambda bundles).
+After a deploy that drops assets, collect the ones no stack references:
+
+```bash
+cd infra && npx cdk gc aws://<account>/eu-west-3 --unstable=gc --type=all
 ```
-RecipeManagerLambdaApiStack   Lambda + API Gateway, https://xbm9t398cd.execute-api.eu-west-3.amazonaws.com
-RecipeManagerAmplifyStack     https://main.digg8p5ivgpv8.amplifyapp.com
-RecipeManagerCiRoleStack      the GitHub Actions OIDC role the old deploy workflows assumed
-RecipeManagerOidcProviderStack
-```
 
-Their deploy workflows (`deploy-backend.yml`, `deploy-frontend.yml`) are deleted. What remains
-to remove is tracked in `docs/todo/TODO_backend-off-lambda.md`.
+The same idea as an ECR lifecycle rule. Vercel does it already: each project expires
+deployments after 30 days and always keeps the 10 most recent production ones (Project →
+Settings → Deployment Retention).
+
+**Why the Google secret is an SSM `String`, not a `SecureString`.** CloudFormation resolves
+`ssm-secure` references only in a short list of properties (RDS and Redshift passwords, IAM
+login profiles…), and a Cognito identity provider's `ProviderDetails` is not one of them; the
+deploy fails. Encrypting it would take Secrets Manager (0.40 $/month) or a custom resource.
+Neither buys much: anyone with IAM access to SSM can also read the secret back from Cognito
+(`describe-identity-provider`). Both are guarded by the same IAM boundary.
 
 ---
 
