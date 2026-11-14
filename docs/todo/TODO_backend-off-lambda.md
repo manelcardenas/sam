@@ -117,17 +117,16 @@ instance.
       Cognito + CDKToolkit only — see `docs/wiki/ci-cd.md` → "What is left on AWS".
 - [ ] Revoke the GitHub personal access token Amplify used (GitHub → Settings → Developer
       settings). Its SSM copy is deleted, but the token itself lives on GitHub.
-- [ ] **Rate limiting lost its outer guard.** API Gateway's throttling was "the real guard";
-      the app's own `RATE_LIMIT_PER_MINUTE` is in-memory per instance, and Fluid compute runs
-      several. Vercel Firewall can rate-limit by IP at the edge — check what Hobby includes
-      before writing anything. **Revisit when** traffic is more than the household, or a
-      signed-out endpoint gets abused (LLM parsing and Geoapify are the costly ones).
-- [ ] **DB pool sized for Lambda.** `engine.py` holds 1 connection + 1 overflow because a
-      Lambda container served one request at a time. A Fluid instance serves many at once —
-      the plan page alone fires 4 GETs in parallel — so the 3rd and 4th wait for a free
-      connection, and the overflow one re-handshakes every time. Next step: measure with the
-      request log, then raise the pool (Neon's pooler takes thousands of clients, so the
-      limit is free to raise).
+- [x] **Rate limiting lost its outer guard** — API Gateway's throttling was "the real guard",
+      and the app's own `RATE_LIMIT_PER_MINUTE` counts per instance. Hobby allows one WAF
+      rate-limit rule per project, so it guards the endpoints that spend money: `/places/*`
+      (Geoapify, 3,000 free credits a day) and `/ingredients/parse` (DeepSeek), 100 requests
+      per 10 min per IP → 429. Sign-up is open, so an account is no barrier. Details in
+      `docs/wiki/ci-cd.md` → "Firewall".
+- [x] **DB pool sized for Lambda** (1 + 1, because a Lambda container served one request at
+      a time). Raised to 5 + 5 for Fluid compute, where one instance serves many at once.
+      Baseline before (15 bursts of the plan page's 4 GETs): server p50 30 ms, p90 61 ms, 10
+      handshakes in 60 requests.
 - [ ] Previews per PR (web and API): a web preview has its own origin, which neither CORS nor
       Cognito accept, and an API preview needs its own database (a Neon branch), not
       production. **Revisit when** a PR needs testing before merge.

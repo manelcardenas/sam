@@ -9,12 +9,17 @@ from src.infra.observability import install_engine_instrumentation
 
 logger = logging.getLogger(__name__)
 
-# Held open between invocations, so a warm container reuses one socket instead
-# of re-doing TCP+TLS+auth. One per container is plenty: a Lambda container
-# serves one request at a time. The overflow slot exists only so a stray
-# concurrent checkout blocks briefly rather than erroring.
-_POOL_SIZE = 1
-_MAX_OVERFLOW = 1
+# Held open between requests, so a warm instance reuses sockets instead of
+# re-doing TCP+TLS+auth (~25 ms each from fra1). Sized for Vercel's Fluid
+# compute, where one instance serves many requests at once: the plan page alone
+# fires 4 GETs in parallel. The Lambda-era 1 + 1 made every concurrent request
+# open (and then throw away) an overflow connection, or wait for one.
+#
+# Free to raise: these go to Neon's pooler (PgBouncer), which takes thousands
+# of clients, and an idle connection does not keep the compute awake (ADR 0006).
+# Overflow connections are closed on return, so _POOL_SIZE is what stays warm.
+_POOL_SIZE = 5
+_MAX_OVERFLOW = 5
 _POOL_RECYCLE_SECONDS = 280
 
 
@@ -45,11 +50,11 @@ class DatabaseConnectionPool:
     """Manages the synchronous SQLAlchemy engine and session factory.
 
     Pools connections rather than using NullPool. The engine is built at module
-    scope, so a warm Lambda container reuses the same socket across
-    invocations: GET /restaurants went from three cross-region handshakes to
-    roughly zero. `pool_pre_ping` covers the two ways a pooled socket can die —
-    a frozen container and Neon's scale-to-zero — by testing liveness and
-    transparently reconnecting.
+    scope, so a warm instance reuses its sockets across requests: on Lambda,
+    GET /restaurants went from three cross-region handshakes to roughly zero.
+    `pool_pre_ping` covers the two ways a pooled socket can die — a suspended
+    instance and Neon's scale-to-zero — by testing liveness and transparently
+    reconnecting.
 
     See docs/adr/0006-pooled-connections-on-lambda.md for why the usual
     NullPool-on-Lambda advice does not apply to this deployment, and for the
@@ -57,8 +62,8 @@ class DatabaseConnectionPool:
     (it doesn't, so this costs nothing).
 
     The open()/close() methods follow the same lifecycle pattern as the ECS
-    reference project, called once per process via the FastAPI lifespan.
-    On Lambda this means once per cold start.
+    reference project, called once per process via the FastAPI lifespan —
+    once per cold start.
     """
 
     def __init__(self, dsn: str) -> None:
@@ -87,7 +92,7 @@ class DatabaseConnectionPool:
         """Test the connection on application startup.
 
         Fails fast if credentials are wrong or the DB is unreachable.
-        Called once per Lambda cold start via the FastAPI lifespan.
+        Called once per cold start via the FastAPI lifespan.
 
         Now that connections are pooled this also *pre-warms*: the connection
         opened here returns to the pool, so the first real request inherits it
