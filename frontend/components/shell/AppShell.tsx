@@ -44,7 +44,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-bg bg-paws text-fg">
-      <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur supports-[backdrop-filter]:bg-bg/65">
+      <header className="glass-bar sticky top-0 z-30">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
             href="/dashboard"
