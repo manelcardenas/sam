@@ -13,7 +13,6 @@ postcss security fix; builds, deploys and smoke tests passed).
 | #71 | maplibre-gl 5 → 6 | No default export: every `import maplibregl from "maplibre-gl"` |
 | #81 | Tailwind 3 → 4 | Config moves to CSS; a rewrite of the setup |
 | #83 | TypeScript 5 → 7 | Type-check in frontend and infra |
-| #97 | filelock 3 → 4 (backend, dev only) | Another dev dependency caps it below 4: `uv lock --upgrade-package filelock` stops at 3.32.7 |
 
 - [ ] #98 first: new `eslint.config.mjs` (`defineConfig` + `eslint-config-next/core-web-vitals` +
       `/typescript`, drop `@eslint/eslintrc`), then the 43 React Compiler findings
@@ -39,3 +38,13 @@ Pipfile, poetry.lock or requirements.txt, never `uv.lock` — while tests run on
 Dependabot had been bumping only one of the two, so about 15 transitive packages differed. Now a
 pre-commit hook regenerates `requirements.txt` from `uv.lock`, and a CI step fails a PR where they
 disagree.
+
+## Done 2026-11-14: security alerts
+
+- `chore/backend-security-bumps` clears the open security alerts that have a fix:
+  anyio 4.16 and certifi 2026.10.23 (both critical), Mako 1.4.3, idna 3.20, and in dev only
+  virtualenv 21.15, filelock 4.2.10, Pygments 2.21. The new virtualenv lifted the cap on filelock,
+  so it also replaces #97. Dependabot had not opened PRs for these alerts (open since 2026-11-01).
+  531 tests pass against real Postgres.
+- Still open: `python-jose` (critical, no fix released) and its `ecdsa` and `pyasn1` alerts, gone
+  once the JWT handler moves to PyJWT; `maplibre-gl` (critical XSS, fixed only in 6.4.1, so #71).
