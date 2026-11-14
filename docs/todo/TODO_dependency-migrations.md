@@ -30,8 +30,8 @@ non-breaking PRs were redone by hand in two branches; close the Dependabot PRs t
 - `chore/backend-deps-one-source` replaces #105 (starlette 1.10), #106 (cryptography 50, a
   CVE) and #108 (dnspython). 531 backend tests pass against real Postgres; `requirements.txt`
   installs clean in a fresh venv and the app builds.
-- `chore/frontend-deps` replaces #99, #100, #101, #102, #103 and the React half of #98 (React
-  19.3). `npm run check` and the static build pass.
+- `chore/frontend-deps` replaces #99, #100, #101, #102, #103, #111 (fast-xml-parser, via
+  aws-amplify) and the React half of #98 (React 19.3). `npm run check` and the static build pass.
 
 **Found on the way: production and tests ran different versions.** The Lambda is built from
 `backend/requirements.txt` — the CDK Python bundler (`aws-lambda-python-alpha` 2.190) reads
