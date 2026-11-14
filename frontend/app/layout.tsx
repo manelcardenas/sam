@@ -102,6 +102,36 @@ const bootScript = `
 }catch(e){}})();
 `;
 
+// Wakes the API the moment the app opens, before React or any page has loaded.
+//
+// A cold API start costs ~2.5 s (docs/todo/TODO_backend-off-lambda.md): the
+// Vercel instance boots, imports, opens the database — which also wakes a
+// suspended Neon compute — and fetches Cognito's keys. Paid by the first real
+// request, that is 2.5 s of spinner. Paid by this ping, it overlaps the sign-in
+// form, the bundle download and hydration, so the first real request usually
+// finds everything warm.
+//
+// Again on return to a tab or PWA left in the background for 4+ minutes: by then
+// Neon has suspended (5 min idle) and the instance may have been reclaimed.
+// `/health` is a simple GET (no preflight) and its answer is never read, so a
+// failure here is invisible; the real requests behave exactly as before.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+const warmScript = `
+(function(){try{
+  var url = ${JSON.stringify(API_URL)} + '/health', last = 0;
+  function warm(){
+    var now = Date.now();
+    if (now - last < 240000) return;
+    last = now;
+    fetch(url, { cache: 'no-store', keepalive: true }).catch(function(){});
+  }
+  warm();
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') warm();
+  });
+}catch(e){}})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -117,6 +147,14 @@ export default function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
+        {API_URL && (
+          <>
+            {/* Opens DNS + TLS to the API now. `anonymous` matches the API
+                calls (CORS, no cookies) so they reuse this connection. */}
+            <link rel="preconnect" href={API_URL} crossOrigin="anonymous" />
+            <script dangerouslySetInnerHTML={{ __html: warmScript }} />
+          </>
+        )}
       </head>
       <body className="antialiased min-h-screen bg-bg text-fg">
         {/* LocaleProvider wraps UserProvider because copy is needed by more of
