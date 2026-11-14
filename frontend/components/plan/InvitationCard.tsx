@@ -49,11 +49,11 @@ export function InvitationCard({
   const others = invite.members.map((m) => m.display_name).filter((name): name is string => Boolean(name));
 
   return (
-    <section className="mb-5 rounded-3xl border border-tomato/30 bg-tomato/5 p-4 sm:p-5">
+    <section className="mb-5 rounded-3xl border border-accent/30 bg-accent/5 p-4 sm:p-5">
       <div className="flex items-start gap-3">
         <span
           aria-hidden
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-tomato/15 font-display text-sm font-bold text-tomato-700 dark:text-tomato"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/15 font-display text-sm font-bold text-accent-700 dark:text-accent"
         >
           {inviter ? initialsOf(inviter) : <Home className="h-5 w-5" />}
         </span>
@@ -76,7 +76,7 @@ export function InvitationCard({
           type="button"
           onClick={() => void answer(false)}
           disabled={busy}
-          className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-2xl border border-line px-4 text-sm font-semibold text-muted transition-colors hover:border-tomato/40 hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-2xl border border-line px-4 text-sm font-semibold text-muted transition-colors hover:border-accent/40 hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           <X className="h-4 w-4" aria-hidden />
           {t("kitchen.decline")}
@@ -85,7 +85,7 @@ export function InvitationCard({
           type="button"
           onClick={() => void answer(true)}
           disabled={busy}
-          className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-2xl bg-tomato px-5 text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-2xl bg-accent px-5 text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           <Check className="h-4 w-4" aria-hidden />
           {t("kitchen.accept")}

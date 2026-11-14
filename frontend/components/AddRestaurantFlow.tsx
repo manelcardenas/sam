@@ -302,7 +302,7 @@ export default function AddRestaurantFlow({
               <button
                 type="button"
                 onClick={findMe}
-                className="shrink-0 cursor-pointer rounded-full px-2 py-0.5 text-sm font-bold text-tomato underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="shrink-0 cursor-pointer rounded-full px-2 py-0.5 text-sm font-bold text-accent underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 {t("add-restaurant.try-again")}
               </button>
@@ -332,7 +332,7 @@ export default function AddRestaurantFlow({
                 <button
                   type="button"
                   onClick={() => searchNearby(view.center)}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-full bg-surface px-4 py-2 text-sm font-semibold text-fg shadow-paw transition-colors hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 animate-fetch-in"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-full bg-surface px-4 py-2 text-sm font-semibold text-fg shadow-paw transition-colors hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 animate-fetch-in"
                 >
                   <Search className="h-4 w-4" aria-hidden />
                   {t("add-restaurant.search-here")}
@@ -346,7 +346,7 @@ export default function AddRestaurantFlow({
                 onClick={findMe}
                 aria-label={t("add-restaurant.recenter")}
                 title={t("add-restaurant.recenter")}
-                className="absolute bottom-10 right-3 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-line bg-surface text-fg shadow-paw transition-colors hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="absolute bottom-10 right-3 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-line bg-surface text-fg shadow-paw transition-colors hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 <LocateFixed className="h-4 w-4" />
               </button>
@@ -448,7 +448,7 @@ function SearchBox({
         }}
         aria-label={t("add-restaurant.search-label")}
         placeholder={t("add-restaurant.search-placeholder")}
-        className="h-12 w-full rounded-2xl border border-line bg-surface pl-11 pr-4 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+        className="h-12 w-full rounded-2xl border border-line bg-surface pl-11 pr-4 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
       />
 
       {open && (
@@ -607,7 +607,7 @@ function SpotCard({
                 <button
                   type="button"
                   onClick={() => onOpenExisting(restaurant)}
-                  className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-1 py-1 text-left text-sm transition-colors hover:bg-amber/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-1 py-1 text-left text-sm transition-colors hover:bg-amber/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                 >
                   <span className="truncate font-semibold text-fg">{restaurant.name}</span>
                   <span className="shrink-0 text-xs text-muted">{formatDistance(Math.round(distance))}</span>
@@ -670,12 +670,12 @@ function NearbyList({
                 type="button"
                 onClick={() => onSelect(place.external_place_id)}
                 aria-pressed={on}
-                className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-                  on ? "border-tomato bg-tomato/10" : "border-line bg-surface hover:border-tomato/40"
+                className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+                  on ? "border-accent bg-accent/10" : "border-line bg-surface hover:border-accent/40"
                 }`}
               >
                 <span className="min-w-0">
-                  <span className={`block truncate font-semibold ${on ? "text-tomato" : "text-fg"}`}>{place.name}</span>
+                  <span className={`block truncate font-semibold ${on ? "text-accent" : "text-fg"}`}>{place.name}</span>
                   {onSam.has(place.external_place_id) && (
                     <span className="block text-xs font-semibold text-amber-700 dark:text-amber">{t("map.already-on-sam")}</span>
                   )}
@@ -761,7 +761,7 @@ function DetailsStep({
       <BackLink onClick={onBack} label={t("add-restaurant.change-place")} />
 
       {error && (
-        <div className="rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+        <div className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger">
           {error}
         </div>
       )}
@@ -803,7 +803,7 @@ function DetailsStep({
         </div>
       ) : (
         <div className="flex items-start gap-3 rounded-3xl border border-line bg-surface-2/60 p-4">
-          <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-tomato" aria-hidden />
+          <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-accent" aria-hidden />
           <div className="min-w-0 flex-1">
             <p className="font-display text-lg font-semibold leading-snug text-fg">{name}</p>
             {address && <p className="mt-0.5 text-sm text-muted">{address}</p>}
@@ -813,7 +813,7 @@ function DetailsStep({
             onClick={() => setEditingFacts(true)}
             aria-label={t("add-restaurant.edit-facts")}
             title={t("add-restaurant.edit-facts")}
-            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -826,7 +826,7 @@ function DetailsStep({
       <button
         type="submit"
         disabled={submitting}
-        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato px-4 py-3 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-accent px-4 py-3 font-display font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
       >
         <Save className="h-4 w-4" />
         {submitting ? t("common.saving") : t("dine.add-restaurant")}
@@ -840,7 +840,7 @@ function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex cursor-pointer items-center gap-1.5 rounded-full text-sm font-semibold text-tomato underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      className="flex cursor-pointer items-center gap-1.5 rounded-full text-sm font-semibold text-accent underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       <ArrowLeft className="h-4 w-4" aria-hidden />
       {label}
@@ -864,7 +864,7 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      className="flex cursor-pointer items-center gap-1.5 rounded-full bg-accent px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       {icon}
       {children}
@@ -877,7 +877,7 @@ function SecondaryButton({ onClick, icon, children }: { onClick: () => void; ico
     <button
       type="button"
       onClick={onClick}
-      className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       {icon}
       {children}

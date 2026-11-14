@@ -53,17 +53,17 @@ export function RestaurantCard({
 
   return (
     <article
-      className={`group relative flex min-w-0 flex-col rounded-3xl border bg-surface p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-tomato/40 hover:shadow-paw ${
+      className={`group relative flex min-w-0 flex-col rounded-3xl border bg-surface p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-paw ${
         awaitingYou ? "border-amber/60 border-dashed" : "border-line"
       }`}
     >
       <div className="flex min-w-0 items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="min-w-0 font-display text-[1.05rem] font-semibold leading-snug text-fg transition-colors group-hover:text-tomato">
+          <h3 className="min-w-0 font-display text-[1.05rem] font-semibold leading-snug text-fg transition-colors group-hover:text-accent">
             <button
               type="button"
               onClick={onClick}
-              className="block w-full cursor-pointer text-left focus:outline-none after:absolute after:inset-0 after:rounded-3xl focus-visible:after:ring-2 focus-visible:after:ring-tomato/50"
+              className="block w-full cursor-pointer text-left focus:outline-none after:absolute after:inset-0 after:rounded-3xl focus-visible:after:ring-2 focus-visible:after:ring-accent/50"
             >
               {/* Two lines rather than one: CJK names run long and a single
                   truncated line loses the Latin half entirely. */}
@@ -88,7 +88,7 @@ export function RestaurantCard({
                       />
                     ))}
                   </span>
-                  <span className="min-w-0 truncate font-medium uppercase tracking-wide text-muted">
+                  <span data-may-truncate className="min-w-0 truncate font-medium uppercase tracking-wide text-muted">
                     {r.cuisines.map((name) => t(`cuisines.${name}` as MessageKey)).join(" · ")}
                   </span>
                 </span>
@@ -131,7 +131,7 @@ export function RestaurantCard({
         {reviewers && (
           <span className="flex min-w-0 items-center gap-1.5">
             <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="min-w-0 truncate">{reviewers}</span>
+            <span data-may-truncate className="min-w-0 truncate">{reviewers}</span>
           </span>
         )}
         {r.last_visited_at && (
@@ -140,7 +140,7 @@ export function RestaurantCard({
         {!reviewers && !r.last_visited_at && r.address && (
           <span className="flex min-w-0 items-center gap-1.5">
             <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="min-w-0 truncate">{r.address}</span>
+            <span data-may-truncate className="min-w-0 truncate">{r.address}</span>
           </span>
         )}
       </div>

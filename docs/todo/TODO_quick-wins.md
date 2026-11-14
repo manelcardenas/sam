@@ -1,6 +1,6 @@
 # TODO — Quick wins on the web app
 
-> **Status: In progress — 1 done (branch `bugfix/dine-back-navigation`), 2 and 3 next.**
+> **Status: In progress — 1 and 2 done, 3 next.**
 
 Three small problems on the current web app. Worth fixing now, whatever is decided in
 [web or mobile](./TODO_web-or-mobile-decision.md), because the app is in daily use.
@@ -46,15 +46,18 @@ Main culprit: the `/plan` header row (`app/plan/page.tsx:564`) — `KitchenBar` 
 "Lista de la compra" (18 chars, 13 in English) wraps inside a pill. Total ≈ 390 px against 328 px
 of content on a 360 px phone. Nothing in `AppShell` stops one wide child from widening the page.
 
-- [ ] `overflow-x-clip` on the `AppShell` root (not `overflow-x-hidden`: it breaks the sticky header)
-- [ ] Plan toggle: icon only below `sm` (`CalendarDays` / `ListChecks`), count badge kept — as
-      `/dine` already does for cards/map
-- [ ] KitchenBar: drop `shrink-0`, label hidden below `sm`
-- [ ] "Volver a esta semana": icon button with the text as `aria-label`
-- [ ] Sort `<select>` in `/dine` (`SortControl.tsx:57`): icon-only on mobile
-- [ ] Header tagline `shell.cook-and-dine`: hidden below `sm`
-- [ ] Restaurant `h1`: `break-words`
-- [ ] Check every screen at 360 px in es and ca
+Done as part of [shared UI components](./TODO_ui-components.md) (PR A), which also fixed the
+cause: no shared `Button`.
+
+- [x] Plan toggle: `SegmentedControl` — on a phone only the selected view spells its label;
+      the toolbar row wraps
+- [x] "Volver a esta semana": icon on a phone, the text as its name
+- [x] Header tagline `shell.cook-and-dine`: hidden below `sm`
+- [x] Every screen checked at 360 px in es, ca and en — `e2e/copy-fits.e2e.ts`, 0 problems
+- Not done, on purpose: `overflow-x-clip` on the `AppShell` root. It would hide a too-wide child
+  instead of surfacing it; the check fails on sideways scroll instead. KitchenBar and the sort
+  `<select>` were not flagged at 360 px, so they were left alone. Restaurant `h1` `break-words`:
+  the longest seeded name fits; revisit if a real name breaks it.
 
 ## 3. Adding a list line can return a 500
 

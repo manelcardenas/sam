@@ -13,6 +13,7 @@ import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import SourceLink from "@/components/SourceLink";
 import IngredientsPanel from "@/components/IngredientsPanel";
 import { AppShell } from "@/components/shell/AppShell";
+import { CompactButton } from "@/components/ui/Button";
 import { DashboardSkeleton } from "@/components/ui/PageSkeleton";
 import { NarrowRow } from "@/components/ui/NarrowRow";
 import { EmptyPanel } from "@/components/profile/EmptyPanel";
@@ -233,33 +234,21 @@ export default function DashboardPage() {
 
   return (
     <AppShell userName={userName}>
-      {/* Sub-toolbar: contextual back + new */}
-      <div className="mb-6 flex items-center justify-between gap-3">
-        {view !== "list" ? (
+      {/* Sub-toolbar: back, off the list. The list's "new" action sits beside its title. */}
+      {view !== "list" && (
+        <div className="mb-6 flex items-center justify-between gap-3">
           <button
             onClick={goBack}
-            className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <ArrowLeft className="h-4 w-4" />
             {t("common.back")}
           </button>
-        ) : (
-          <span />
-        )}
-
-        {view === "list" && (
-          <button
-            onClick={() => setView("add")}
-            className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-          >
-            <Plus className="h-4 w-4" />
-            {t("dashboard.new-recipe")}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {error && (
-        <div className="mb-6 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+        <div className="mb-6 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger">
           {error}
         </div>
       )}
@@ -267,13 +256,18 @@ export default function DashboardPage() {
       {/* ── LIST ── */}
       {view === "list" && (
         <div>
-          <header className="mb-6">
-            <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-4xl">
-              {t("dashboard.title")}
-            </h1>
-            <p className="mt-1.5 text-muted">
-              {recipes.length === 0 ? t("dashboard.empty-collection") : tp("dashboard.count", recipes.length)}
-            </p>
+          <header className="mb-6 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-4xl">
+                {t("dashboard.title")}
+              </h1>
+              <p className="mt-1.5 text-muted">
+                {recipes.length === 0 ? t("dashboard.empty-collection") : tp("dashboard.count", recipes.length)}
+              </p>
+            </div>
+            {/* Beside the title, not on a row above it: there it cost ~90 px of
+                a phone's first screen. Its icon alone on a phone (CompactButton). */}
+            <CompactButton icon={Plus} label={t("dashboard.new-recipe")} onClick={() => setView("add")} className="shrink-0" />
           </header>
 
           {recipes.length === 0 ? (
@@ -373,7 +367,7 @@ export default function DashboardPage() {
                     onClick={() => setView("edit")}
                     title={t("common.edit")}
                     aria-label={t("dashboard.edit-aria")}
-                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   >
                     <Edit className="h-4 w-4" />
                   </button>
@@ -381,7 +375,7 @@ export default function DashboardPage() {
                     onClick={() => setRecipeToDelete(selectedRecipe)}
                     title={t("common.delete")}
                     aria-label={t("dashboard.delete-aria")}
-                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -411,7 +405,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={() => setView("edit")}
-                    className="flex w-full cursor-pointer items-start gap-3 rounded-2xl border border-dashed border-line px-4 py-3.5 text-left transition-colors hover:border-amber/60 hover:bg-amber/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="flex w-full cursor-pointer items-start gap-3 rounded-2xl border border-dashed border-line px-4 py-3.5 text-left transition-colors hover:border-amber/60 hover:bg-amber/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   >
                     <NotebookPen className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber" aria-hidden />
                     <span className="min-w-0">

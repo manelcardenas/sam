@@ -111,11 +111,11 @@ function WeekRow({ week, onOpen }: { week: PlanSummary; onOpen: () => void }) {
       type="button"
       onClick={onOpen}
       aria-label={`${t("profile.plans-open")}: ${formatWeekRange(week.week_start, weekEndOf(week.week_start), locale)}`}
-      className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-left transition-[border-color,transform] hover:-translate-y-0.5 hover:border-tomato/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-left transition-[border-color,transform] hover:-translate-y-0.5 hover:border-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-display text-sm font-semibold text-fg transition-colors group-hover:text-tomato">
+          <span className="truncate font-display text-sm font-semibold text-fg transition-colors group-hover:text-accent">
             {formatWeekRange(week.week_start, weekEndOf(week.week_start), locale)}
           </span>
         </span>
@@ -146,7 +146,7 @@ function YearButton({ label, onClick, children }: { label: string; onClick: () =
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       {children}
     </button>

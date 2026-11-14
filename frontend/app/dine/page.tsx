@@ -14,6 +14,7 @@ import {
   type CreateReviewInput,
 } from "@/lib/api-client";
 import { AppShell } from "@/components/shell/AppShell";
+import { CompactButton } from "@/components/ui/Button";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import RestaurantForm from "@/components/RestaurantForm";
 import ReviewForm from "@/components/ReviewForm";
@@ -464,32 +465,20 @@ export default function DinePage() {
 
   return (
     <AppShell userName={userName}>
-      <div className="mb-6 flex items-center justify-between gap-3">
-        {view !== "list" ? (
+      {view !== "list" && (
+        <div className="mb-6 flex items-center justify-between gap-3">
           <button
             onClick={goBack}
-            className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <ArrowLeft className="h-4 w-4" />
             {t("common.back")}
           </button>
-        ) : (
-          <span />
-        )}
-
-        {view === "list" && (
-          <button
-            onClick={() => setView("add-restaurant")}
-            className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-          >
-            <Plus className="h-4 w-4" />
-            {t("dine.new-restaurant")}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {error && (
-        <div className="mb-6 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+        <div className="mb-6 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger">
           {error}
         </div>
       )}
@@ -503,13 +492,18 @@ export default function DinePage() {
       {/* ── LIST ── */}
       {view === "list" && (
         <div>
-          <header className="mb-7">
-            <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-[2.5rem] sm:leading-[1.1]">
-              {t("dine.title")}
-            </h1>
-            <p className="mt-1.5 text-muted">
-              {archive.length > 0 ? tp("dine.count", archive.length) : t("dine.empty-archive")}
-            </p>
+          <header className="mb-7 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-[2.5rem] sm:leading-[1.1]">
+                {t("dine.title")}
+              </h1>
+              <p className="mt-1.5 text-muted">
+                {archive.length > 0 ? tp("dine.count", archive.length) : t("dine.empty-archive")}
+              </p>
+            </div>
+            {/* Beside the title, not on a row above it: there it cost ~90 px of
+                a phone's first screen. Its icon alone on a phone (CompactButton). */}
+            <CompactButton icon={Plus} label={t("dine.new-restaurant")} onClick={() => setView("add-restaurant")} className="shrink-0" />
           </header>
 
           {/* The reel of recent visits — hides itself when there's too little to
@@ -576,7 +570,7 @@ export default function DinePage() {
               action={
                 <button
                   onClick={() => setView("add-restaurant")}
-                  className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 py-3 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-accent px-4 py-3 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                 >
                   <Plus className="h-4 w-4" aria-hidden />
                   {t("dine.nothing-yet-action")}
@@ -591,7 +585,7 @@ export default function DinePage() {
               action={
                 <button
                   onClick={() => setFilters(clearFilters)}
-                  className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-3 font-display text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-3 font-display text-sm font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                 >
                   {t("dine.no-match-action")}
                 </button>
@@ -611,7 +605,7 @@ export default function DinePage() {
                   filtering ? (
                     <button
                       onClick={() => setFilters(clearFilters)}
-                      className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-3 font-display text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                      className="mt-5 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-3 font-display text-sm font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                     >
                       {t("dine.no-match-action")}
                     </button>
@@ -687,7 +681,7 @@ export default function DinePage() {
                 onClick={() => setView("edit-restaurant")}
                 title={t("dine.edit-restaurant")}
                 aria-label={t("dine.edit-restaurant")}
-                className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 <Edit className="h-4 w-4" />
               </button>
@@ -704,7 +698,7 @@ export default function DinePage() {
             )}
 
             <div className="grid grid-cols-2 gap-4 px-6 py-5 sm:grid-cols-3">
-              <div className="col-span-2 flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-tomato/10 py-4 sm:col-span-1">
+              <div className="col-span-2 flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-accent/10 py-4 sm:col-span-1">
                 <ScoreBadge score={selectedRestaurant.average_overall} size="lg" />
                 <span className="text-xs text-muted">
                   {tp("dine.reviews-count", selectedRestaurant.review_count)}
@@ -734,7 +728,7 @@ export default function DinePage() {
               )}
               <button
                 onClick={() => setView("add-review")}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-accent py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 <Plus className="h-4 w-4" />
                 {isAwaitingMyReview(selectedRestaurant, currentUserId) ? t("dine.add-my-review") : t("dine.write-a-review")}
@@ -776,7 +770,7 @@ export default function DinePage() {
                             }}
                             title={t("dine.edit-review")}
                             aria-label={t("dine.edit-review")}
-                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
@@ -784,7 +778,7 @@ export default function DinePage() {
                             onClick={() => setReviewToDelete(review)}
                             title={t("dine.delete-review")}
                             aria-label={t("dine.delete-review")}
-                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -922,8 +916,8 @@ function ModeButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex h-9 cursor-pointer items-center gap-1.5 rounded-xl px-3 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-        active ? "bg-tomato text-white shadow-pop" : "text-muted hover:text-fg"
+      className={`flex h-9 cursor-pointer items-center gap-1.5 rounded-xl px-3 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+        active ? "bg-accent text-white shadow-pop" : "text-muted hover:text-fg"
       }`}
     >
       {icon}

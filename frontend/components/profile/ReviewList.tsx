@@ -103,10 +103,10 @@ export function ReviewList({
               className={i < 8 ? "will-fetch animate-fetch-in" : undefined}
               style={i < 8 ? { animationDelay: `${i * 40}ms` } : undefined}
             >
-              <article className="group relative rounded-3xl border border-line bg-surface p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-tomato/40 hover:shadow-paw">
+              <article className="group relative rounded-3xl border border-line bg-surface p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-paw">
                 <div className="flex min-w-0 items-start gap-3">
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-display text-[1.05rem] font-semibold leading-snug text-fg transition-colors group-hover:text-tomato">
+                    <h3 className="font-display text-[1.05rem] font-semibold leading-snug text-fg transition-colors group-hover:text-accent">
                       {/* The pseudo-element stretches the hit area to the whole
                           card while keeping one real link for the accessibility
                           tree, rather than wrapping the card in an <a> that
@@ -114,7 +114,7 @@ export function ReviewList({
                       <button
                         type="button"
                         onClick={() => onOpen(review)}
-                        className="block w-full cursor-pointer text-left focus:outline-none after:absolute after:inset-0 after:rounded-3xl focus-visible:after:ring-2 focus-visible:after:ring-tomato/50"
+                        className="block w-full cursor-pointer text-left focus:outline-none after:absolute after:inset-0 after:rounded-3xl focus-visible:after:ring-2 focus-visible:after:ring-accent/50"
                       >
                         <span className="line-clamp-2">{review.restaurant_name}</span>
                       </button>

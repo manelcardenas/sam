@@ -29,7 +29,7 @@ export function EmptyPanel({
       {actionLabel && onAction && (
         <button
           onClick={onAction}
-          className="mt-5 inline-flex cursor-pointer items-center rounded-full border border-line bg-surface px-4 py-2.5 font-display text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          className="mt-5 inline-flex cursor-pointer items-center rounded-full border border-line bg-surface px-4 py-2.5 font-display text-sm font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           {actionLabel}
         </button>

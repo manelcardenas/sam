@@ -31,8 +31,8 @@ export default function DeleteConfirmModal({
       >
         <div className="mb-4 flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-full bg-tomato/15">
-              <Trash2 className="h-5 w-5 text-tomato" />
+            <div className="grid h-11 w-11 place-items-center rounded-full bg-danger/15">
+              <Trash2 className="h-5 w-5 text-danger" />
             </div>
             <h2 className="font-display text-lg font-bold text-fg">{t("delete-recipe.title")}</h2>
           </div>
@@ -56,13 +56,13 @@ export default function DeleteConfirmModal({
         <div className="flex gap-3">
           <button
             onClick={handleConfirm}
-            className="flex-1 cursor-pointer rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex-1 cursor-pointer rounded-full bg-danger py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-danger-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
           >
             {t("common.delete")}
           </button>
           <button
             onClick={onCancel}
-            className="flex-1 cursor-pointer rounded-full border border-line py-3 px-4 font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex-1 cursor-pointer rounded-full border border-line py-3 px-4 font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             {t("common.cancel")}
           </button>

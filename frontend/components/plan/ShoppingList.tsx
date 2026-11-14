@@ -215,13 +215,13 @@ export function ShoppingList({
               // Off: the browser's own history would compete with the
               // suggestions below, which know the aisle and the spelling.
               autoComplete="off"
-              className="h-12 min-w-0 flex-1 rounded-2xl border border-line bg-surface px-4 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+              className="h-12 min-w-0 flex-1 rounded-2xl border border-line bg-surface px-4 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
             />
             <button
               type="submit"
               disabled={!draft.trim() || adding}
               aria-label={t("plan.add")}
-              className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-2xl bg-tomato text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-2xl bg-accent text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               <Plus className="h-5 w-5" />
             </button>
@@ -248,7 +248,7 @@ export function ShoppingList({
                     // The number typed so far comes along: "4 manz" → 4 × Manzana.
                     onClick={() => add({ ...typed, name: nameFor(item, locale) })}
                     disabled={adding}
-                    className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-fg transition-colors hover:border-tomato hover:bg-tomato/5 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-fg transition-colors hover:border-accent hover:bg-accent/5 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   >
                     {nameFor(item, locale)}
                     {item.is_pantry && <span className="text-xs text-muted">· {t("grocery.pantry")}</span>}
@@ -342,8 +342,8 @@ function Line({
           role="checkbox"
           aria-checked={item.is_checked}
           aria-label={name}
-          className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-            item.is_checked ? "border-leaf bg-leaf text-white" : "border-line hover:border-tomato"
+          className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+            item.is_checked ? "border-leaf bg-leaf text-white" : "border-line hover:border-accent"
           }`}
         >
           {item.is_checked && <Check className="h-4 w-4" aria-hidden />}
@@ -365,7 +365,7 @@ function Line({
                       key={entry.id}
                       type="button"
                       onClick={() => onOpenSlot(entry.date, entry.meal)}
-                      className="cursor-pointer rounded font-semibold text-fg underline decoration-line underline-offset-2 transition-colors hover:text-tomato hover:decoration-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                      className="cursor-pointer rounded font-semibold text-fg underline decoration-line underline-offset-2 transition-colors hover:text-accent hover:decoration-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                     >
                       {name} · {formatWeekday(entry.date, locale)} {t(`plan.${entry.meal}`).toLowerCase()}
                     </button>
@@ -386,7 +386,7 @@ function Line({
               knows this line — the question, asked on the line itself. */}
           {canFile && classifying && (
             <span aria-live="polite" className="mt-0.5 flex items-center gap-1 text-xs text-muted">
-              <Sparkles className="h-3 w-3 shrink-0 animate-pulse text-tomato" aria-hidden />
+              <Sparkles className="h-3 w-3 shrink-0 animate-pulse text-accent" aria-hidden />
               {t("grocery.finding-aisle")}
             </span>
           )}
@@ -395,7 +395,7 @@ function Line({
               type="button"
               onClick={() => setEditing((open) => !open)}
               aria-expanded={editing}
-              className="mt-1 inline-flex cursor-pointer items-center gap-1 rounded-full border border-dashed border-line px-2.5 py-1 text-xs font-semibold text-muted transition-colors hover:border-tomato/50 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="mt-1 inline-flex cursor-pointer items-center gap-1 rounded-full border border-dashed border-line px-2.5 py-1 text-xs font-semibold text-muted transition-colors hover:border-accent/50 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               <Tag className="h-3 w-3" aria-hidden />
               {t("grocery.which-aisle")}
@@ -410,7 +410,7 @@ function Line({
               onClick={() => setEditing((open) => !open)}
               aria-expanded={editing}
               aria-label={`${t("plan.change-amount")}: ${name}, ${amount}`}
-              className="shrink-0 cursor-pointer rounded-full px-2 py-1 text-sm font-semibold tabular-nums text-fg transition-colors hover:bg-tomato/10 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="shrink-0 cursor-pointer rounded-full px-2 py-1 text-sm font-semibold tabular-nums text-fg transition-colors hover:bg-accent/10 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               {amount}
             </button>
@@ -436,7 +436,7 @@ function Line({
             onClick={() => setEditing((open) => !open)}
             aria-expanded={editing}
             aria-label={`${t("plan.edit-line")}: ${name}`}
-            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/10 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/10 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <Tag className="h-3.5 w-3.5" />
           </button>
@@ -447,7 +447,7 @@ function Line({
             type="button"
             onClick={() => onRemove(item)}
             aria-label={`${t("plan.remove-line")}: ${name}`}
-            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -512,7 +512,7 @@ function AmountEditor({ item, name, onSave }: { item: ShoppingListItem; name: st
     }
   };
 
-  const round = "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line text-fg transition-colors hover:border-tomato hover:text-tomato disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50";
+  const round = "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line text-fg transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50";
 
   return (
     <form onSubmit={save} className="flex flex-wrap items-center gap-2">
@@ -533,7 +533,7 @@ function AmountEditor({ item, name, onSave }: { item: ShoppingListItem; name: st
           onChange={(e) => setValue(e.target.value)}
           placeholder="1"
           autoComplete="off"
-          className="h-10 w-16 rounded-xl border border-line bg-surface px-2 text-center text-sm font-semibold tabular-nums text-fg focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+          className="h-10 w-16 rounded-xl border border-line bg-surface px-2 text-center text-sm font-semibold tabular-nums text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
         />
         {item.unit && <span className="text-sm text-muted">{item.unit}</span>}
         {counted && (
@@ -545,7 +545,7 @@ function AmountEditor({ item, name, onSave }: { item: ShoppingListItem; name: st
       <button
         type="submit"
         disabled={!valid || saving || parsed === item.total_amount}
-        className="ml-auto rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+        className="ml-auto rounded-full bg-accent px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
       >
         {saving ? t("common.saving") : t("plan.save-amount")}
       </button>

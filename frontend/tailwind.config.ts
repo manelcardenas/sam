@@ -18,7 +18,18 @@ export default {
         fg: "rgb(var(--fg) / <alpha-value>)",
         muted: "rgb(var(--muted) / <alpha-value>)",
         line: "rgb(var(--line) / <alpha-value>)",
-        // ── Fixed "Fetch!" brand duotone ──
+        // ── The section's colour (CSS vars flip per [data-world] and in .dark) ──
+        // Actions, selection and focus. Cook is sage, Dine tomato, Plan
+        // lavender, Profile sky (app/globals.css). Signed-out pages get tomato.
+        accent: {
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          600: "rgb(var(--accent-600) / <alpha-value>)",
+          700: "rgb(var(--accent-700) / <alpha-value>)",
+        },
+        // Errors and destructive actions: a fixed red in every section, so an
+        // error in Cook does not turn sage.
+        danger: { DEFAULT: "#E4572E", 600: "#D24A24", 700: "#C8431F" },
+        // ── Fixed brand colours (logo, cuisine marks) ──
         tomato: { DEFAULT: "#E4572E", 600: "#D24A24", 700: "#C8431F" },
         amber: { DEFAULT: "#F4A024", 600: "#E08E12", 700: "#C97A08" },
         ink: "#1A1A1A",

@@ -15,16 +15,22 @@ revisit it, never just dropped.
 
 ## Order
 
+Reordered 2026-11-14 by [ADR 0008](../adr/0008-expo-app-replaces-the-web-frontend.md): an Expo
+app replaces the web frontend, the backend moves first, and the store fees wait until the app is
+ready.
+
 | # | Task | Size | Depends on | Why here |
 |---|---|---|---|---|
-| 1 | [Quick wins on the web app](./TODO_quick-wins.md) — back button in `/dine`, mobile overflow, the duplicate-line 500 | ~1 day | — | Used every day; useful whatever comes next |
-| 2 | [Backend off Lambda](./TODO_backend-off-lambda.md) — spike Vercel, then migrate | spike ½ day, migration 2–3 days | — | The slowness people feel: 10 of 10 sessions start with a 3.4–6.7 s request |
-| 3 | [Web or mobile app — decide](./TODO_web-or-mobile-decision.md) | ½ day, a decision | — | The plan redesign is mostly UI; deciding first avoids building it twice |
-| 4 | [Weekly plan redesign](./TODO_weekly-plan-redesign.md) | the big one | 3 | The calendar was used 3 weeks out of 8 and dropped after 24 Oct |
-| 5 | [Better ingredient capture](./TODO_ingredient-capture-v2.md) | 1–2 days | 3, ideally inside 4 | DeepSeek text-only parsing is weak |
-| 6 | [Heavy dependency migrations](./TODO_dependency-migrations.md) — PRs #63, #71, #81, #83 | varies | 3 | Some disappear if the web frontend is replaced |
+| ✅ | [Shared UI components](./TODO_ui-components.md) (A only), [web or mobile](./TODO_web-or-mobile-decision.md), [quick wins](./TODO_quick-wins.md) 1–2 | — | — | Done; B and C of the UI components were cancelled by the ADR |
+| 1 | [Backend off Lambda](./TODO_backend-off-lambda.md) — spike Vercel, then migrate | spike ½ day, migration 2–3 days | — | The slowness people feel: 10 of 10 sessions start with a 3.4–6.7 s request. Independent of the frontend |
+| 1b | [Quick win 3](./TODO_quick-wins.md) — the duplicate list line that returns 500 | hours | — | A backend bug, so it survives the move to Expo |
+| 2 | Expo app setup — mywally-app conventions, same backend and Cognito | to size | 1 | The base everything else is built on |
+| 3 | [Weekly plan redesign](./TODO_weekly-plan-redesign.md), built in Expo | the big one | 2 | The calendar was used 3 weeks out of 8 and dropped after 24 Oct |
+| 4 | APK on the Android phone, daily use | small | 3 | Real use before porting the rest |
+| 5 | [Better ingredient capture](./TODO_ingredient-capture-v2.md) | 1–2 days | 2, ideally inside 3 | DeepSeek text-only parsing is weak |
+| 6 | Cook and Dine to parity in Expo (the map last) | to size | 3 | Needed before the web app can go |
+| 7 | Pay Apple (99 $/year) and Google Play (25 $), ship to the stores, Expo web replaces Next.js | small | 6 | Money only once the app is worth it |
+| — | [Heavy dependency migrations](./TODO_dependency-migrations.md) — only #71 (maplibre security) | small | — | The web app stays live until 7 |
 
-**Logic or infrastructure first?** Backend infrastructure first (2), because it does not depend
-on any product decision and it is the pain felt on every visit. The UI decision (3) comes before
-the logic (4), because most of the plan rework is screens. The plan's backend changes can go
-either way.
+**Why the backend first?** It depends on no product decision, it is the pain felt on every
+visit, and both the current web app and the Expo app call the same API, so it pays off twice.

@@ -204,8 +204,8 @@ export function KitchenBar({
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={`${t("kitchen.heading")}: ${label}`}
-        className={`flex h-11 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-2xl border bg-surface pl-2 pr-3 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-          open ? "border-tomato/40 text-fg" : "border-line text-muted hover:border-tomato/40 hover:text-fg"
+        className={`flex h-11 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-2xl border bg-surface pl-2 pr-3 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+          open ? "border-accent/40 text-fg" : "border-line text-muted hover:border-accent/40 hover:text-fg"
         }`}
       >
         <span className="flex items-center" aria-hidden>
@@ -290,7 +290,7 @@ export function KitchenBar({
                     onChange={(e) => setNeedle(e.target.value)}
                     aria-label={t("common.search-people")}
                     placeholder={t("common.search-people")}
-                    className="h-10 w-full rounded-2xl bg-surface-2 pl-9 pr-3 text-sm text-fg placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="h-10 w-full rounded-2xl bg-surface-2 pl-9 pr-3 text-sm text-fg placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   />
                 </div>
               )}
@@ -301,7 +301,7 @@ export function KitchenBar({
                   <button
                     type="button"
                     onClick={() => setPeopleFailed(false)}
-                    className="mt-1 cursor-pointer rounded-full px-2 py-1 text-xs font-bold text-tomato underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="mt-1 cursor-pointer rounded-full px-2 py-1 text-xs font-bold text-accent underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   >
                     {t("kitchen.people-retry")}
                   </button>
@@ -333,7 +333,7 @@ export function KitchenBar({
                         // verb the visible text leaves to the icon.
                         aria-label={t("kitchen.invite-person", { name: person.display_name })}
                         title={t("kitchen.invite-person", { name: person.display_name })}
-                        className="flex h-11 w-full cursor-pointer items-center gap-2.5 rounded-2xl px-2 text-left transition-colors hover:bg-tomato/10 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                        className="flex h-11 w-full cursor-pointer items-center gap-2.5 rounded-2xl px-2 text-left transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                       >
                         <span aria-hidden className="shrink-0">
                           <Avatar name={person.display_name} />
@@ -342,7 +342,7 @@ export function KitchenBar({
                         {/* The verb lives on the icon rather than in a column of
                             repeated "Invite" buttons — the row is the button. */}
                         <UserPlus
-                          className={`h-4 w-4 shrink-0 ${inviting === person.id ? "animate-pulse text-tomato" : "text-muted"}`}
+                          className={`h-4 w-4 shrink-0 ${inviting === person.id ? "animate-pulse text-accent" : "text-muted"}`}
                           aria-hidden
                         />
                       </button>
@@ -353,7 +353,7 @@ export function KitchenBar({
             </div>
 
             {error && (
-              <p role="alert" className="border-t border-line px-4 py-2 text-xs font-medium text-tomato-700 dark:text-tomato">
+              <p role="alert" className="border-t border-line px-4 py-2 text-xs font-medium text-danger-700 dark:text-danger">
                 {error}
               </p>
             )}
@@ -368,7 +368,7 @@ export function KitchenBar({
                   close(false);
                   onLeave();
                 }}
-                className="flex h-11 w-full cursor-pointer items-center gap-2 border-t border-line px-4 text-left text-sm font-semibold text-muted transition-colors hover:bg-tomato/10 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="flex h-11 w-full cursor-pointer items-center gap-2 border-t border-line px-4 text-left text-sm font-semibold text-muted transition-colors hover:bg-accent/10 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 <DoorOpen className="h-4 w-4" aria-hidden />
                 {t("kitchen.leave")}
@@ -384,7 +384,7 @@ export function KitchenBar({
 function Avatar({ name, className = "" }: { name: string | null; className?: string }) {
   return (
     <span
-      className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-tomato/15 font-display text-[0.6rem] font-bold text-tomato-700 dark:text-tomato ${className}`}
+      className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-accent/15 font-display text-[0.6rem] font-bold text-accent-700 dark:text-accent ${className}`}
     >
       {initialsOf(name ?? "?")}
     </span>
@@ -430,7 +430,7 @@ function PersonRow({
           onClick={onWithdraw}
           aria-label={t("kitchen.withdraw", { name })}
           title={t("kitchen.withdraw", { name })}
-          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           <X className="h-3.5 w-3.5" />
         </button>

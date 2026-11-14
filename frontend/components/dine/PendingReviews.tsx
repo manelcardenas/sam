@@ -46,9 +46,12 @@ export function PendingReviews({
   return (
     <section
       aria-labelledby="pending-reviews-heading"
-      className="mb-7 rounded-4xl border border-amber/40 bg-amber/10 p-5 will-fetch animate-fetch-in"
+      className="mb-7 rounded-4xl border border-amber/40 bg-amber/10 p-4 will-fetch animate-fetch-in sm:p-5"
     >
-      <div className="flex items-start gap-3">
+      {/* On a phone the heading and the rows say it all ("You owe 2 reviews",
+          then each place with its button); the explanation is for the wider
+          screen, where it costs one line instead of three. */}
+      <div className="flex items-center gap-3 sm:items-start">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber text-ink" aria-hidden>
           <NotebookPen className="h-5 w-5" />
         </span>
@@ -56,11 +59,11 @@ export function PendingReviews({
           <h2 id="pending-reviews-heading" className="font-display text-lg font-bold leading-snug text-fg">
             {tp("pending-reviews.title", restaurants.length)}
           </h2>
-          <p className="mt-0.5 text-sm text-muted">{t("pending-reviews.body")}</p>
+          <p className="mt-0.5 hidden text-sm text-muted sm:block">{t("pending-reviews.body")}</p>
         </div>
       </div>
 
-      <ul className="mt-4 space-y-2">
+      <ul className="mt-3 space-y-2 sm:mt-4">
         {shown.map((r) => (
           <li
             key={r.id}
@@ -72,7 +75,7 @@ export function PendingReviews({
               style={{ backgroundColor: cuisineAccent(r.cuisines[0] ?? "") }}
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-fg">{r.name}</p>
+              <p data-may-truncate className="truncate font-semibold text-fg">{r.name}</p>
               <p className="truncate text-xs text-muted">
                 {t("pending-reviews.added", { when: formatRelativeDate(r.created_at.slice(0, 10), locale) })}
               </p>
@@ -81,7 +84,7 @@ export function PendingReviews({
               type="button"
               onClick={() => onReview(r)}
               aria-label={t("pending-reviews.review-label", { name: r.name })}
-              className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-accent px-4 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               {t("pending-reviews.review")}
             </button>
@@ -94,7 +97,7 @@ export function PendingReviews({
           type="button"
           onClick={() => setExpanded((open) => !open)}
           aria-expanded={expanded}
-          className="mt-3 cursor-pointer rounded-full px-2 py-1 text-sm font-bold text-amber-700 underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 dark:text-amber"
+          className="mt-3 cursor-pointer rounded-full px-2 py-1 text-sm font-bold text-amber-700 underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 dark:text-amber"
         >
           {expanded ? t("pending-reviews.show-fewer") : tp("pending-reviews.show-more", hidden)}
         </button>

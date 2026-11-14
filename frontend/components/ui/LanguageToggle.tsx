@@ -88,7 +88,7 @@ export function LanguageToggle({ className = "" }: { className?: string }) {
         // is not obviously a language to a screen reader.
         aria-label={`${t("shell.language")}: ${LOCALE_NAMES[locale]}`}
         title={t("shell.language")}
-        className={`flex h-11 w-11 items-center justify-center rounded-full font-display text-[0.8rem] font-bold uppercase tracking-[0.08em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+        className={`flex h-11 w-11 items-center justify-center rounded-full font-display text-[0.8rem] font-bold uppercase tracking-[0.08em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
           open ? "bg-surface-2 text-fg" : "text-muted hover:bg-surface-2 hover:text-fg"
         }`}
       >
@@ -114,15 +114,15 @@ export function LanguageToggle({ className = "" }: { className?: string }) {
                 role="menuitemradio"
                 aria-checked={on}
                 onClick={() => choose(code)}
-                className={`flex h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 text-left text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-                  on ? "bg-tomato/10 text-tomato" : "text-fg hover:bg-surface-2"
+                className={`flex h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 text-left text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+                  on ? "bg-accent/10 text-accent" : "text-fg hover:bg-surface-2"
                 }`}
               >
                 {/* The code again, as a fixed-width gutter, so the names line
                     up and the menu reads as a list rather than ragged text. */}
                 <span
                   className={`w-6 shrink-0 font-display text-[0.7rem] font-bold uppercase tracking-[0.08em] ${
-                    on ? "text-tomato" : "text-muted"
+                    on ? "text-accent" : "text-muted"
                   }`}
                   aria-hidden
                 >

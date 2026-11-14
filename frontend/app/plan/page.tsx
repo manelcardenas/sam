@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, DoorOpen, ListChecks, Lock, X } from "lucide-react";
+import { CalendarCheck, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, DoorOpen, ListChecks, Lock, X } from "lucide-react";
 import { useAuthGate } from "@/components/auth/useAuthGate";
 import {
   ApiError,
@@ -19,13 +19,14 @@ import {
   type ShoppingListItem,
 } from "@/lib/api-client";
 import { currentParams, useBrowserNavigation, useTabHome, writeUrl } from "@/lib/url-state";
+import { CompactButton, IconButton } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { DAYS_IN_WEEK, fromQuery, homeWeekOf, shiftDate, toQuery, weekDays, weekStartOf, type PlanView } from "@/lib/plan-url";
 import type { ScaledLine } from "@/lib/plan-ingredients";
 import { entryForDish } from "@/lib/plan-entries";
 import { byKey, lineToClassify } from "@/lib/grocery";
 import { AppShell } from "@/components/shell/AppShell";
 import { PlanSkeleton } from "@/components/ui/PageSkeleton";
-import { EmptyPanel } from "@/components/profile/EmptyPanel";
 import ConfirmModal from "@/components/ConfirmModal";
 import { WeekGrid } from "@/components/plan/WeekGrid";
 import { SlotSheet } from "@/components/plan/SlotSheet";
@@ -530,12 +531,14 @@ export default function PlanPage() {
 
   return (
     <AppShell userName={userName}>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1">
-          <PagerButton label={t("plan.previous-week")} onClick={() => goToWeek(shiftDate(weekStart, -7))}>
-            <ChevronLeft className="h-4 w-4" />
-          </PagerButton>
-          <div className="px-1">
+      {/* Two rows on a phone, one from sm. Row 1: the week (title left, pager
+          right — as a calendar app has it). Row 2: who you plan with and what
+          you are looking at. The pager used to wrap the title (‹ date ›) with the
+          controls on a second, separately aligned row, which left the two rows
+          on different edges and ~200 px above the first day. */}
+      <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-3">
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2 sm:flex-none sm:justify-start">
+          <div className="min-w-0 sm:order-2">
             <h1 className="font-display text-lg font-bold tracking-tight text-fg sm:text-xl">
               {formatWeekRange(days[0], days[days.length - 1], locale)}
             </h1>
@@ -553,64 +556,61 @@ export default function PlanPage() {
                       : t("plan.later-week")}
             </p>
           </div>
-          <PagerButton label={t("plan.next-week")} onClick={() => goToWeek(shiftDate(weekStart, 7))}>
-            <ChevronRight className="h-4 w-4" />
-          </PagerButton>
-          {weekStart !== today && (
-            <button
-              type="button"
-              onClick={() => goToWeek(today)}
-              className="ml-1 cursor-pointer rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-tomato/40 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-            >
-              {t("plan.back-to-this-week")}
-            </button>
-          )}
+          <div className="flex shrink-0 items-center sm:contents">
+            <IconButton icon={ChevronLeft} label={t("plan.previous-week")} onClick={() => goToWeek(shiftDate(weekStart, -7))} className="sm:order-1" />
+            <IconButton icon={ChevronRight} label={t("plan.next-week")} onClick={() => goToWeek(shiftDate(weekStart, 7))} className="sm:order-3" />
+            {weekStart !== today && (
+              // Its icon alone on a phone: "Tornar a aquesta setmana" next to the
+              // week pager wrapped onto two lines. The label stays the name.
+              <CompactButton
+                variant="secondary"
+                size="sm"
+                icon={CalendarCheck}
+                label={t("plan.back-to-this-week")}
+                onClick={() => goToWeek(today)}
+                className="ml-1 sm:order-4"
+              />
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Row 2 on a phone: the kitchen chip left, the view switch right. If the
+            two do not fit (the shopping list spelled out beside a long kitchen
+            name), the switch drops below and stays on the right. */}
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:ml-auto sm:w-auto">
           {/* Beside the view toggle rather than at the foot of the page, where
               the share panel used to live. Who you are planning with is context
               for everything below it, not a footnote after it. */}
           {kitchen && (
-            <KitchenBar
-              kitchen={kitchen.kitchen}
-              currentUserId={me?.id ?? null}
-              onInvite={invite}
-              onLoadPeople={loadPeople}
-              onWithdraw={withdraw}
-              onLeave={() => setConfirmingLeave(true)}
-            />
+            <div className="mr-auto sm:mr-0">
+              <KitchenBar
+                kitchen={kitchen.kitchen}
+                currentUserId={me?.id ?? null}
+                onInvite={invite}
+                onLoadPeople={loadPeople}
+                onWithdraw={withdraw}
+                onLeave={() => setConfirmingLeave(true)}
+              />
+            </div>
           )}
 
-          <div className="inline-flex items-center rounded-full border border-line bg-surface p-1">
-            {(["calendar", "list"] as PlanView[]).map((option) => {
-              const on = view === option;
-              const Icon = option === "calendar" ? CalendarDays : ListChecks;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => {
-                    setSlot(null);
-                    setView(option);
-                  }}
-                  aria-current={on ? "page" : undefined}
-                  className={`flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-                    on ? "bg-tomato text-white shadow-pop" : "text-muted hover:text-fg"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {t(option === "calendar" ? "plan.view-calendar" : "plan.view-list")}
-                  {option === "list" && outstanding > 0 && <span className="tabular-nums opacity-70">{outstanding}</span>}
-                </button>
-              );
-            })}
-          </div>
+          <SegmentedControl<PlanView>
+            label={t("plan.view-switch")}
+            value={view}
+            onChange={(option) => {
+              setSlot(null);
+              setView(option);
+            }}
+            segments={[
+              { value: "calendar", label: t("plan.view-calendar"), icon: CalendarDays },
+              { value: "list", label: t("plan.view-list"), icon: ListChecks, badge: outstanding },
+            ]}
+          />
         </div>
       </div>
 
       {error && (
-        <div className="mb-6 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+        <div className="mb-6 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger">
           {error}
         </div>
       )}
@@ -634,8 +634,8 @@ export default function PlanPage() {
       {/* "Plan this" from a recipe's page: the recipe is chosen, the slot is
           not. The next slot you open starts with it picked. */}
       {view === "calendar" && placing && editable && (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-tomato/40 bg-tomato/10 px-4 py-3">
-          <CalendarPlus className="h-5 w-5 shrink-0 text-tomato" aria-hidden />
+        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3">
+          <CalendarPlus className="h-5 w-5 shrink-0 text-accent" aria-hidden />
           <p className="min-w-0 flex-1 text-sm text-fg">
             <span className="font-semibold [overflow-wrap:anywhere]">{t("plan.placing-title", { name: placing.title })}</span>{" "}
             <span className="text-muted">{t("plan.placing-body")}</span>
@@ -644,7 +644,7 @@ export default function PlanPage() {
             type="button"
             onClick={() => setPlace(null)}
             aria-label={t("common.cancel")}
-            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <X className="h-4 w-4" />
           </button>
@@ -653,13 +653,16 @@ export default function PlanPage() {
 
       {view === "calendar" ? (
         <>
+          {/* A note, not a panel: the empty week below is already the empty
+              state, with a "+" in every slot. The panel (~220 px, its own icon
+              and a dashed frame) said the same thing twice before it. */}
           {!plan && !placing && (
-            <div className="mb-5">
-              <EmptyPanel
-                icon={<CalendarDays className="mx-auto mb-3 h-10 w-10 text-muted" aria-hidden />}
-                title={t("plan.nothing-planned-title")}
-                body={t("plan.nothing-planned-body")}
-              />
+            <div className="mb-4 flex items-start gap-3 rounded-2xl bg-surface-2 px-4 py-3">
+              <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-muted" aria-hidden />
+              <p className="text-sm text-muted">
+                <span className="block font-semibold text-fg">{t("plan.nothing-planned-title")}</span>
+                {t("plan.nothing-planned-body")}
+              </p>
             </div>
           )}
           <WeekGrid
@@ -736,25 +739,11 @@ export default function PlanPage() {
           title={t("kitchen.leave-title")}
           message={t("kitchen.leave-body")}
           confirmLabel={t("kitchen.leave")}
-          icon={<DoorOpen className="h-5 w-5 text-tomato" />}
+          icon={<DoorOpen className="h-5 w-5 text-accent" />}
           onConfirm={leaveKitchen}
           onCancel={() => setConfirmingLeave(false)}
         />
       )}
     </AppShell>
-  );
-}
-
-function PagerButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-    >
-      {children}
-    </button>
   );
 }

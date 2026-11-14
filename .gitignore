@@ -22,3 +22,6 @@ wheels/
 # 2026-09-19 production fixes. They hold real recipe data and are recovery
 # copies, not source — keep them locally until the recipes have been checked.
 backend/*-backup-*.json
+
+# Playwright (frontend/e2e): screenshots, reports, traces
+frontend/e2e/.output/

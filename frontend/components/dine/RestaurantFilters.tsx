@@ -187,7 +187,7 @@ export function RestaurantFilters({
           onChange={(e) => onChange({ ...value, q: e.target.value })}
           placeholder={t("dine-filters.search-placeholder")}
           aria-label={t("dine-filters.search-label")}
-          className="h-12 w-full rounded-2xl border border-line bg-surface pl-11 pr-4 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+          className="h-12 w-full rounded-2xl border border-line bg-surface pl-11 pr-4 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
         />
       </div>
 
@@ -199,9 +199,11 @@ export function RestaurantFilters({
             ~10 chips here, which ran three screens wide on a phone and pushed
             the price chips out of sight — hence the dropdown (see
             `MultiSelect`). It still scrolls sideways if a narrow screen needs
-            it; the negative margin bleeds it to the left edge so it reads as
-            scrollable, and the right edge is the sort control. */}
-        <div className="rail-scroll -ml-4 flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto pl-4 sm:ml-0 sm:flex-wrap sm:overflow-visible sm:pl-0">
+            it; the negative margin bleeds it to the left edge, and on a phone
+            its right edge fades out (and pr-6 lets the last chip scroll clear
+            of the fade), so a control cut at the edge reads as "more this
+            way" rather than as a label cut in half. */}
+        <div className="rail-scroll -ml-4 flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto pl-4 pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-1.5rem),transparent)] sm:ml-0 sm:flex-wrap sm:overflow-visible sm:pl-0 sm:pr-0 sm:[mask-image:none]">
           {/* Leads the row, labelled, exactly as "Created by" does on the
               recipe lists: whose places before what kind. */}
           {reviewers.length > 0 && (

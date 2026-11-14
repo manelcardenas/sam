@@ -179,7 +179,7 @@ export default function RestaurantsMap({
             type="button"
             onClick={() => setLegendOpen((open) => !open)}
             aria-expanded={legendOpen}
-            className="flex h-9 cursor-pointer items-center gap-2 rounded-full border border-line bg-surface/95 px-3 text-xs font-semibold text-fg shadow-paw backdrop-blur transition-colors hover:border-tomato/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex h-9 cursor-pointer items-center gap-2 rounded-full border border-line bg-surface/95 px-3 text-xs font-semibold text-fg shadow-paw backdrop-blur transition-colors hover:border-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <span className="flex items-center -space-x-1" aria-hidden>
               {legend.slice(0, 5).map((cuisine) => (
@@ -219,7 +219,7 @@ export default function RestaurantsMap({
               type="button"
               onClick={() => setSelected(null)}
               aria-label={t("common.close")}
-              className="absolute right-2.5 top-2.5 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="absolute right-2.5 top-2.5 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               <X className="h-4 w-4" />
             </button>
@@ -254,7 +254,7 @@ export default function RestaurantsMap({
               <button
                 type="button"
                 onClick={() => onOpenRestaurant(selected)}
-                className="shrink-0 cursor-pointer rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="shrink-0 cursor-pointer rounded-full bg-accent px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 {t("map.view-details")}
               </button>

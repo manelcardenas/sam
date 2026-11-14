@@ -357,9 +357,9 @@ export function SlotSheet({
   const inSlot = new Set(entries.map((e) => e.recipe_id).filter((id): id is string => id !== null));
 
   const primary =
-    "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato px-4 py-3 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50";
+    "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-accent px-4 py-3 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50";
   const secondary =
-    "cursor-pointer rounded-full border border-line px-4 py-3 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50";
+    "cursor-pointer rounded-full border border-line px-4 py-3 text-sm font-semibold text-fg transition-colors hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50";
 
   return (
     <div
@@ -397,7 +397,7 @@ export function SlotSheet({
             type="button"
             onClick={onClose}
             aria-label={t("common.close")}
-            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -473,7 +473,7 @@ export function SlotSheet({
               {recipeFor && (
                 <Link
                   href={`/dashboard?recipe=${encodeURIComponent(recipeFor.id)}`}
-                  className="inline-flex items-center gap-1 text-sm font-semibold text-tomato-700 hover:underline dark:text-tomato"
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-accent-700 hover:underline dark:text-accent"
                 >
                   {t("plan.see-recipe")}
                   <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
@@ -500,7 +500,7 @@ export function SlotSheet({
                 type="button"
                 disabled={busy}
                 onClick={() => remove(false)}
-                className="w-full cursor-pointer rounded-2xl border border-line bg-surface px-4 py-3 text-left text-sm font-semibold text-fg transition-colors hover:border-tomato/40 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="w-full cursor-pointer rounded-2xl border border-line bg-surface px-4 py-3 text-left text-sm font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 {t("plan.remove-and-keep")}
               </button>
@@ -509,7 +509,7 @@ export function SlotSheet({
                   type="button"
                   disabled={busy}
                   onClick={() => remove(true)}
-                  className="w-full cursor-pointer rounded-2xl border border-tomato/40 bg-tomato/10 px-4 py-3 text-left text-sm font-semibold text-tomato-700 transition-colors hover:bg-tomato/15 disabled:opacity-50 dark:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  className="w-full cursor-pointer rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3 text-left text-sm font-semibold text-accent-700 transition-colors hover:bg-accent/15 disabled:opacity-50 dark:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                 >
                   {tp("plan.remove-and-drop", listedCount)}
                 </button>
@@ -679,7 +679,7 @@ function DishesStep({
               type="button"
               onClick={onResync}
               disabled={busy}
-              className="cursor-pointer rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="cursor-pointer rounded-full bg-accent px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               {busy ? t("common.working") : tp("plan.update-list", staleLines)}
             </button>
@@ -687,7 +687,7 @@ function DishesStep({
               type="button"
               onClick={onDismissResync}
               disabled={busy}
-              className="cursor-pointer rounded-full border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="cursor-pointer rounded-full border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent/40 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               {t("plan.leave-list")}
             </button>
@@ -703,7 +703,7 @@ function DishesStep({
               <button
                 type="button"
                 onClick={() => onOpen(entry)}
-                className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 rounded-2xl border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-tomato/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 rounded-2xl border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 <span className="w-full text-sm font-semibold text-fg [overflow-wrap:anywhere]">{entry.dish_name}</span>
                 <span className={`flex items-center gap-1 text-xs ${listed > 0 ? "text-leaf-700 dark:text-leaf" : "text-muted"}`}>
@@ -716,7 +716,7 @@ function DishesStep({
                   type="button"
                   onClick={() => onRemove(entry)}
                   aria-label={`${t("plan.remove-recipe")}: ${entry.dish_name}`}
-                  className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -786,7 +786,7 @@ function PickStep({
           onChange={(e) => onFiltersChange({ ...filters, q: e.target.value })}
           aria-label={t("plan.search-recipes")}
           placeholder={t("plan.search-recipes-placeholder")}
-          className="h-11 w-full rounded-2xl border border-line bg-surface pl-10 pr-4 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+          className="h-11 w-full rounded-2xl border border-line bg-surface pl-10 pr-4 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
         />
       </div>
 
@@ -809,14 +809,14 @@ function PickStep({
             return (
               <li
                 key={recipe.id}
-                className={`overflow-hidden rounded-2xl border transition-colors ${on ? "border-tomato bg-tomato/5" : "border-line hover:border-tomato/40"}`}
+                className={`overflow-hidden rounded-2xl border transition-colors ${on ? "border-accent bg-accent/5" : "border-line hover:border-accent/40"}`}
               >
                 <button
                   type="button"
                   onClick={() => onPick(on ? null : recipe)}
                   aria-pressed={on}
                   disabled={already}
-                  className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-tomato/50"
+                  className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-fg">{recipe.title}</span>
@@ -830,7 +830,7 @@ function PickStep({
                   </span>
                   <span
                     aria-hidden
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${on ? "border-tomato bg-tomato text-white" : "border-line"}`}
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${on ? "border-accent bg-accent text-white" : "border-line"}`}
                   >
                     {on && <Check className="h-3.5 w-3.5" />}
                   </span>
@@ -838,7 +838,7 @@ function PickStep({
                 {/* Open under the row you chose, not on a second screen: which
                     recipe and what it costs you at the shop are one decision. */}
                 {on && listEditable && lines.length > 0 && (
-                  <div className="border-t border-tomato/20 px-3 pb-3 pt-2.5">
+                  <div className="border-t border-accent/20 px-3 pb-3 pt-2.5">
                     <p className="mb-1.5 px-1 text-xs text-muted">{t("plan.ingredients-body")}</p>
                     <IngredientChecklist lines={lines} unticked={unticked} onToggle={onToggle} alreadyOnList={alreadyOnList} />
                   </div>
@@ -857,9 +857,9 @@ function PickStep({
         <button
           type="button"
           onClick={onCreate}
-          className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-tomato/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
-          <Sparkles className="h-4 w-4 shrink-0 text-tomato" aria-hidden />
+          <Sparkles className="h-4 w-4 shrink-0 text-accent" aria-hidden />
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-fg [overflow-wrap:anywhere]">
               {query ? t("plan.create-named", { name: query }) : t("plan.create-dish")}
@@ -872,7 +872,7 @@ function PickStep({
             type="button"
             onClick={onNote}
             disabled={busy}
-            className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-tomato/50 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-accent/50 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <StickyNote className="h-4 w-4 shrink-0 text-muted" aria-hidden />
             <span className="min-w-0">
@@ -936,7 +936,7 @@ function CreateStep({
           value={draft.title}
           onChange={(e) => onTitleChange(e.target.value)}
           placeholder={t(draft.readyMade ? "plan.ready-made-placeholder" : "plan.create-title-placeholder")}
-          className="h-11 w-full rounded-2xl border border-line bg-surface px-4 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+          className="h-11 w-full rounded-2xl border border-line bg-surface px-4 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
         />
       </div>
 
@@ -945,7 +945,7 @@ function CreateStep({
           type="checkbox"
           checked={draft.readyMade}
           onChange={(e) => onReadyMadeChange(e.target.checked)}
-          className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-tomato"
+          className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-accent"
         />
         <span className="min-w-0">
           <span className="flex items-center gap-1.5 text-sm font-semibold text-fg">
@@ -1011,7 +1011,7 @@ function Stepper({ label, onClick, disabled, icon }: { label: string; onClick: (
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-line text-fg transition-colors hover:border-tomato/50 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-line text-fg transition-colors hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       {icon}
     </button>
@@ -1047,7 +1047,7 @@ function IngredientChecklist({
         return (
           <li key={line.id}>
             <label className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-surface-2">
-              <input type="checkbox" checked={on} onChange={() => onToggle(line.id)} className="h-5 w-5 shrink-0 cursor-pointer accent-tomato" />
+              <input type="checkbox" checked={on} onChange={() => onToggle(line.id)} className="h-5 w-5 shrink-0 cursor-pointer accent-accent" />
               <span className="min-w-0 flex-1">
                 <span className={`block text-sm ${on ? "text-fg" : "text-muted line-through"}`}>{line.name}</span>
                 {existing && (

@@ -50,7 +50,7 @@ export function ScoreBadge({
         scored
           // Tinted plate + hairline ring: at 12% alpha on white the plate was
           // invisible and the score read as loose text rather than a badge.
-          ? "bg-tomato/10 text-tomato-700 ring-1 ring-inset ring-tomato/20 dark:bg-tomato/20 dark:text-tomato dark:ring-tomato/25"
+          ? "bg-accent/10 text-accent-700 ring-1 ring-inset ring-accent/20 dark:bg-accent/20 dark:text-accent dark:ring-accent/25"
           : "bg-surface-2 text-muted/70 ring-1 ring-inset ring-line"
       }`}
       aria-label={
@@ -121,7 +121,7 @@ export function QuoteBlock({
   return (
     <figure className={`relative ${className}`}>
       <Quote
-        className="absolute -left-0.5 -top-0.5 h-4 w-4 shrink-0 text-tomato/30"
+        className="absolute -left-0.5 -top-0.5 h-4 w-4 shrink-0 text-accent/30"
         aria-hidden
         strokeWidth={2.5}
       />

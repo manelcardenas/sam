@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Check, LogOut } from "lucide-react";
 import { apiClient, ApiError, type UserProfile } from "@/lib/api-client";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import { Button } from "@/components/ui/Button";
 
 const fieldClass =
-  "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
+  "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30";
 
 /**
  * Email, display name and sign out.
@@ -88,7 +89,7 @@ export function AccountPanel({
         {error && (
           <div
             role="alert"
-            className="mb-4 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato"
+            className="mb-4 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger"
           >
             {error}
           </div>
@@ -140,20 +141,16 @@ export function AccountPanel({
               placeholder={t("profile.display-name-placeholder")}
             />
           </div>
-          <button
-            type="submit"
-            disabled={saving || !dirty}
-            className="cursor-pointer rounded-full bg-tomato px-5 py-3 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-          >
+          <Button type="submit" disabled={saving || !dirty}>
             {saving ? t("common.saving") : t("common.save-changes")}
-          </button>
+          </Button>
         </form>
       </section>
 
       <button
         type="button"
         onClick={onSignOut}
-        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-3xl border border-line bg-surface px-4 py-3.5 font-display text-sm font-semibold text-muted transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-3xl border border-line bg-surface px-4 py-3.5 font-display text-sm font-semibold text-muted transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
       >
         <LogOut className="h-4 w-4" aria-hidden />
         {t("shell.sign-out")}

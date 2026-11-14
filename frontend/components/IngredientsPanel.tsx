@@ -44,7 +44,7 @@ export default function IngredientsPanel({ ingredients }: { ingredients: Ingredi
               type="button"
               onClick={() => setDesiredServings((s) => Math.max(1, s - 1))}
               aria-label={t("ingredients-panel.fewer-servings")}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               <Minus className="h-3 w-3" />
             </button>
@@ -64,7 +64,7 @@ export default function IngredientsPanel({ ingredients }: { ingredients: Ingredi
               type="button"
               onClick={() => setDesiredServings((s) => s + 1)}
               aria-label={t("ingredients-panel.more-servings")}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               <Plus className="h-3 w-3" />
             </button>
@@ -76,7 +76,7 @@ export default function IngredientsPanel({ ingredients }: { ingredients: Ingredi
       <ul className="space-y-2">
         {items.map((item, idx) => (
           <li key={idx} className="flex items-start gap-2.5 text-fg/90">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-tomato" />
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
             {formatItem(item)}
           </li>
         ))}

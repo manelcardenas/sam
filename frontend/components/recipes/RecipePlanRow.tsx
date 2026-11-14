@@ -29,7 +29,7 @@ export function RecipePlanRow({ recipe, week }: { recipe: Recipe; week: MealPlan
     <div className="flex flex-wrap items-center gap-2">
       <Link
         href={`/plan?${toQuery({ ...INITIAL_STATE, place: recipe.id })}`}
-        className="inline-flex items-center gap-1.5 rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+        className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
       >
         <CalendarPlus className="h-4 w-4" aria-hidden />
         {t("dashboard.plan-it")}
@@ -38,7 +38,7 @@ export function RecipePlanRow({ recipe, week }: { recipe: Recipe; week: MealPlan
         <Link
           key={entry.id}
           href={`/plan?${toQuery({ ...INITIAL_STATE, slot: { date: entry.date, meal: entry.meal } })}`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-leaf/40 bg-leaf/10 px-3 py-1.5 text-xs font-semibold text-leaf-700 transition-colors hover:border-leaf dark:text-leaf focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          className="inline-flex items-center gap-1.5 rounded-full border border-leaf/40 bg-leaf/10 px-3 py-1.5 text-xs font-semibold text-leaf-700 transition-colors hover:border-leaf dark:text-leaf focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           <CalendarCheck className="h-3.5 w-3.5" aria-hidden />
           {t("dashboard.planned-on", { day: formatWeekday(entry.date, locale), meal: t(`plan.${entry.meal}`).toLowerCase() })}

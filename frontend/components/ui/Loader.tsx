@@ -18,7 +18,7 @@ export function Loader({ label }: { label?: string }) {
       <div className="flex flex-col items-center gap-5">
         <SamLogo className="h-16 w-16 animate-float" />
         <div className="flex items-center gap-1.5" aria-hidden="true">
-          <span className="h-2.5 w-2.5 rounded-full bg-tomato animate-bounce-dot" />
+          <span className="h-2.5 w-2.5 rounded-full bg-accent animate-bounce-dot" />
           <span
             className="h-2.5 w-2.5 rounded-full bg-amber animate-bounce-dot"
             style={{ animationDelay: "0.15s" }}

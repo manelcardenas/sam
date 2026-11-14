@@ -13,17 +13,18 @@ import type { MessageKey } from "@/lib/i18n/dictionary";
  * `guarnicion` was the fifth, and it is what broke the old hard-coded
  * `grid-cols-4` into a ragged 4 + 1.
  *
- * **Five across at every width, not a wrap.** The row *is* the taxonomy — you
- * read it as a set of five and pick one — and a category stranded on its own
- * second line reads as a different kind of thing. At 375px that leaves ~60px a
- * tile, which clears the 44px touch target and still fits `Guarnición` at
- * `0.7rem`.
+ * **Five across from `sm`, three across (3 + 2) on a phone.** Five across at
+ * every width was the plan — the row is the taxonomy — but inside the form
+ * card a 360 px phone leaves ~51 px a tile and ~39 px for the label, and
+ * `Guarnició` needs ~57 px at `0.7rem`. The label then broke mid-word
+ * ("Guarni / ció"), which reads as a bug. 3 + 2 never strands a lone category
+ * on its own line, the worry that ruled out a ragged 4 + 1.
  */
 export function FoodTypePicker({ value, onChange }: { value: FoodType; onChange: (next: FoodType) => void }) {
   const { t } = useI18n();
 
   return (
-    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 sm:gap-2">
       {FOOD_TYPES.map(({ value: candidate, icon: Icon, accent }) => {
         const selected = value === candidate;
         return (
@@ -33,8 +34,8 @@ export function FoodTypePicker({ value, onChange }: { value: FoodType; onChange:
             onClick={() => onChange(candidate)}
             aria-pressed={selected}
             style={selected ? { borderColor: accent, backgroundColor: `${accent}1f` } : undefined}
-            className={`flex min-h-[4rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 px-1 py-2.5 text-[0.7rem] font-semibold leading-tight transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 ${
-              selected ? "scale-105 text-fg shadow-pop" : "border-line text-muted hover:border-tomato/40 hover:text-fg"
+            className={`flex min-h-[4rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 px-1 py-2.5 text-[0.7rem] font-semibold leading-tight transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+              selected ? "scale-105 text-fg shadow-pop" : "border-line text-muted hover:border-accent/40 hover:text-fg"
             }`}
           >
             <Icon
@@ -44,7 +45,7 @@ export function FoodTypePicker({ value, onChange }: { value: FoodType; onChange:
               style={selected ? { color: accent } : undefined}
               aria-hidden
             />
-            <span className="text-center [overflow-wrap:anywhere]">{t(`food-types.${candidate}.label` as MessageKey)}</span>
+            <span className="text-center">{t(`food-types.${candidate}.label` as MessageKey)}</span>
           </button>
         );
       })}

@@ -34,10 +34,10 @@ export function Chip({
       aria-pressed={active}
       aria-label={label}
       // h-11 = 44px: the minimum comfortable touch target.
-      className={`flex h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+      className={`flex h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
         active
-          ? "border-tomato bg-tomato text-white shadow-pop"
-          : "border-line bg-surface text-muted hover:border-tomato/40 hover:text-fg"
+          ? "border-accent bg-accent text-white shadow-pop"
+          : "border-line bg-surface text-muted hover:border-accent/40 hover:text-fg"
       }`}
     >
       {children}
@@ -52,7 +52,7 @@ export function ClearChip({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-semibold text-muted underline-offset-4 transition-colors hover:text-tomato hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-semibold text-muted underline-offset-4 transition-colors hover:text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       <XIcon />
       {t("common.clear")}

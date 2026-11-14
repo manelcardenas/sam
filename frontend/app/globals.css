@@ -16,6 +16,13 @@
   --line: 233 224 209;      /* #E9E0D1            */
 }
 
+/* :root also carries the default accent (tomato) for pages outside a section. */
+:root {
+  --accent: 228 87 46;      /* #E4572E tomato */
+  --accent-600: 210 74 36;
+  --accent-700: 200 67 31;
+}
+
 .dark {
   --bg: 28 25 20;           /* #1C1914 night (lifted) */
   --surface: 42 38 30;      /* #2A261E            */
@@ -25,8 +32,118 @@
   --line: 74 67 54;         /* #4A4336 visible    */
 }
 
+/* ───────────────────────────────────────────────────────────
+   Sections. Each one is its own pastel: the canvas, the sunken
+   surface and the hairlines take its tint, cards stay white, and
+   actions, selection and focus take its colour (`accent-*`).
+   Errors and deletes do not: they are `danger-*`, a fixed red.
+   Set on <html> by AppShell (so portalled menus get it too) and on
+   the shell's own root for the first render.
+   White on every accent is ≥ 4.5:1 except Dine's tomato (3.6:1,
+   used on bold labels only, as before).
+   ─────────────────────────────────────────────────────────── */
+[data-world="cook"] {
+  --bg: 239 246 236; --surface-2: 226 238 221; --line: 213 229 207;
+  --accent: 63 122 75; --accent-600: 55 108 66; --accent-700: 47 94 57;       /* sage  #3F7A4B */
+}
+[data-world="dine"] {
+  --bg: 255 243 236; --surface-2: 252 231 220; --line: 244 216 202;
+  --accent: 228 87 46; --accent-600: 210 74 36; --accent-700: 200 67 31;      /* tomato #E4572E */
+}
+[data-world="plan"] {
+  --bg: 243 240 252; --surface-2: 232 227 248; --line: 221 214 244;
+  --accent: 106 85 201; --accent-600: 94 73 186; --accent-700: 82 63 168;     /* lavender #6A55C9 */
+}
+[data-world="profile"] {
+  --bg: 238 244 252; --surface-2: 224 234 248; --line: 209 223 242;
+  --accent: 52 112 189; --accent-600: 45 99 170; --accent-700: 38 88 152;     /* sky #3470BD */
+}
+
+/* Dark: the same hues as tinted nights, and each accent lifted so it
+   reads on them. accent-700 stays darker: in dark it is only a hover
+   fill under white text (text-accent-700 always has a dark: override). */
+.dark[data-world="cook"], .dark [data-world="cook"] {
+  --bg: 22 28 23; --surface: 33 42 35; --surface-2: 45 56 47; --line: 62 78 64;
+  --accent: 88 164 104; --accent-600: 78 150 94; --accent-700: 70 140 84;
+}
+.dark[data-world="dine"], .dark [data-world="dine"] {
+  --bg: 30 23 20; --surface: 44 34 29; --surface-2: 58 45 38; --line: 84 63 52;
+  --accent: 228 87 46; --accent-600: 210 74 36; --accent-700: 200 67 31;
+}
+.dark[data-world="plan"], .dark [data-world="plan"] {
+  --bg: 24 22 34; --surface: 36 33 50; --surface-2: 48 44 66; --line: 70 64 96;
+  --accent: 130 110 226; --accent-600: 118 98 214; --accent-700: 112 92 206;
+}
+.dark[data-world="profile"], .dark [data-world="profile"] {
+  --bg: 20 25 33; --surface: 31 38 49; --surface-2: 42 51 65; --line: 60 74 94;
+  --accent: 74 138 214; --accent-600: 64 124 200; --accent-700: 60 120 196;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
+}
+
+/* ───────────────────────────────────────────────────────────
+   Glass — the app's chrome: the floating tab bar (.glass-chrome) and
+   the header (.glass-bar). One material, two shapes.
+   Not decoration: chrome sits over the page, and the blur keeps what
+   scrolls beneath it legible as context instead of hiding it behind
+   an opaque strip. Tinted from --bg so it stays warm, not grey.
+   Falls back to a solid surface where backdrop-filter is missing or
+   the reader asks for less transparency.
+   The bar has no border or drop shadow: it runs edge to edge, so at
+   the top of a page it reads as part of the page, and the blur alone
+   separates it once content scrolls under it.
+   ─────────────────────────────────────────────────────────── */
+.glass-bar {
+  background: rgb(var(--bg) / 0.96);
+}
+
+.glass-chrome {
+  background: rgb(var(--bg) / 0.96);
+  border: 1px solid rgb(var(--line));
+  box-shadow:
+    0 14px 32px -14px rgb(26 26 26 / 0.38),
+    0 3px 10px -4px rgb(26 26 26 / 0.14),
+    inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-chrome {
+    background: rgb(var(--bg) / 0.66);
+    border-color: rgb(255 255 255 / 0.65);
+    -webkit-backdrop-filter: blur(18px) saturate(1.7);
+    backdrop-filter: blur(18px) saturate(1.7);
+  }
+  .dark .glass-chrome {
+    background: rgb(var(--surface) / 0.62);
+    border-color: rgb(255 255 255 / 0.09);
+  }
+  .glass-bar {
+    background: rgb(var(--bg) / 0.7);
+    -webkit-backdrop-filter: blur(18px) saturate(1.7);
+    backdrop-filter: blur(18px) saturate(1.7);
+  }
+}
+
+.dark .glass-chrome {
+  box-shadow:
+    0 14px 32px -14px rgb(0 0 0 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-chrome,
+  .dark .glass-chrome {
+    background: rgb(var(--surface));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .glass-bar {
+    background: rgb(var(--bg));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 body {
@@ -45,9 +162,10 @@ body {
   }
 
   /* Faint dotted "field" texture for page backgrounds — atmosphere, not noise. */
+  /* Was a dotted "field" texture; the section pastels replaced it as the
+     page's atmosphere, and the two together read as busy. Kept as a no-op
+     class so pages that set it need no change. */
   .bg-paws {
-    background-image: radial-gradient(rgb(var(--fg) / 0.04) 1.5px, transparent 1.5px);
-    background-size: 22px 22px;
   }
 
   /* Used on entrances to start hidden before the staggered animation fires. */
