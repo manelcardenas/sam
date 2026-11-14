@@ -19,16 +19,25 @@ from src.domain.entities import (
 from src.domain.ports import MealPlanRepository
 from src.infra.db import ListItemSourceModel, MealPlanModel, PlanEntryModel, ShoppingListItemModel
 
-# The stored `unit`, with its absence spelled as '' so NULLs compare equal.
+# The stored `unit`, with its absence spelled as '' so NULLs compare equal, and
+# lowercased because `merge_key()` lowercases it.
 #
 # This has to match `uq_shopping_list_items_merge_key` exactly. Index the bare
 # column instead and the unique constraint stops merging the *common* case —
 # most household ingredients have no unit, and Postgres treats NULLs as distinct
-# (docs/plans/meal-planner-plan.md §8.3b).
-_UNIT_KEY = func.coalesce(ShoppingListItemModel.unit, "")
+# (docs/plans/meal-planner-plan.md §8.3b). Without the `lower()`, a line stored
+# in `Lonchas` was invisible to a lookup for `lonchas`, so the next add inserted
+# a twin and the index refused it with a 500 (16 Oct).
+_UNIT_KEY = func.lower(func.coalesce(ShoppingListItemModel.unit, ""))
+
 # The identity half of the merge key, mirroring `merge_key()` and the SQL index.
 # All three have to agree; see the index comment in models.py.
 _NAME_KEY = func.coalesce(ShoppingListItemModel.grocery_key, ShoppingListItemModel.normalised_name)
+
+
+def _stored_unit(unit: str | None) -> str | None:
+    """Trimmed, so the index's `lower()` sees what `merge_key()` sees after its `strip()`."""
+    return (unit.strip() or None) if unit is not None else None
 
 
 class PostgresMealPlanRepository(MealPlanRepository):
@@ -194,7 +203,7 @@ class PostgresMealPlanRepository(MealPlanRepository):
                         display_name=incoming.display_name.strip(),
                         normalised_name=normalise_ingredient_name(incoming.display_name),
                         grocery_key=incoming.grocery_key,
-                        unit=incoming.unit,
+                        unit=_stored_unit(incoming.unit),
                         total_amount=incoming.total_amount,
                         is_manual=incoming.is_manual,
                         created_by=incoming.created_by,
@@ -249,7 +258,7 @@ class PostgresMealPlanRepository(MealPlanRepository):
                 return None
             if model.total_amount is None and amount is not None:
                 model.total_amount = amount
-                model.unit = unit
+                model.unit = _stored_unit(unit)
 
             name_key, unit_key = merge_key(model.display_name, model.unit, grocery_key)
             other = session.scalars(

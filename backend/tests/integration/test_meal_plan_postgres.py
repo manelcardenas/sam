@@ -229,6 +229,27 @@ class TestTheMergeUpsert:
 
         assert len(repository.get_plan(plan.id).items) == 2
 
+    def test_a_capitalised_unit_merges_instead_of_failing(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
+        """The 500 of 16 Oct: `jamon cocido` in `Lonchas`, added twice. `merge_key()`
+        lowercased the unit, the lookup compared it with the stored `Lonchas`, found
+        nothing and inserted a second row, which the unique index refused."""
+        plan = repository.create_plan(kitchen, MONDAY, None)
+        repository.add_items(plan.id, [_line("jamón cocido", 4, "Lonchas")])
+        repository.add_items(plan.id, [_line("jamon cocido", 2, "Lonchas")])
+        repository.add_items(plan.id, [_line("Jamón cocido", 1, " lonchas ")])
+
+        [item] = repository.get_plan(plan.id).items
+        assert (item.total_amount, item.unit) == (7, "Lonchas")
+
+    def test_filing_a_line_folds_into_a_twin_with_a_capitalised_unit(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
+        plan = repository.create_plan(kitchen, MONDAY, None)
+        [ham] = repository.add_items(plan.id, [_line("jamón york", 4, "lonchas")])
+        [twin] = repository.add_items(plan.id, [_line("jamon cocido", 2, "Lonchas")])
+        repository.set_item_grocery_key(ham.id, "jamon cocido")
+
+        [item] = repository.get_plan(plan.id).items
+        assert (item.id, item.total_amount) == (twin.id, 6)
+
     def test_an_unmeasured_line_keeps_a_null_total(self, repository: PostgresMealPlanRepository, kitchen: str) -> None:
         """Numeric round-trips as Decimal; None must survive as None rather than
         arriving as 0."""
