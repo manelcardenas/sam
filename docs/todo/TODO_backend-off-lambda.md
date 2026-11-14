@@ -96,9 +96,14 @@ instance.
       provisioned memory only while a request is in flight ("nothing at all between requests",
       Fluid pricing docs), so ~8,600 pings a month is ~0.2 GB-h of the 360 included. It keeps
       Vercel warm, not Neon (that would spend Neon compute hours).
-- [ ] After a few days without problems: delete the Lambda/API Gateway stacks,
-      `deploy-backend.yml`, the gateway-route test and the `addRoutes` rule (AGENTS.md,
-      memory), and the SSM parameters only Lambda reads.
+- [x] Code no longer targets Lambda: `mangum` and its `handler` removed, plus `pyjwt` (never
+      imported; python-jose does the JWT work). `deploy-backend.yml` deleted with them — had
+      Actions come back, it would have deployed a Lambda with no handler *and* run migrations
+      alongside Vercel's build. The deployed Lambda keeps running its last bundle, so the
+      rollback URL still works, frozen at that version.
+- [ ] After a few days without problems: delete the Lambda/API Gateway stacks, the
+      gateway-route test and the `addRoutes` rule (AGENTS.md, memory), and the SSM parameters
+      only Lambda reads.
 - [ ] Backend previews per PR: need their own database (a Neon branch), not production.
       **Revisit when** a backend PR needs testing before merge.
 - [ ] Update `docs/wiki/ci-cd.md`, `CONTEXT.md` and AGENTS.md for the move.
