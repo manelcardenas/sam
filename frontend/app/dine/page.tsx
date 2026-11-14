@@ -14,6 +14,7 @@ import {
   type CreateReviewInput,
 } from "@/lib/api-client";
 import { AppShell } from "@/components/shell/AppShell";
+import { CompactButton } from "@/components/ui/Button";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import RestaurantForm from "@/components/RestaurantForm";
 import ReviewForm from "@/components/ReviewForm";
@@ -464,8 +465,8 @@ export default function DinePage() {
 
   return (
     <AppShell userName={userName}>
-      <div className="mb-6 flex items-center justify-between gap-3">
-        {view !== "list" ? (
+      {view !== "list" && (
+        <div className="mb-6 flex items-center justify-between gap-3">
           <button
             onClick={goBack}
             className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
@@ -473,20 +474,8 @@ export default function DinePage() {
             <ArrowLeft className="h-4 w-4" />
             {t("common.back")}
           </button>
-        ) : (
-          <span />
-        )}
-
-        {view === "list" && (
-          <button
-            onClick={() => setView("add-restaurant")}
-            className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-          >
-            <Plus className="h-4 w-4" />
-            {t("dine.new-restaurant")}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
@@ -503,13 +492,18 @@ export default function DinePage() {
       {/* ── LIST ── */}
       {view === "list" && (
         <div>
-          <header className="mb-7">
-            <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-[2.5rem] sm:leading-[1.1]">
-              {t("dine.title")}
-            </h1>
-            <p className="mt-1.5 text-muted">
-              {archive.length > 0 ? tp("dine.count", archive.length) : t("dine.empty-archive")}
-            </p>
+          <header className="mb-7 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="font-display text-3xl font-bold tracking-tight text-fg sm:text-[2.5rem] sm:leading-[1.1]">
+                {t("dine.title")}
+              </h1>
+              <p className="mt-1.5 text-muted">
+                {archive.length > 0 ? tp("dine.count", archive.length) : t("dine.empty-archive")}
+              </p>
+            </div>
+            {/* Beside the title, not on a row above it: there it cost ~90 px of
+                a phone's first screen. Its icon alone on a phone (CompactButton). */}
+            <CompactButton icon={Plus} label={t("dine.new-restaurant")} onClick={() => setView("add-restaurant")} className="shrink-0" />
           </header>
 
           {/* The reel of recent visits — hides itself when there's too little to

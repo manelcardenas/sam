@@ -83,6 +83,25 @@ export function IconButton({ icon: Icon, label, variant = "ghost", size = "md", 
 }
 
 /**
+ * A button that is its icon alone on a phone and spells its label from `sm`.
+ *
+ * For a page's main action beside its title ("+ New recipe" next to "What
+ * shall we cook?"): on a 360 px phone the two do not share a line in Catalan or
+ * Spanish, and a button on its own row above the title cost ~90 px of the first
+ * screen. The label is the accessible name and tooltip everywhere.
+ */
+export function CompactButton({ label, size = "md", className = "", ...rest }: Omit<ButtonProps, "children" | "icon"> & { icon: LucideIcon; label: string }) {
+  // max-sm:gap-0: the label's (now empty) wrapper is still a flex item, and the
+  // gap beside it would push the icon off centre.
+  const square = size === "sm" ? "max-sm:w-9" : "max-sm:w-11";
+  return (
+    <Button title={label} size={size} className={`${square} max-sm:gap-0 max-sm:px-0 ${className}`} {...rest}>
+      <span className="sr-only sm:not-sr-only">{label}</span>
+    </Button>
+  );
+}
+
+/**
  * The actions at the foot of a form: primary first, then the rest.
  *
  * Stacked full-width on a phone, side by side from `sm` with the primary

@@ -126,6 +126,11 @@ function Slot({
 
   // An empty slot is normal, not an error (§6) — so it reads as an invitation
   // rather than as something missing.
+  //
+  // One line below lg (meal on the left, "+ Add a recipe" on the right), two
+  // stacked from lg where the seven columns are ~138 px wide. Stacked on a
+  // phone, an empty week was 14 slots of 68 px — ~1,400 px of dashed boxes to
+  // scroll past; on one line each is 44 px.
   if (entries.length === 0) {
     return (
       <button
@@ -133,7 +138,7 @@ function Slot({
         onClick={onClick}
         disabled={!editable}
         aria-label={`${mealLabel}: ${t("plan.add-recipe")}`}
-        className="flex min-h-[4.25rem] w-full cursor-pointer flex-col items-start justify-center gap-1 rounded-2xl border border-dashed border-line px-3 py-2.5 text-left transition-colors hover:border-tomato/50 hover:bg-tomato/5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+        className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-dashed border-line px-3 py-2 text-left lg:min-h-[4.25rem] lg:flex-col lg:items-start lg:justify-center lg:gap-1 lg:py-2.5 transition-colors hover:border-tomato/50 hover:bg-tomato/5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
       >
         <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted">{mealLabel}</span>
         <span className="flex items-center gap-1.5 text-sm text-muted">
