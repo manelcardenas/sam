@@ -1,6 +1,6 @@
 # TODO — Quick wins on the web app
 
-> **Status: In progress — 1 and 2 done, 3 next.**
+> **Status: DONE — 2026-11-14.** *Outcome:* all three fixed; 3 was the unit's casing.
 
 Three small problems on the current web app. Worth fixing now, whatever is decided in
 [web or mobile](./TODO_web-or-mobile-decision.md), because the app is in daily use.
@@ -65,5 +65,11 @@ On 16 Oct three requests failed with `UniqueViolation` on `uq_shopping_list_item
 (`jamon cocido`, unit `Lonchas`): an insert collided with a line that already existed under the
 same merge key instead of merging into it.
 
-- [ ] Reproduce (probably: unit casing, or a key resolved after the existence check)
-- [ ] Fix the merge so it can never insert a duplicate key, plus a regression test
+- [x] Reproduced: it was the unit's casing. `merge_key()` lowercases the unit, but the
+      repository's lookup and the unique index compared it as stored, so a line in `Lonchas` was
+      invisible to the lookup for `lonchas`; the next add inserted a twin and the index refused it.
+      Filing a line under a grocery key (`set_item_grocery_key`) and carry-forward had the same hole.
+- [x] Fixed: the lookup and the index (migration `d1f3a7c58e20`) both use
+      `lower(COALESCE(unit, ''))`, and units are stored trimmed. Production was checked first:
+      104 lines, none that would collide. Regression tests in `test_meal_plan_postgres.py`
+      (opt-in, `SAM_TEST_POSTGRES=1`).

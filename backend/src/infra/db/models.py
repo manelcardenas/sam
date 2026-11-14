@@ -298,7 +298,9 @@ class ShoppingListItemModel(Base):
     __table_args__ = (
         # COALESCE, not a bare `unit`: Postgres treats NULLs as distinct in a
         # unique constraint, and most household ingredients have no unit — so
-        # indexing `unit` directly fails to merge the *common* case. The upsert
+        # indexing `unit` directly fails to merge the *common* case. `lower()`
+        # because `merge_key()` lowercases the unit: `Lonchas` and `lonchas` are
+        # one line, and a lookup that disagreed with the index was a 500. The upsert
         # in postgres_meal_plan_repo.py uses the same expression.
         # `COALESCE(grocery_key, normalised_name)`, not a bare name: two lines
         # meaning one vocabulary row are one line, whichever language each was
@@ -310,7 +312,7 @@ class ShoppingListItemModel(Base):
             "uq_shopping_list_items_merge_key",
             "plan_id",
             text("COALESCE(grocery_key, normalised_name)"),
-            text("COALESCE(unit, '')"),
+            text("lower(COALESCE(unit, ''))"),
             unique=True,
         ),
     )

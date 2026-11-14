@@ -21,9 +21,8 @@ ready.
 
 | # | Task | Size | Depends on | Why here |
 |---|---|---|---|---|
-| ✅ | [Shared UI components](./TODO_ui-components.md) (A only), [web or mobile](./TODO_web-or-mobile-decision.md), [quick wins](./TODO_quick-wins.md) 1–2 | — | — | Done; B and C of the UI components were cancelled by the ADR |
+| ✅ | [Shared UI components](./TODO_ui-components.md) (A only), [web or mobile](./TODO_web-or-mobile-decision.md), [quick wins](./TODO_quick-wins.md) 1–3 | — | — | Done; B and C of the UI components were cancelled by the ADR |
 | 1 | [Backend off Lambda](./TODO_backend-off-lambda.md) — spike Vercel, then migrate | spike ½ day, migration 2–3 days | — | The slowness people feel: 10 of 10 sessions start with a 3.4–6.7 s request. Independent of the frontend |
-| 1b | [Quick win 3](./TODO_quick-wins.md) — the duplicate list line that returns 500 | hours | — | A backend bug, so it survives the move to Expo |
 | 2 | Expo app setup — mywally-app conventions, same backend and Cognito | to size | 1 | The base everything else is built on |
 | 3 | [Weekly plan redesign](./TODO_weekly-plan-redesign.md), built in Expo | the big one | 2 | The calendar was used 3 weeks out of 8 and dropped after 24 Oct |
 | 4 | APK on the Android phone, daily use | small | 3 | Real use before porting the rest |
