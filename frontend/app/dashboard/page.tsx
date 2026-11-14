@@ -6,7 +6,7 @@ import { apiClient, type Recipe, type CreateRecipeInput, type MealPlan } from "@
 import { FOOD_TYPES } from "@/lib/constants";
 import { RecipeFilterChips } from "@/components/recipes/RecipeFilterChips";
 import { NO_FILTERS, filterRecipes, type RecipeFilterState } from "@/lib/recipe-filters";
-import { currentParams, useBrowserNavigation, useHistoryDepth, writeUrl } from "@/lib/url-state";
+import { canGoBack, currentParams, useBrowserNavigation, useTabHome, writeUrl } from "@/lib/url-state";
 import { fromQuery, toQuery, type DashboardView } from "@/lib/dashboard-url";
 import RecipeForm from "@/components/RecipeForm";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
@@ -146,7 +146,6 @@ export default function DashboardPage() {
   // transition sites: one place to reason about, and no call site has to
   // remember. Restoring runs the same mapping backwards.
 
-  const history = useHistoryDepth();
   // Set while a popstate is being applied, so the writer below doesn't push a
   // new entry in response to the user going back — which would trap them.
   const applyingHistory = useRef(false);
@@ -175,9 +174,11 @@ export default function DashboardPage() {
     applyUrl(currentParams());
   }, [loading, applyUrl]);
 
-  useBrowserNavigation((params) => {
-    history.recordPop();
-    applyUrl(params);
+  useBrowserNavigation(applyUrl);
+
+  useTabHome(() => {
+    setSelectedRecipe(null);
+    setView("list");
   });
 
   useEffect(() => {
@@ -187,14 +188,12 @@ export default function DashboardPage() {
       return;
     }
     const query_ = toQuery({ view, ...filters, recipeId: selectedRecipe?.id ?? null });
-    const before = window.location.search;
     // Views push — that is what makes the back gesture work. Narrowing
     // replaces, so tweaking a filter five times doesn't cost five back presses
     // (lib/url-state.ts).
     const mode = view === "list" ? "replace" : "push";
     writeUrl(query_, mode);
-    if (mode === "push" && window.location.search !== before) history.recordPush();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [view, filters, selectedRecipe?.id]);
 
   // ── Navigation helpers ───────────────────────────────────────────────────────
@@ -210,7 +209,7 @@ export default function DashboardPage() {
     // Defer to real history when there is any, so the in-app button and the
     // device gesture agree. Without this the button pushes *forward*, and the
     // gesture then walks back through views the user just dismissed.
-    if (history.canGoBack()) {
+    if (canGoBack()) {
       window.history.back();
       return;
     }

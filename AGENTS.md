@@ -275,7 +275,10 @@ Identifiers are not copy: `FOOD_TYPES.value` stays `"comida"` because it is the 
 `output: 'export'` rules out dynamic segments (`/dine/[id]` needs every id at build time), so
 state is query params via `lib/url-state.ts`. The convention — a *view* change pushes history, a
 *filter* change replaces it — is what makes the phone back gesture move back one view instead of
-exiting the PWA. There is no unit test that can prove that; be careful when changing it.
+exiting the PWA. `writeUrl` also stores each entry's depth within the page in `history.state`,
+which the in-app Back, reloads and the tab bar (`useTabHome`) rely on. jsdom keeps a real
+session history, so `app/dine/page.spec.tsx` and `app/plan/page.spec.tsx` walk the entries a
+phone would; add a case there when changing any of this.
 
 ## Pre-commit Hooks
 

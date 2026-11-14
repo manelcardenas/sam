@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import type { MessageKey } from "@/lib/i18n/dictionary";
+import { announceTabHome } from "@/lib/url-state";
 import { WORLDS, type WorldId } from "@/lib/worlds";
 
 /**
@@ -104,9 +105,28 @@ export function AppShell({
   );
 }
 
+/**
+ * A tab link that, on the page it points at, goes to that page's main screen.
+ *
+ * Navigating to the path you are already on changes nothing visible — the page
+ * stays mounted and only reads its query on load and popstate — so the click
+ * is turned into an announcement the page answers (`useTabHome`). Modified
+ * clicks (open in a new tab) keep the browser's behaviour.
+ */
+function useTabClick() {
+  const pathname = usePathname() ?? "";
+  return (href: string) => (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (pathname !== href) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    announceTabHome();
+  };
+}
+
 /** Desktop segmented control for switching worlds. */
 function WorldSwitch({ active }: { active: WorldId | null }) {
   const { t } = useI18n();
+  const onTabClick = useTabClick();
   return (
     <div className="inline-flex items-center rounded-full border border-line bg-surface p-1">
       {WORLDS.map((w) => {
@@ -116,6 +136,7 @@ function WorldSwitch({ active }: { active: WorldId | null }) {
           <Link
             key={w.id}
             href={w.href}
+            onClick={onTabClick(w.href)}
             aria-current={on ? "page" : undefined}
             className={`flex items-center gap-1.5 rounded-full px-4 py-2 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
               on
@@ -141,6 +162,7 @@ function MobileTabBar({
   onProfile: boolean;
 }) {
   const { t } = useI18n();
+  const onTabClick = useTabClick();
   const tabs: {
     key: string;
     label: string;
@@ -170,6 +192,7 @@ function MobileTabBar({
             <Link
               key={t.key}
               href={t.href}
+              onClick={onTabClick(t.href)}
               aria-current={t.active ? "page" : undefined}
               className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors ${
                 t.active ? "text-tomato" : "text-muted"

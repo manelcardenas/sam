@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PlanPage from "./page";
 import { apiClient } from "@/lib/api-client";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
+import { announceTabHome } from "@/lib/url-state";
 
 /**
  * The phone back gesture on /plan. Like `app/dine/page.spec.tsx`, it relies on
@@ -62,6 +63,25 @@ describe("/plan back navigation", () => {
 
     await act(async () => {
       window.history.back();
+      await waitFor(() => expect(here()).toBe("/plan"));
+    });
+    expect(await screen.findByTestId("calendar")).toBeInTheDocument();
+  });
+
+  it("tapping the Plan tab on the shopping list goes back to the calendar", async () => {
+    window.history.replaceState(null, "", "/dine");
+    window.history.pushState(null, "", "/plan");
+    render(
+      <LocaleProvider>
+        <PlanPage />
+      </LocaleProvider>,
+    );
+    await screen.findByTestId("calendar");
+    fireEvent.click(screen.getByRole("button", { name: /Shopping list/ }));
+    await screen.findByTestId("list");
+
+    await act(async () => {
+      announceTabHome();
       await waitFor(() => expect(here()).toBe("/plan"));
     });
     expect(await screen.findByTestId("calendar")).toBeInTheDocument();
