@@ -29,6 +29,51 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* ───────────────────────────────────────────────────────────
+   Glass chrome — the floating tab bar.
+   Not decoration: the bar floats over the page, and the blur keeps
+   what scrolls beneath it legible as context instead of hiding it
+   behind an opaque strip. Tinted from --bg so it stays warm, not grey.
+   Falls back to a solid surface where backdrop-filter is missing or
+   the reader asks for less transparency.
+   ─────────────────────────────────────────────────────────── */
+.glass-chrome {
+  background: rgb(var(--bg) / 0.96);
+  border: 1px solid rgb(var(--line));
+  box-shadow:
+    0 14px 32px -14px rgb(26 26 26 / 0.38),
+    0 3px 10px -4px rgb(26 26 26 / 0.14),
+    inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-chrome {
+    background: rgb(var(--bg) / 0.66);
+    border-color: rgb(255 255 255 / 0.65);
+    -webkit-backdrop-filter: blur(18px) saturate(1.7);
+    backdrop-filter: blur(18px) saturate(1.7);
+  }
+  .dark .glass-chrome {
+    background: rgb(var(--surface) / 0.62);
+    border-color: rgb(255 255 255 / 0.09);
+  }
+}
+
+.dark .glass-chrome {
+  box-shadow:
+    0 14px 32px -14px rgb(0 0 0 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-chrome,
+  .dark .glass-chrome {
+    background: rgb(var(--surface));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 body {
   background-color: rgb(var(--bg));
   color: rgb(var(--fg));

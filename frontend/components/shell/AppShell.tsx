@@ -180,12 +180,27 @@ function MobileTabBar({
     { key: "profile", label: t("shell.you"), href: "/profile", icon: User, active: onProfile },
   ];
 
+  const activeIndex = tabs.findIndex((tab) => tab.active);
+
   return (
+    // A floating glass pill rather than a full-width strip: the page scrolls
+    // on beneath it and stays visible through the blur, and the active tab is
+    // a tinted lens that slides between tabs — the same pill-in-a-pill as the
+    // profile tabs and Plan's switch (components/ui/SegmentedControl).
     <nav
       aria-label={t("shell.primary-navigation")}
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 backdrop-blur md:hidden"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] md:hidden"
     >
-      <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
+      <div className="glass-chrome pointer-events-auto relative mx-auto grid max-w-sm grid-cols-4 rounded-full p-1.5">
+        {activeIndex >= 0 && (
+          <span
+            aria-hidden
+            className="absolute inset-y-1.5 left-1.5 rounded-full bg-tomato/[0.13] shadow-[inset_0_1px_0_rgb(255_255_255/0.5)] transition-transform duration-500 ease-[cubic-bezier(.16,1,.3,1)] motion-reduce:transition-none dark:bg-tomato/20 dark:shadow-none"
+            // One column of the grid: (track − padding) / 4, so a step is one
+            // of its own widths and the slide is a plain translateX.
+            style={{ width: "calc((100% - 0.75rem) / 4)", transform: `translateX(${activeIndex * 100}%)` }}
+          />
+        )}
         {tabs.map((t) => {
           const Icon = t.icon;
           return (
@@ -194,12 +209,12 @@ function MobileTabBar({
               href={t.href}
               onClick={onTabClick(t.href)}
               aria-current={t.active ? "page" : undefined}
-              className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors ${
-                t.active ? "text-tomato" : "text-muted"
+              className={`relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-semibold transition-[color,transform] duration-200 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+                t.active ? "text-tomato" : "text-muted hover:text-fg"
               }`}
             >
-              <Icon className="h-5 w-5" />
-              {t.label}
+              <Icon className="h-5 w-5" strokeWidth={t.active ? 2.4 : 2} aria-hidden />
+              <span className="whitespace-nowrap">{t.label}</span>
             </Link>
           );
         })}
