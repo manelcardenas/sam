@@ -34,8 +34,8 @@ export function FoodTypePicker({ value, onChange }: { value: FoodType; onChange:
             onClick={() => onChange(candidate)}
             aria-pressed={selected}
             style={selected ? { borderColor: accent, backgroundColor: `${accent}1f` } : undefined}
-            className={`flex min-h-[4rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 px-1 py-2.5 text-[0.7rem] font-semibold leading-tight transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 ${
-              selected ? "scale-105 text-fg shadow-pop" : "border-line text-muted hover:border-tomato/40 hover:text-fg"
+            className={`flex min-h-[4rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 px-1 py-2.5 text-[0.7rem] font-semibold leading-tight transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+              selected ? "scale-105 text-fg shadow-pop" : "border-line text-muted hover:border-accent/40 hover:text-fg"
             }`}
           >
             <Icon

@@ -60,7 +60,7 @@ function rowsFromIngredients(ingredients?: IngredientsData): CaptureRow[] {
 }
 
 const fieldClass =
-  "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
+  "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30";
 
 const labelClass = "mb-1.5 block text-sm font-semibold text-fg";
 
@@ -138,7 +138,7 @@ export default function RecipeForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+        <div className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger">
           {error}
         </div>
       )}
@@ -208,7 +208,7 @@ export default function RecipeForm({
               required
               value={servings}
               onChange={(e) => setServings(e.target.value)}
-              className="w-14 rounded-lg border border-line bg-surface px-2 py-1 text-center text-sm font-semibold text-fg focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+              className="w-14 rounded-lg border border-line bg-surface px-2 py-1 text-center text-sm font-semibold text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
               placeholder={t("recipe-form.servings-placeholder")}
             />
           </div>

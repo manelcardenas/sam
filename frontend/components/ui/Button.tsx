@@ -24,11 +24,11 @@ type Variant = "primary" | "secondary" | "ghost";
 type Size = "md" | "sm";
 
 const BASE =
-  "inline-flex min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full font-display font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full font-display font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-tomato text-white shadow-pop hover:bg-tomato-700 active:scale-95",
-  secondary: "border border-line bg-surface text-fg hover:border-tomato/40 hover:text-tomato",
+  primary: "bg-accent text-white shadow-pop hover:bg-accent-700 active:scale-95",
+  secondary: "border border-line bg-surface text-fg hover:border-accent/40 hover:text-accent",
   ghost: "text-muted hover:bg-surface-2 hover:text-fg",
 };
 

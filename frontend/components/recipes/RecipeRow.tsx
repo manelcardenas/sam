@@ -36,7 +36,7 @@ export function RecipeRow({
   return (
     <button
       onClick={onClick}
-      className="group flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-2xl border border-line bg-surface px-4 py-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-tomato/40 hover:shadow-paw focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      className="group flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-2xl border border-line bg-surface px-4 py-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-paw focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       <span
         aria-hidden
@@ -47,7 +47,7 @@ export function RecipeRow({
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-display font-semibold text-fg transition-colors group-hover:text-tomato">
+        <span className="block truncate font-display font-semibold text-fg transition-colors group-hover:text-accent">
           {recipe.title}
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted">
@@ -57,7 +57,7 @@ export function RecipeRow({
       </span>
 
       <ChevronRight
-        className="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-tomato"
+        className="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-accent"
         aria-hidden
       />
     </button>

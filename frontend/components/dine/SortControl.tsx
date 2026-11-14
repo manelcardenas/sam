@@ -65,7 +65,7 @@ export function SortControl({
     <div className={`relative shrink-0 ${className}`}>
       <ArrowDownWideNarrow
         className={`pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 sm:left-3 sm:translate-x-0 ${
-          unusual ? "text-tomato" : "text-muted"
+          unusual ? "text-accent" : "text-muted"
         }`}
         aria-hidden
       />
@@ -77,8 +77,8 @@ export function SortControl({
         // h-11 = 44px, matching the chips it sits beside. Phone: a 44 px
         // square, text transparent (the options keep theirs). From sm: the
         // value, with pl-9/pr-8 leaving room for the two layered icons.
-        className={`h-11 w-11 cursor-pointer appearance-none rounded-2xl border bg-surface text-sm font-semibold text-transparent transition-colors *:text-fg hover:border-tomato/40 focus:border-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 sm:w-auto sm:pl-9 sm:pr-8 sm:text-fg ${
-          unusual ? "border-tomato/60" : "border-line"
+        className={`h-11 w-11 cursor-pointer appearance-none rounded-2xl border bg-surface text-sm font-semibold text-transparent transition-colors *:text-fg hover:border-accent/40 focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:w-auto sm:pl-9 sm:pr-8 sm:text-fg ${
+          unusual ? "border-accent/60" : "border-line"
         }`}
       >
         {OPTIONS.map((option) => (

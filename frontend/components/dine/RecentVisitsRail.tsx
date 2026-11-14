@@ -131,7 +131,7 @@ export function RecentVisitsRail({
         tabIndex={0}
         role="list"
         aria-label={t("recent-visits.list-label")}
-        className="rail-scroll -mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 sm:mx-0 sm:scroll-pl-0 sm:px-0"
+        className="rail-scroll -mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:mx-0 sm:scroll-pl-0 sm:px-0"
       >
         {recent.map((r, i) => (
           <li
@@ -167,7 +167,7 @@ function RailButton({
       // Not in the tab order: the rail's own arrow-key handling already covers
       // keyboard users, and these would otherwise add two stops before every card.
       tabIndex={-1}
-      className="grid h-9 w-9 cursor-pointer place-items-center rounded-full border border-line bg-surface text-muted transition-colors hover:border-tomato/40 hover:text-tomato disabled:cursor-default disabled:opacity-35 disabled:hover:border-line disabled:hover:text-muted"
+      className="grid h-9 w-9 cursor-pointer place-items-center rounded-full border border-line bg-surface text-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-default disabled:opacity-35 disabled:hover:border-line disabled:hover:text-muted"
     >
       {children}
     </button>
@@ -197,15 +197,15 @@ function RailCard({
 
   return (
     <article className="group relative h-full">
-      <div className="ticket-edge flex h-full min-w-0 flex-col rounded-3xl rounded-b-none border border-b-0 border-line bg-surface pb-4 transition-[border-color,box-shadow] duration-200 group-hover:border-tomato/40 group-hover:shadow-paw">
+      <div className="ticket-edge flex h-full min-w-0 flex-col rounded-3xl rounded-b-none border border-b-0 border-line bg-surface pb-4 transition-[border-color,box-shadow] duration-200 group-hover:border-accent/40 group-hover:shadow-paw">
         <div className="flex items-start gap-3 border-b border-dashed border-line px-4 py-3.5">
           <ScoreBadge score={r.average_overall} size="lg" />
           <div className="min-w-0 flex-1">
-            <h3 className="font-display text-[0.95rem] font-semibold leading-snug text-fg transition-colors group-hover:text-tomato">
+            <h3 className="font-display text-[0.95rem] font-semibold leading-snug text-fg transition-colors group-hover:text-accent">
               <button
                 type="button"
                 onClick={onClick}
-                className="block w-full cursor-pointer text-left focus:outline-none after:absolute after:inset-0 after:rounded-3xl focus-visible:after:ring-2 focus-visible:after:ring-tomato/50"
+                className="block w-full cursor-pointer text-left focus:outline-none after:absolute after:inset-0 after:rounded-3xl focus-visible:after:ring-2 focus-visible:after:ring-accent/50"
               >
                 <span className="line-clamp-2 [overflow-wrap:anywhere]">{r.name}</span>
               </button>

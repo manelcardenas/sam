@@ -11,14 +11,11 @@ import { formatMonthYear } from "@/lib/format";
  * a label for a page rather than a picture of a person — you already know
  * whose profile you are on. This says who you are instead.
  *
- * The wash is two radial gradients in the brand duotone at 12–14% alpha over
- * `surface`, not a linear `from-tomato to-amber`: a linear ramp across a wide
- * card reads as a banner from a different product, while offset radials read as
- * light falling on paper, which is the register the rest of the app is in. The
- * `bg-paws` dot texture sits on top of it for the same reason.
- *
- * The monogram is the only place in the app where the two brand colours meet
- * directly, which is what makes it the anchor.
+ * Flat, in the section's colour: the monogram is a soft plate of the accent
+ * with the initial in it, like a contact photo placeholder. It used to be a
+ * tomato-to-amber gradient with a tomato glow over a two-colour radial wash —
+ * the one gradient left in an app that is otherwise flat pastels, so it read
+ * as borrowed from a different product (raised 2026-11-14).
  */
 export function ProfileHero({
   name,
@@ -36,18 +33,11 @@ export function ProfileHero({
   const initial = (name.trim()[0] ?? "?").toUpperCase();
 
   return (
-    <section className="animate-settle relative overflow-hidden rounded-4xl border border-line bg-surface shadow-paw">
-      {/* Wash + texture, behind everything and inert to the pointer. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_140%_at_0%_0%,rgba(228,87,46,0.14),transparent_58%),radial-gradient(110%_130%_at_100%_10%,rgba(244,160,36,0.13),transparent_55%)]"
-      />
-      <div aria-hidden className="bg-paws pointer-events-none absolute inset-0 opacity-70" />
-
+    <section className="animate-settle relative overflow-hidden rounded-4xl border border-line bg-surface">
       <div className="relative flex items-center gap-4 p-6 sm:gap-5 sm:p-7">
         <span
           aria-hidden
-          className="grid h-16 w-16 shrink-0 place-items-center rounded-3xl bg-gradient-to-br from-tomato to-amber font-display text-2xl font-bold text-white shadow-[0_10px_24px_-10px_rgba(228,87,46,0.75)] ring-1 ring-inset ring-white/25 sm:h-20 sm:w-20 sm:text-3xl"
+          className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-accent/15 font-display text-2xl font-bold text-accent-700 dark:bg-accent/25 dark:text-accent sm:h-20 sm:w-20 sm:text-3xl"
         >
           {initial}
         </span>

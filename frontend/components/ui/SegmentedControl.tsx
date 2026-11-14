@@ -89,8 +89,8 @@ export function SegmentedControl<T extends string>({
               : { "aria-current": on ? ("page" as const) : undefined })}
             // sr-only keeps the label as the accessible name while it is hidden.
             title={segment.label}
-            className={`flex min-h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-              on ? "bg-tomato px-3.5 text-white shadow-pop" : "px-2.5 text-muted hover:text-fg sm:px-3.5"
+            className={`flex min-h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+              on ? "bg-accent px-3.5 text-white shadow-pop" : "px-2.5 text-muted hover:text-fg sm:px-3.5"
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />

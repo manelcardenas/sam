@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "aws-amplify/auth";
 import { LogOut, User } from "lucide-react";
@@ -34,6 +35,18 @@ export function AppShell({
   // adding a world is one entry in lib/worlds.ts and nothing here.
   const activeWorld: WorldId = WORLDS.find((w) => pathname.startsWith(w.href))?.id ?? "cook";
 
+  // The section's palette (app/globals.css, [data-world]). On <html> as well as
+  // on the shell's root so menus portalled to <body> take it too, and so the
+  // canvas behind an overscroll bounce is the section's colour, not cream.
+  const world = onProfile ? "profile" : activeWorld;
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.world = world;
+    return () => {
+      delete root.dataset.world;
+    };
+  }, [world]);
+
   const handleSignOut = async () => {
     try {
       await signOut({ global: true });
@@ -43,12 +56,12 @@ export function AppShell({
   };
 
   return (
-    <div className="min-h-screen bg-bg bg-paws text-fg">
+    <div className="min-h-screen bg-bg bg-paws text-fg" data-world={world}>
       <header className="glass-bar sticky top-0 z-30">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2.5 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="inline-flex items-center gap-2.5 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <SamMascot className="h-10 w-10 shrink-0" />
             <span className="flex flex-col leading-none">
@@ -70,11 +83,11 @@ export function AppShell({
               href="/profile"
               aria-label={t("shell.your-profile")}
               title={t("shell.profile")}
-              className={`flex h-11 items-center gap-2 rounded-full px-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+              className={`flex h-11 items-center gap-2 rounded-full px-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
                 onProfile ? "bg-surface-2" : "hover:bg-surface-2"
               }`}
             >
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-tomato/15 text-tomato">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-accent/15 text-accent">
                 <User className="h-4 w-4" />
               </span>
               {userName && (
@@ -88,7 +101,7 @@ export function AppShell({
               onClick={handleSignOut}
               aria-label={t("shell.sign-out")}
               title={t("shell.sign-out")}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               <LogOut className="h-5 w-5" />
             </button>
@@ -138,9 +151,9 @@ function WorldSwitch({ active }: { active: WorldId | null }) {
             href={w.href}
             onClick={onTabClick(w.href)}
             aria-current={on ? "page" : undefined}
-            className={`flex items-center gap-1.5 rounded-full px-4 py-2 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+            className={`flex items-center gap-1.5 rounded-full px-4 py-2 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
               on
-                ? "bg-tomato text-white shadow-pop"
+                ? "bg-accent text-white shadow-pop"
                 : "text-muted hover:text-fg"
             }`}
           >
@@ -195,7 +208,7 @@ function MobileTabBar({
         {activeIndex >= 0 && (
           <span
             aria-hidden
-            className="absolute inset-y-1.5 left-1.5 rounded-full bg-tomato/[0.13] shadow-[inset_0_1px_0_rgb(255_255_255/0.5)] transition-transform duration-500 ease-[cubic-bezier(.16,1,.3,1)] motion-reduce:transition-none dark:bg-tomato/20 dark:shadow-none"
+            className="absolute inset-y-1.5 left-1.5 rounded-full bg-accent/[0.13] shadow-[inset_0_1px_0_rgb(255_255_255/0.5)] transition-transform duration-500 ease-[cubic-bezier(.16,1,.3,1)] motion-reduce:transition-none dark:bg-accent/20 dark:shadow-none"
             // One column of the grid: (track − padding) / 4, so a step is one
             // of its own widths and the slide is a plain translateX.
             style={{ width: "calc((100% - 0.75rem) / 4)", transform: `translateX(${activeIndex * 100}%)` }}
@@ -209,8 +222,8 @@ function MobileTabBar({
               href={t.href}
               onClick={onTabClick(t.href)}
               aria-current={t.active ? "page" : undefined}
-              className={`relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-semibold transition-[color,transform] duration-200 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-                t.active ? "text-tomato" : "text-muted hover:text-fg"
+              className={`relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-semibold transition-[color,transform] duration-200 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+                t.active ? "text-accent" : "text-muted hover:text-fg"
               }`}
             >
               <Icon className="h-5 w-5" strokeWidth={t.active ? 2.4 : 2} aria-hidden />

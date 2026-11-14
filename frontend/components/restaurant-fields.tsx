@@ -14,7 +14,7 @@ import type { MessageKey } from "@/lib/i18n/dictionary";
 export type PriceLevel = 1 | 2 | 3 | 4;
 
 export const fieldClass =
-  "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
+  "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30";
 
 export const labelClass = "mb-1.5 block text-sm font-semibold text-fg";
 
@@ -78,8 +78,8 @@ export function PricePicker({ value, onChange }: { value: PriceLevel | null; onC
               aria-pressed={selected}
               aria-label={t("dine-filters.price-level", { level })}
               onClick={() => onChange(selected ? null : level)}
-              className={`cursor-pointer rounded-2xl border-2 py-3 text-sm font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 ${
-                selected ? "border-tomato bg-tomato/10 text-fg shadow-pop" : "border-line text-muted hover:border-tomato/40 hover:text-fg"
+              className={`cursor-pointer rounded-2xl border-2 py-3 text-sm font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                selected ? "border-accent bg-accent/10 text-fg shadow-pop" : "border-line text-muted hover:border-accent/40 hover:text-fg"
               }`}
             >
               {"€".repeat(level)}
@@ -118,8 +118,8 @@ export function CuisinePicker({
               type="button"
               aria-pressed={selected}
               onClick={() => toggle(c.name)}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-full border-2 px-3.5 py-1.5 text-sm font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 ${
-                selected ? "border-tomato bg-tomato/10 text-fg" : "border-line text-muted hover:border-tomato/40 hover:text-fg"
+              className={`flex cursor-pointer items-center gap-1.5 rounded-full border-2 px-3.5 py-1.5 text-sm font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                selected ? "border-accent bg-accent/10 text-fg" : "border-line text-muted hover:border-accent/40 hover:text-fg"
               }`}
             >
               {/* The colour the place will wear on the map and its card. */}

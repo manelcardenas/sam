@@ -62,8 +62,8 @@ export function OverviewPanel({
 
 /** Spelled out so Tailwind's scanner sees every class it needs to generate. */
 const TINTS = {
-  tomato: { plate: "bg-tomato/12 text-tomato", wash: "from-tomato/[0.07]" },
-  amber: { plate: "bg-amber/15 text-amber-700 dark:text-amber", wash: "from-amber/[0.07]" },
+  tomato: { plate: "bg-accent/12 text-accent" },
+  amber: { plate: "bg-amber/15 text-amber-700 dark:text-amber" },
 } as const;
 
 function SectionCard({
@@ -84,18 +84,14 @@ function SectionCard({
   onClick: () => void;
 }) {
   const { t } = useI18n();
-  const { plate, wash } = TINTS[tint];
+  const { plate } = TINTS[tint];
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex cursor-pointer items-center gap-4 overflow-hidden rounded-3xl border border-line bg-surface p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-tomato/40 hover:shadow-paw focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      className="group relative flex cursor-pointer items-center gap-4 overflow-hidden rounded-3xl border border-line bg-surface p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-paw focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
-      <div
-        aria-hidden
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-br to-transparent ${wash}`}
-      />
       <span
         aria-hidden
         className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl transition-transform duration-200 group-hover:scale-105 ${plate}`}
@@ -105,7 +101,7 @@ function SectionCard({
 
       <span className="relative min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
-          <span className="font-display font-semibold text-fg transition-colors group-hover:text-tomato">
+          <span className="font-display font-semibold text-fg transition-colors group-hover:text-accent">
             {label}
           </span>
           <span className="font-serif text-lg font-semibold tabular-nums text-muted">{count}</span>
@@ -116,7 +112,7 @@ function SectionCard({
       </span>
 
       <ChevronRight
-        className="relative h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-tomato"
+        className="relative h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-accent"
         aria-hidden
       />
     </button>

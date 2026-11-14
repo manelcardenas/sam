@@ -134,7 +134,7 @@ export default function RestaurantForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+        <div className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger">
           {error}
         </div>
       )}
@@ -162,7 +162,7 @@ export default function RestaurantForm({
             {/* Where the pin points, live. Before any move it is the stored
                 address; after one, the address of the new spot. */}
             <p className="flex items-start gap-1.5 text-sm" role="status">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-tomato" aria-hidden />
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
               <span className={pendingPin && pinAddress ? "font-semibold text-fg" : "text-muted"}>
                 {pendingPin
                   ? pinAddress === undefined
@@ -176,7 +176,7 @@ export default function RestaurantForm({
                 type="button"
                 onClick={confirmPin}
                 disabled={(!pendingPin && !effectiveCoords) || (pendingPin !== null && pinAddress === undefined)}
-                className="flex cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="flex cursor-pointer items-center gap-1.5 rounded-full bg-accent px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 <Check className="h-4 w-4" />
                 {t("restaurant-form.use-this-spot")}
@@ -184,7 +184,7 @@ export default function RestaurantForm({
               <button
                 type="button"
                 onClick={() => setShowPinMap(false)}
-                className="cursor-pointer rounded-full border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="cursor-pointer rounded-full border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 {t("common.cancel")}
               </button>
@@ -194,7 +194,7 @@ export default function RestaurantForm({
           <button
             type="button"
             onClick={openPinMap}
-            className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-3.5 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-3.5 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <MapPin className="h-4 w-4" />
             {effectiveCoords ? t("restaurant-form.adjust-pin") : t("restaurant-form.drop-pin-on-map")}
@@ -202,7 +202,7 @@ export default function RestaurantForm({
         )}
         {pinnedCoords && !showPinMap && (
           <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
-            <MapPin className="h-3.5 w-3.5 shrink-0 text-tomato" aria-hidden />
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
             <span className="font-semibold text-fg">{t("restaurant-form.pinned")}</span>
           </p>
         )}

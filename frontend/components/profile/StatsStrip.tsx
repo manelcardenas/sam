@@ -66,9 +66,9 @@ export function StatsStrip({ stats }: { stats: UserStats }) {
 
 /** Per-tint classes, spelled out so Tailwind's scanner can see every one. */
 const TINTS = {
-  tomato: { icon: "text-tomato", glow: "from-tomato/10" },
-  amber: { icon: "text-amber-700 dark:text-amber", glow: "from-amber/10" },
-  leaf: { icon: "text-leaf-700 dark:text-leaf", glow: "from-leaf/10" },
+  tomato: { icon: "text-accent" },
+  amber: { icon: "text-amber-700 dark:text-amber" },
+  leaf: { icon: "text-leaf-700 dark:text-leaf" },
 } as const;
 
 function Figure({
@@ -88,16 +88,10 @@ function Figure({
   // Hooks can't be conditional, so the animation always runs — it just runs
   // towards 0 for a missing value, and the em dash is rendered instead.
   const animated = useCountUp(value ?? 0);
-  const { icon, glow } = TINTS[tint];
+  const { icon } = TINTS[tint];
 
   return (
     <div className="relative overflow-hidden rounded-3xl border border-line bg-surface px-3 py-4 text-center sm:px-4">
-      {/* A tint that fades out downwards, so the colour reads as light on the
-          tile rather than as a coloured tile. */}
-      <div
-        aria-hidden
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-b to-transparent ${glow}`}
-      />
       <div className="relative">
         <Icon className={`mx-auto mb-1.5 h-4 w-4 ${icon}`} aria-hidden />
         <p className="font-serif text-2xl font-semibold tabular-nums leading-none text-fg sm:text-3xl">

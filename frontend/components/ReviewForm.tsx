@@ -47,7 +47,7 @@ function ScoreSlider({
     <div>
       <div className="mb-1 flex items-center justify-between gap-3">
         <label className="text-sm font-semibold text-fg">{label}</label>
-        <span className="rounded-full bg-tomato/15 px-2.5 py-0.5 text-sm font-bold text-tomato">
+        <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-sm font-bold text-accent">
           {value.toFixed(1)}
         </span>
       </div>
@@ -59,7 +59,7 @@ function ScoreSlider({
         step={0.5}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-tomato"
+        className="w-full accent-accent"
         aria-label={label}
       />
     </div>
@@ -105,14 +105,14 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+        <div className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger">
           {error}
         </div>
       )}
 
       <div className="rounded-2xl border border-dashed border-line p-4 text-center">
         <p className="text-xs font-bold uppercase tracking-wider text-muted">{t("review-form.overall")}</p>
-        <p className="font-display text-3xl font-bold text-tomato">{overall.toFixed(1)}</p>
+        <p className="font-display text-3xl font-bold text-accent">{overall.toFixed(1)}</p>
         <p className="text-xs text-muted">{t("review-form.overall-hint")}</p>
       </div>
 
@@ -136,7 +136,7 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
           required
           value={visitedAt}
           onChange={(e) => setVisitedAt(e.target.value)}
-          className="w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+          className="w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
         />
       </div>
 
@@ -151,7 +151,7 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
           maxLength={1000}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          className="w-full resize-none rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+          className="w-full resize-none rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
           placeholder={t("review-form.comment-placeholder")}
         />
         <p className="mt-1 text-right text-xs text-muted">{comment.length}/1000</p>

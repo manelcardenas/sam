@@ -187,7 +187,7 @@ export function RestaurantFilters({
           onChange={(e) => onChange({ ...value, q: e.target.value })}
           placeholder={t("dine-filters.search-placeholder")}
           aria-label={t("dine-filters.search-label")}
-          className="h-12 w-full rounded-2xl border border-line bg-surface pl-11 pr-4 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30"
+          className="h-12 w-full rounded-2xl border border-line bg-surface pl-11 pr-4 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
         />
       </div>
 

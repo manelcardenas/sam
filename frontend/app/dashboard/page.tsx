@@ -239,7 +239,7 @@ export default function DashboardPage() {
         <div className="mb-6 flex items-center justify-between gap-3">
           <button
             onClick={goBack}
-            className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <ArrowLeft className="h-4 w-4" />
             {t("common.back")}
@@ -248,7 +248,7 @@ export default function DashboardPage() {
       )}
 
       {error && (
-        <div className="mb-6 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+        <div className="mb-6 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger">
           {error}
         </div>
       )}
@@ -367,7 +367,7 @@ export default function DashboardPage() {
                     onClick={() => setView("edit")}
                     title={t("common.edit")}
                     aria-label={t("dashboard.edit-aria")}
-                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-amber/15 hover:text-amber-700 dark:hover:text-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   >
                     <Edit className="h-4 w-4" />
                   </button>
@@ -375,7 +375,7 @@ export default function DashboardPage() {
                     onClick={() => setRecipeToDelete(selectedRecipe)}
                     title={t("common.delete")}
                     aria-label={t("dashboard.delete-aria")}
-                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -405,7 +405,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={() => setView("edit")}
-                    className="flex w-full cursor-pointer items-start gap-3 rounded-2xl border border-dashed border-line px-4 py-3.5 text-left transition-colors hover:border-amber/60 hover:bg-amber/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="flex w-full cursor-pointer items-start gap-3 rounded-2xl border border-dashed border-line px-4 py-3.5 text-left transition-colors hover:border-amber/60 hover:bg-amber/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   >
                     <NotebookPen className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber" aria-hidden />
                     <span className="min-w-0">

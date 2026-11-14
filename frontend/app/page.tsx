@@ -10,7 +10,7 @@ import { Loader } from "@/components/ui/Loader";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 const fieldClass =
-  "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
+  "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30";
 
 export default function LoginPage() {
   const { t } = useI18n();
@@ -85,7 +85,7 @@ export default function LoginPage() {
         {/* Card */}
         <div className="rounded-4xl border border-line bg-surface p-7 shadow-paw sm:p-8">
           {error && (
-            <div className="mb-5 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+            <div className="mb-5 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger">
               {error}
             </div>
           )}
@@ -128,7 +128,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full cursor-pointer items-center justify-center rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="flex w-full cursor-pointer items-center justify-center rounded-full bg-accent py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               {loading ? t("landing.signing-in") : t("landing.sign-in")}
             </button>
@@ -149,7 +149,7 @@ export default function LoginPage() {
             type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-line bg-surface py-3 px-4 font-semibold text-fg transition-colors hover:border-tomato/40 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-line bg-surface py-3 px-4 font-semibold text-fg transition-colors hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <FcGoogle className="h-5 w-5" />
             {t("landing.google-sign-in")}
@@ -157,7 +157,7 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-muted">
             {t("landing.new-here")}{" "}
-            <span className="font-semibold text-tomato">{t("landing.no-account")}</span>
+            <span className="font-semibold text-accent">{t("landing.no-account")}</span>
           </p>
         </div>
       </div>

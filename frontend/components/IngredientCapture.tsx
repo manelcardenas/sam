@@ -96,7 +96,7 @@ export function rowsFromRawText(text: string, nextId: () => number): CaptureRow[
 }
 
 const fieldClass =
-  "rounded-xl border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted/60 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
+  "rounded-xl border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted/60 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30";
 
 /** Matches the server's cap, so a runaway paste is refused where it is pasted. */
 const MAX_CHARS = 4000;
@@ -221,7 +221,7 @@ export function IngredientCapture({
             // Polite rather than assertive: it should be announced when you
             // pause, not interrupt you mid-word.
             aria-live="polite"
-            className={`text-xs ${remaining === 0 ? "font-semibold text-tomato" : "text-muted"}`}
+            className={`text-xs ${remaining === 0 ? "font-semibold text-accent" : "text-muted"}`}
           >
             {!counting
               ? t("recipe-form.ingredients-hint")
@@ -233,7 +233,7 @@ export function IngredientCapture({
             type="button"
             onClick={structure}
             disabled={!draft.trim() || busy}
-            className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-tomato px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-accent px-4 py-2 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <DeepSeekMark className={`h-4 w-4 ${busy ? "animate-pulse" : ""}`} />
             {busy ? t("recipe-form.structuring") : t("recipe-form.structure")}
@@ -284,7 +284,7 @@ export function IngredientCapture({
               type="button"
               onClick={() => remove(row.id)}
               aria-label={`${t("recipe-form.remove-ingredient")}: ${row.name}`}
-              className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -305,7 +305,7 @@ export function IngredientCapture({
                     onClick={() => setPicking(picking === row.id ? null : row.id)}
                     aria-expanded={picking === row.id}
                     aria-label={`${t("grocery.change-aisle")}: ${t(`aisle.${row.aisle}`)}`}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-full underline decoration-dotted underline-offset-2 transition-colors hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-full underline decoration-dotted underline-offset-2 transition-colors hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   >
                     <AisleIcon aisle={row.aisle} className="h-3 w-3 shrink-0" />
                     {t(`aisle.${row.aisle}`)}
@@ -316,7 +316,7 @@ export function IngredientCapture({
                     {t(`aisle.${row.aisle}`)}
                   </span>
                 ))}
-              {row.isNew && <span className="font-semibold text-tomato">✦ {t("recipe-form.new-item")}</span>}
+              {row.isNew && <span className="font-semibold text-accent">✦ {t("recipe-form.new-item")}</span>}
               {row.isPantry && <span>· {t("recipe-form.from-home")}</span>}
               {/* Amber rather than tomato, and this is the one place the two are
                   easy to confuse. Tomato is the brand accent: it is the submit
@@ -336,7 +336,7 @@ export function IngredientCapture({
                   key={name}
                   type="button"
                   onClick={() => update(row.id, { name, isNew: false, didYouMean: [], groceryKey: undefined })}
-                  className="cursor-pointer rounded-full border border-line px-2 py-0.5 font-semibold text-fg transition-colors hover:border-tomato hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  className="cursor-pointer rounded-full border border-line px-2 py-0.5 font-semibold text-fg transition-colors hover:border-accent hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                 >
                   {t("recipe-form.did-you-mean", { name })}
                 </button>
@@ -372,7 +372,7 @@ export function IngredientCapture({
         <button
           type="button"
           onClick={add}
-          className="flex cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-line px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40"
+          className="flex cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-line px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <Plus className="h-3.5 w-3.5" />
           {t("recipe-form.add-ingredient")}
@@ -383,7 +383,7 @@ export function IngredientCapture({
             onRowsChange([]);
             setFailed(false);
           }}
-          className="cursor-pointer text-xs font-semibold text-muted underline underline-offset-4 transition-colors hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+          className="cursor-pointer text-xs font-semibold text-muted underline underline-offset-4 transition-colors hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           ← {t("recipe-form.back-to-text")}
         </button>

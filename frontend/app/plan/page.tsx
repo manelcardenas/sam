@@ -610,7 +610,7 @@ export default function PlanPage() {
       </div>
 
       {error && (
-        <div className="mb-6 rounded-2xl border border-tomato/30 bg-tomato/10 px-4 py-3 text-sm font-medium text-tomato-700 dark:text-tomato">
+        <div className="mb-6 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger">
           {error}
         </div>
       )}
@@ -634,8 +634,8 @@ export default function PlanPage() {
       {/* "Plan this" from a recipe's page: the recipe is chosen, the slot is
           not. The next slot you open starts with it picked. */}
       {view === "calendar" && placing && editable && (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-tomato/40 bg-tomato/10 px-4 py-3">
-          <CalendarPlus className="h-5 w-5 shrink-0 text-tomato" aria-hidden />
+        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3">
+          <CalendarPlus className="h-5 w-5 shrink-0 text-accent" aria-hidden />
           <p className="min-w-0 flex-1 text-sm text-fg">
             <span className="font-semibold [overflow-wrap:anywhere]">{t("plan.placing-title", { name: placing.title })}</span>{" "}
             <span className="text-muted">{t("plan.placing-body")}</span>
@@ -644,7 +644,7 @@ export default function PlanPage() {
             type="button"
             onClick={() => setPlace(null)}
             aria-label={t("common.cancel")}
-            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-tomato/15 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/15 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <X className="h-4 w-4" />
           </button>
@@ -739,7 +739,7 @@ export default function PlanPage() {
           title={t("kitchen.leave-title")}
           message={t("kitchen.leave-body")}
           confirmLabel={t("kitchen.leave")}
-          icon={<DoorOpen className="h-5 w-5 text-tomato" />}
+          icon={<DoorOpen className="h-5 w-5 text-accent" />}
           onConfirm={leaveKitchen}
           onCancel={() => setConfirmingLeave(false)}
         />

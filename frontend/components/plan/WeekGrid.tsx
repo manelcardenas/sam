@@ -72,12 +72,12 @@ export function WeekGrid({
           <li
             key={date}
             className={`rounded-3xl border bg-surface p-3 transition-colors ${
-              isToday ? "border-tomato/50 shadow-paw" : "border-line"
+              isToday ? "border-accent/50 shadow-paw" : "border-line"
             } ${isPast && !isToday ? "opacity-60" : ""} will-fetch animate-fetch-in`}
             style={{ animationDelay: `${index * 40}ms` }}
           >
             <div className="mb-2.5 flex items-baseline justify-between gap-2 px-1">
-              <h3 className={`font-display text-sm font-bold uppercase tracking-wide ${isToday ? "text-tomato" : "text-fg"}`}>
+              <h3 className={`font-display text-sm font-bold uppercase tracking-wide ${isToday ? "text-accent" : "text-fg"}`}>
                 {formatWeekday(date, locale)}
               </h3>
               <span className="text-[0.7rem] tabular-nums text-muted">{formatDayAndMonth(date, locale)}</span>
@@ -138,7 +138,7 @@ function Slot({
         onClick={onClick}
         disabled={!editable}
         aria-label={`${mealLabel}: ${t("plan.add-recipe")}`}
-        className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-dashed border-line px-3 py-2 text-left lg:min-h-[4.25rem] lg:flex-col lg:items-start lg:justify-center lg:gap-1 lg:py-2.5 transition-colors hover:border-tomato/50 hover:bg-tomato/5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+        className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-dashed border-line px-3 py-2 text-left lg:min-h-[4.25rem] lg:flex-col lg:items-start lg:justify-center lg:gap-1 lg:py-2.5 transition-colors hover:border-accent/50 hover:bg-accent/5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
       >
         <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted">{mealLabel}</span>
         <span className="flex items-center gap-1.5 text-sm text-muted">
@@ -154,7 +154,7 @@ function Slot({
       type="button"
       onClick={onClick}
       aria-label={`${mealLabel}: ${entries.map((entry) => entry.dish_name).join(", ")}`}
-      className="flex min-h-[4.25rem] w-full cursor-pointer flex-col items-start gap-1 rounded-2xl border border-line bg-surface-2 px-3 py-2.5 text-left transition-colors hover:border-tomato/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+      className="flex min-h-[4.25rem] w-full cursor-pointer flex-col items-start gap-1 rounded-2xl border border-line bg-surface-2 px-3 py-2.5 text-left transition-colors hover:border-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       <span className="flex w-full items-center justify-between gap-2">
         <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted">{mealLabel}</span>

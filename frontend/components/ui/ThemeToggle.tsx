@@ -35,7 +35,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       onClick={toggle}
       aria-label={dark ? t("shell.theme-to-light") : t("shell.theme-to-dark")}
       title={dark ? t("shell.theme-light") : t("shell.theme-dark")}
-      className={`flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${className ?? ""}`}
+      className={`flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${className ?? ""}`}
     >
       {/* Avoid a hydration flash: render nothing decisive until mounted. */}
       {mounted && dark ? (

@@ -197,19 +197,19 @@ export function MultiSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className={`flex h-11 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-2xl border px-3.5 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
+        className={`flex h-11 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-2xl border px-3.5 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
           chosen.length > 0
-            ? "border-tomato bg-tomato/10 text-tomato"
+            ? "border-accent bg-accent/10 text-accent"
             : open
-              ? "border-tomato/40 bg-surface text-fg"
-              : "border-line bg-surface text-muted hover:border-tomato/40 hover:text-fg"
+              ? "border-accent/40 bg-surface text-fg"
+              : "border-line bg-surface text-muted hover:border-accent/40 hover:text-fg"
         }`}
       >
         <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
         {/* The label never disappears. A control that swaps its label for its
             value stops saying what it filters on the moment it is in use, which
             is exactly when a reader needs to be told. */}
-        <span className={chosen.length > 0 ? "font-semibold text-tomato/70" : "font-semibold"}>{label}</span>
+        <span className={chosen.length > 0 ? "font-semibold text-accent/70" : "font-semibold"}>{label}</span>
         {value && <span className="max-w-[7.5rem] truncate font-bold">{value}</span>}
         <ChevronDown
           className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
@@ -237,7 +237,7 @@ export function MultiSelect({
                   onChange={(e) => setNeedle(e.target.value)}
                   aria-label={search.placeholder}
                   placeholder={search.placeholder}
-                  className="h-10 w-full rounded-2xl bg-surface-2 pl-9 pr-3 text-sm text-fg placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  className="h-10 w-full rounded-2xl bg-surface-2 pl-9 pr-3 text-sm text-fg placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                 />
               </div>
             )}
@@ -260,19 +260,19 @@ export function MultiSelect({
                       role="option"
                       aria-selected={on}
                       onClick={() => toggle(option.id)}
-                      className={`flex h-11 w-full cursor-pointer items-center gap-2.5 rounded-2xl px-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-                        on ? "bg-tomato/10" : "hover:bg-surface-2"
+                      className={`flex h-11 w-full cursor-pointer items-center gap-2.5 rounded-2xl px-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+                        on ? "bg-accent/10" : "hover:bg-surface-2"
                       }`}
                     >
                       <span
                         aria-hidden
                         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-display text-[0.65rem] font-bold ${
-                          on ? "bg-tomato text-white" : "bg-surface-2 text-muted"
+                          on ? "bg-accent text-white" : "bg-surface-2 text-muted"
                         }`}
                       >
                         {option.mark(on)}
                       </span>
-                      <span className={`min-w-0 flex-1 truncate text-sm ${on ? "font-bold text-tomato" : "font-semibold text-fg"}`}>
+                      <span className={`min-w-0 flex-1 truncate text-sm ${on ? "font-bold text-accent" : "font-semibold text-fg"}`}>
                         {option.name}
                       </span>
                       {option.badge && (
@@ -285,7 +285,7 @@ export function MultiSelect({
                       )}
                       <span
                         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                          on ? "border-tomato bg-tomato text-white" : "border-line"
+                          on ? "border-accent bg-accent text-white" : "border-line"
                         }`}
                         aria-hidden
                       >
@@ -305,7 +305,7 @@ export function MultiSelect({
                 <button
                   type="button"
                   onClick={() => onChange([])}
-                  className="cursor-pointer rounded-full px-2 py-1 text-xs font-bold text-tomato underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  className="cursor-pointer rounded-full px-2 py-1 text-xs font-bold text-accent underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                 >
                   {t("common.clear-all")}
                 </button>

@@ -26,7 +26,7 @@ export default function SourceLink({ url }: { url: string }) {
       target="_blank"
       rel="noopener noreferrer"
       title={url}
-      className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-tomato/40 hover:text-tomato"
+      className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-accent/40 hover:text-accent"
     >
       {faviconOk ? (
         // eslint-disable-next-line @next/next/no-img-element

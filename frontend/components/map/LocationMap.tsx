@@ -69,7 +69,7 @@ export default function LocationMap({
         href={directionsUrl(latitude, longitude)}
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-sm font-semibold text-fg shadow-paw transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+        className="absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-sm font-semibold text-fg shadow-paw transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
       >
         <Navigation className="h-3.5 w-3.5" />
         Directions

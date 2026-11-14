@@ -182,7 +182,7 @@ export function GroceryAdminPanel({
                   type="button"
                   onClick={() => setOpen(open === item.key ? null : item.key)}
                   aria-expanded={open === item.key}
-                  className="flex w-full cursor-pointer items-start gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-surface-2/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                  className="flex w-full cursor-pointer items-start gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-surface-2/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                 >
                   <AisleIcon aisle={item.aisle} className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
                   <span className="min-w-0 flex-1">
@@ -215,7 +215,7 @@ export function GroceryAdminPanel({
               <button
                 type="button"
                 onClick={() => setLimit((current) => current + PAGE)}
-                className="cursor-pointer rounded-full border border-line px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                className="cursor-pointer rounded-full border border-line px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 {t("admin.show-more")}
               </button>
@@ -247,7 +247,7 @@ function otherNames(item: GroceryItem, locale: string): string {
 }
 
 const fieldClass =
-  "h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm text-fg placeholder:text-muted/60 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
+  "h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm text-fg placeholder:text-muted/60 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30";
 
 /**
  * One row, every field, one save.
@@ -337,7 +337,7 @@ function Editor({
           />
         </label>
         <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-fg">
-          <input type="checkbox" checked={draft.is_pantry} onChange={(e) => patch({ is_pantry: e.target.checked })} className="h-4 w-4 accent-tomato" />
+          <input type="checkbox" checked={draft.is_pantry} onChange={(e) => patch({ is_pantry: e.target.checked })} className="h-4 w-4 accent-accent" />
           {t("admin.pantry")}
         </label>
       </div>
@@ -353,7 +353,7 @@ function Editor({
                 <li key={recipe.id}>
                   <Link
                     href={`/dashboard?${toDashboardQuery({ ...DASHBOARD_INITIAL, view: "detail", recipeId: recipe.id })}`}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-fg transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                   >
                     <BookOpen className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden />
                     {recipe.title}
@@ -366,7 +366,7 @@ function Editor({
       )}
 
       {error && (
-        <p role="alert" className="rounded-xl bg-tomato/10 px-3 py-2 text-sm text-tomato-700 dark:text-tomato">
+        <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger-700 dark:text-danger">
           {error}
         </p>
       )}
@@ -377,7 +377,7 @@ function Editor({
           <button
             type="button"
             onClick={onDelete}
-            className="flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-muted transition-colors hover:bg-tomato/10 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-muted transition-colors hover:bg-accent/10 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <Trash2 className="h-4 w-4" aria-hidden />
             {t("common.delete")}
@@ -394,7 +394,7 @@ function Editor({
           <button
             type="submit"
             disabled={busy || blank}
-            className="cursor-pointer rounded-full bg-tomato px-5 py-2.5 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+            className="cursor-pointer rounded-full bg-accent px-5 py-2.5 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             {busy ? t("common.saving") : t("common.save-changes")}
           </button>

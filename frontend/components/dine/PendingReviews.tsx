@@ -84,7 +84,7 @@ export function PendingReviews({
               type="button"
               onClick={() => onReview(r)}
               aria-label={t("pending-reviews.review-label", { name: r.name })}
-              className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-tomato px-4 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
+              className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-accent px-4 font-display text-sm font-semibold text-white shadow-pop transition-all hover:bg-accent-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               {t("pending-reviews.review")}
             </button>
@@ -97,7 +97,7 @@ export function PendingReviews({
           type="button"
           onClick={() => setExpanded((open) => !open)}
           aria-expanded={expanded}
-          className="mt-3 cursor-pointer rounded-full px-2 py-1 text-sm font-bold text-amber-700 underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 dark:text-amber"
+          className="mt-3 cursor-pointer rounded-full px-2 py-1 text-sm font-bold text-amber-700 underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 dark:text-amber"
         >
           {expanded ? t("pending-reviews.show-fewer") : tp("pending-reviews.show-more", hidden)}
         </button>
