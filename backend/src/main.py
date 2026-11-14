@@ -28,7 +28,7 @@ from src.infra.middleware import (
     RequestTimingMiddleware,
 )
 from src.infra.observability.boot import BootTimer
-from src.infra.security import configure_user_repository
+from src.infra.security import configure_user_repository, get_jwt_handler
 
 # Load .env for local development. On Lambda, env vars are injected directly
 # and no .env file exists — load_dotenv() is a safe no-op in that case.
@@ -42,13 +42,19 @@ def create_app() -> FastAPI:
     db = DatabaseConnectionPool(dsn=build_dsn())
     settings = MiddlewareSettings()
 
-    # Lifespan: verify DB connection on startup, dispose engine on shutdown.
-    # On Lambda this runs once per cold start via Mangum's lifespan support.
+    # Lifespan: everything the first request would otherwise pay for, done at
+    # boot — the app pings /health as it opens, so a cold start happens here
+    # while nobody is waiting. Open the DB (which also wakes a suspended Neon
+    # compute) and fetch Cognito's signing keys; dispose the engine on shutdown.
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
         started = time.perf_counter()
         db.open()
-        boot.db_opened((time.perf_counter() - started) * 1000)
+        db_open_ms = (time.perf_counter() - started) * 1000
+
+        started = time.perf_counter()
+        jwks_cached = _prefetch_jwks()
+        boot.ready(db_open_ms=db_open_ms, jwks_ms=(time.perf_counter() - started) * 1000, jwks_cached=jwks_cached)
         yield
         db.close()
 
@@ -93,6 +99,15 @@ def create_app() -> FastAPI:
 
     boot.app_created()
     return app
+
+
+def _prefetch_jwks() -> bool:
+    """Best effort: a missing Cognito config or an unreachable Cognito must not stop
+    the API from booting — the first signed-in request then fails or fetches, as before."""
+    try:
+        return get_jwt_handler().prefetch_keys()
+    except ValueError:  # COGNITO_* unset (a local run without auth configured)
+        return False
 
 
 app = create_app()

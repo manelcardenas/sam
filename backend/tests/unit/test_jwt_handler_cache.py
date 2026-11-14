@@ -102,3 +102,26 @@ class TestRegionDerivation:
     def test_falls_back_to_the_runtime_region_for_an_odd_pool_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("AWS_REGION", "eu-central-1")
         assert _region_from_pool_id("no-underscore-here") == "eu-central-1"
+
+
+def test_prefetch_fills_the_cache_so_the_first_request_does_not_fetch(handler: JWTHandler) -> None:
+    jwks = FakeJwks(["key-1"])
+    handler._fetch_keys = jwks  # type: ignore[method-assign]
+
+    assert handler.prefetch_keys() is True
+    assert handler.prefetch_keys() is True, "a second call is a no-op"
+    assert handler._public_key_for("key-1") is not None
+    assert jwks.fetches == 1
+
+
+def test_a_failed_prefetch_leaves_the_first_request_to_fetch(handler: JWTHandler) -> None:
+    import httpx
+
+    def unreachable() -> dict[str, dict[str, Any]]:
+        raise httpx.ConnectError("Cognito is down")
+
+    handler._fetch_keys = unreachable  # type: ignore[method-assign]
+    assert handler.prefetch_keys() is False, "boot must survive Cognito being unreachable"
+
+    handler._fetch_keys = FakeJwks(["key-1"])  # type: ignore[method-assign]
+    assert handler._public_key_for("key-1") is not None

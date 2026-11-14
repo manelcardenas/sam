@@ -78,6 +78,24 @@ class JWTHandler:
         self._keys = self._fetch_keys()
         self._fetched_at = time.monotonic()
 
+    def prefetch_keys(self) -> bool:
+        """Fetch the JWKS now rather than on the first signed-in request.
+
+        Called while the process boots, so the round trip to Cognito (a different
+        region from the function) is paid before anyone is waiting on it — the
+        app pings the API as it opens precisely so that a cold start happens
+        during boot. Best effort: on any failure the cache stays empty and the
+        first request fetches, exactly as before. Returns whether keys are cached.
+        """
+        with self._lock:
+            if self._keys is not None:
+                return True
+            try:
+                self._refresh()
+            except (httpx.HTTPError, ValueError, KeyError):
+                return False
+            return True
+
     def _public_key_for(self, kid: str) -> dict[str, Any] | None:
         """The signing key for `kid`, refetching once if it looks like a rotation."""
         with self._lock:

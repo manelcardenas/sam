@@ -84,14 +84,21 @@ instance.
 - [x] Production web app switched: Amplify `NEXT_PUBLIC_API_URL` → `https://sam-api-five.vercel.app`
       (by hand, and `infra/cdk.json` so a CDK deploy keeps it). **Rollback:** set it back to
       `https://xbm9t398cd.execute-api.eu-west-3.amazonaws.com` and rebuild.
-- [ ] Cold start: lazy imports for what the first request doesn't need, then measure again
-      with the boot line. Keep-warm pings only after checking Hobby's provisioned-memory
-      allowance (an instance kept alive all day may exceed it).
+- [x] Cold start, part 1 (2026-11-14): **lazy imports were measured and dropped** — the
+      only optional ones are `httpx` (12 ms locally) and `mangum` (6 ms) of 345 ms; SQLAlchemy,
+      FastAPI and Pydantic are half the import time and every request needs them. Instead the
+      boot does *more*: it fetches Cognito's JWKS (~250 ms, was paid by the first signed-in
+      request), and the web app pings `/health` as it opens (and after 4+ min in the
+      background) plus a `preconnect`, so the boot overlaps the sign-in form. Python pinned to
+      3.13 (Vercel had picked 3.14 while CI tests 3.13).
+- [ ] Cold start, part 2: measure the first real request after a cold open with the boot line.
+      If it still waits, a keep-warm ping every ~5 min from a free external cron: Vercel bills
+      provisioned memory only while a request is in flight ("nothing at all between requests",
+      Fluid pricing docs), so ~8,600 pings a month is ~0.2 GB-h of the 360 included. It keeps
+      Vercel warm, not Neon (that would spend Neon compute hours).
 - [ ] After a few days without problems: delete the Lambda/API Gateway stacks,
       `deploy-backend.yml`, the gateway-route test and the `addRoutes` rule (AGENTS.md,
       memory), and the SSM parameters only Lambda reads.
-- [ ] Rotate the Neon password (printed to a local session log on 2026-11-14) and update it in
-      SSM (while the migration workflow still reads it) and in Vercel.
 - [ ] Backend previews per PR: need their own database (a Neon branch), not production.
       **Revisit when** a backend PR needs testing before merge.
 - [ ] Update `docs/wiki/ci-cd.md`, `CONTEXT.md` and AGENTS.md for the move.
