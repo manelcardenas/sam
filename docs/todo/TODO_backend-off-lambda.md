@@ -125,8 +125,16 @@ instance.
       `docs/wiki/ci-cd.md` → "Firewall".
 - [x] **DB pool sized for Lambda** (1 + 1, because a Lambda container served one request at
       a time). Raised to 5 + 5 for Fluid compute, where one instance serves many at once.
-      Baseline before (15 bursts of the plan page's 4 GETs): server p50 30 ms, p90 61 ms, 10
-      handshakes in 60 requests.
+      Measured on prod, 15 bursts of the plan page's 4 GETs each time:
+
+      | | Before (1 + 1) | After (5 + 5) |
+      |---|---|---|
+      | New DB connections in 60 requests | 10, spread over the whole run | 5, in the first ~10 bursts, while 2 new instances filled their pools; none in the last 5 |
+      | Server p50 / p90 / max | 30 / 61 / 130 ms | 27 / 72 / 133 ms |
+      | Client p50 | 0.35 s | 0.34 s |
+
+      Half the handshakes, and they stop once the pools are full. In time it is small: a
+      handshake is ~25 ms, so the p50/p90 moves are noise. Worth it because it costs nothing.
 - [ ] Previews per PR (web and API): a web preview has its own origin, which neither CORS nor
       Cognito accept, and an API preview needs its own database (a Neon branch), not
       production. **Revisit when** a PR needs testing before merge.
