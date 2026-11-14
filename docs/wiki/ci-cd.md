@@ -105,6 +105,28 @@ both list every web origin. A new origin means updating both.
 
 ---
 
+## Firewall (sam-api)
+
+Vercel's DDoS mitigation is on for every project. On top, one WAF rule — Hobby allows one
+rate-limit rule per project, within three custom rules:
+
+| Rule | Matches | Limit | Then |
+|---|---|---|---|
+| Rate limit paid endpoints | path starts with `/places/` **or** equals `/ingredients/parse` | 100 requests / 10 min per IP | 429 |
+
+Those are the endpoints that spend money or quota: Geoapify (3,000 free credits a day) and
+DeepSeek. Sign-up is open, so being signed in is no barrier. Legitimate use is ~20–30 calls
+to add a restaurant (the search is debounced 350 ms and asks two endpoints) and one per
+ingredient parse, so the limit leaves ~5× headroom; the web already treats a failed search
+as "no results". Requests the firewall blocks are not billed.
+
+Rules are drafts until published: `vercel firewall diff`, then `vercel firewall publish
+--yes` (run from `backend/`, linked to `sam-api`). To back off fast: `vercel firewall rules
+disable "Rate limit paid endpoints"` and publish. Counters are per region, and the app's own
+`RATE_LIMIT_PER_MINUTE` (in-memory, per instance) stays as a second, looser layer.
+
+---
+
 ## What is left on AWS
 
 Only sign-in. Everything else was deleted on 2026-11-14 (Lambda + API Gateway, Amplify, the
