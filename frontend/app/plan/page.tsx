@@ -18,7 +18,7 @@ import {
   type Recipe,
   type ShoppingListItem,
 } from "@/lib/api-client";
-import { currentParams, useBrowserNavigation, useHistoryDepth, writeUrl } from "@/lib/url-state";
+import { currentParams, useBrowserNavigation, useTabHome, writeUrl } from "@/lib/url-state";
 import { DAYS_IN_WEEK, fromQuery, homeWeekOf, shiftDate, toQuery, weekDays, weekStartOf, type PlanView } from "@/lib/plan-url";
 import type { ScaledLine } from "@/lib/plan-ingredients";
 import { entryForDish } from "@/lib/plan-entries";
@@ -194,7 +194,6 @@ export default function PlanPage() {
 
   // ── URL sync ────────────────────────────────────────────────────────────────
 
-  const history = useHistoryDepth();
   const applyingHistory = useRef(false);
   const urlRestored = useRef(false);
 
@@ -214,9 +213,18 @@ export default function PlanPage() {
     applyUrl(currentParams());
   }, [applyUrl]);
 
-  useBrowserNavigation((params) => {
-    history.recordPop();
-    applyUrl(params);
+  useBrowserNavigation(applyUrl);
+
+  // Home is what /plan with no query shows: this week's calendar. Set directly,
+  // not through applyUrl — that marks the change as coming from history, and
+  // the writer would then skip pushing it.
+  useTabHome(() => {
+    const home = fromQuery(new URLSearchParams());
+    setView(home.view);
+    setWeek(home.week);
+    setSlot(home.slot);
+    setPlanId(home.planId);
+    setPlace(home.place);
   });
 
   useEffect(() => {
@@ -226,13 +234,11 @@ export default function PlanPage() {
       return;
     }
     const query = toQuery({ view, week, slot, planId, place });
-    const before = window.location.search;
     // Everything here is a view — the week, the list, the sheet — so everything
     // pushes, and the back gesture walks out of the sheet and then back through
     // the weeks instead of leaving the app (lib/url-state.ts).
     writeUrl(query, "push");
-    if (window.location.search !== before) history.recordPush();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [view, week, slot, planId, place]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────

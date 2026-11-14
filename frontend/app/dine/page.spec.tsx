@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DinePage from "./page";
 import { apiClient, type RestaurantDetail } from "@/lib/api-client";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
+import { announceTabHome } from "@/lib/url-state";
 
 /**
  * The phone back gesture on /dine. jsdom keeps a real session history and
@@ -114,5 +115,55 @@ describe("/dine back navigation", () => {
     // …so the next back gesture leaves /dine instead of reopening the restaurant.
     await back();
     expect(here()).toBe("/profile");
+  });
+
+  it("a reload inside a restaurant keeps one list underneath, not two", async () => {
+    // What the page leaves behind after /plan → /dine → open Casa Pepe; the
+    // restaurant entry carries the depth the page wrote, as a reload keeps it.
+    window.history.replaceState(null, "", "/plan");
+    window.history.pushState(null, "", "/dine");
+    window.history.pushState({ samDepth: 1 }, "", "/dine?place=r1");
+    const entries = window.history.length;
+    renderPage();
+    await detailBack();
+    expect(window.history.length).toBe(entries); // nothing synthesized on top
+
+    await back();
+    expect(here()).toBe("/dine");
+    await back();
+    expect(here()).toBe("/plan"); // one back for the list, not two
+  });
+});
+
+describe("tapping the Dine tab while on /dine", () => {
+  it("goes back to the list, and the next back leaves /dine", async () => {
+    window.history.replaceState(null, "", "/plan");
+    window.history.pushState(null, "", "/dine");
+    renderPage();
+    await listHeading();
+    fireEvent.click(screen.getByRole("button", { name: "Casa Pepe" }));
+    await detailBack();
+
+    await act(async () => {
+      announceTabHome();
+      await waitFor(() => expect(here()).toBe("/dine"));
+    });
+    expect(await listHeading()).toBeInTheDocument();
+
+    // Popped, not pushed: the restaurant is not waiting behind the list.
+    await back();
+    expect(here()).toBe("/plan");
+  });
+
+  it("on the list already, changes nothing", async () => {
+    window.history.replaceState(null, "", "/dine");
+    renderPage();
+    await listHeading();
+    const entries = window.history.length;
+
+    act(() => announceTabHome());
+
+    expect(here()).toBe("/dine");
+    expect(window.history.length).toBe(entries);
   });
 });

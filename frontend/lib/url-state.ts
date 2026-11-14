@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Page state in the URL, for a statically exported app.
@@ -35,8 +35,45 @@ export function currentParams(): URLSearchParams {
 export function writeUrl(query: string, mode: "push" | "replace"): void {
   const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
   if (`${window.location.pathname}${window.location.search}` === url) return; // no-op, don't stack duplicates
-  if (mode === "push") window.history.pushState(null, "", url);
-  else window.history.replaceState(null, "", url);
+  // Only our key: Next's patched pushState/replaceState adds its own (`__NA`,
+  // the tree) and syncs its router to the new URL. Passing Next's keys back in
+  // would skip that sync.
+  const depth = historyDepth();
+  if (mode === "push") window.history.pushState({ [DEPTH_KEY]: depth + 1 }, "", url);
+  else window.history.replaceState({ [DEPTH_KEY]: depth }, "", url);
+}
+
+const DEPTH_KEY = "samDepth";
+
+/**
+ * How many entries this page has pushed on top of the one it was entered on.
+ *
+ * Kept in `history.state`, on the entry itself, rather than counted in a ref:
+ * the browser keeps an entry's state across a reload and hands it back on
+ * back/forward, and Next.js preserves it on both (create-initial-router-state
+ * and the restore reducer set `preserveCustomHistoryState`). A counter in
+ * memory reset to 0 on reload — so /dine took a reloaded restaurant for a
+ * deep link and stacked a second list underneath — and counted a *forward*
+ * as a back. An entry Next pushes when you arrive from another page has no
+ * key, so every page starts at 0.
+ */
+export function historyDepth(): number {
+  const state: unknown = window.history.state;
+  const depth = state && typeof state === "object" ? (state as Record<string, unknown>)[DEPTH_KEY] : undefined;
+  return typeof depth === "number" ? depth : 0;
+}
+
+/**
+ * Whether the in-app Back can be `history.back()`.
+ *
+ * It should be, so the button and the device gesture agree — otherwise
+ * pressing in-app Back *pushes* another entry and the gesture then walks
+ * forward through views the user already dismissed. But on an entry the page
+ * was opened on (a deep link), `history.back()` would leave the app, so the
+ * page falls back to changing state instead.
+ */
+export function canGoBack(): boolean {
+  return historyDepth() > 0;
 }
 
 /** Run `onNavigate` when the user goes back or forward. */
@@ -51,28 +88,35 @@ export function useBrowserNavigation(onNavigate: (params: URLSearchParams) => vo
   }, []);
 }
 
+const TAB_HOME_EVENT = "sam:tab-home";
+
+/** Tell the page under the tab bar that its own tab was tapped again. See `useTabHome`. */
+export function announceTabHome(): void {
+  window.dispatchEvent(new Event(TAB_HOME_EVENT));
+}
+
 /**
- * Tracks whether this page has pushed any history of its own.
+ * Tapping the tab you are already on goes to that tab's main screen.
  *
- * The in-app Back button should be `history.back()` so it and the device
- * gesture agree — otherwise pressing in-app Back *pushes* another entry and the
- * device gesture then walks forward through views the user already dismissed.
- * But `history.back()` on a deep link would leave the app, so a page opened
- * straight into a detail view falls back to changing state instead.
+ * The tab is a link to the page's bare path, but the page is already mounted
+ * and reads its view from the query string only on load and on popstate — so
+ * the link changed the address bar and nothing else. The shell announces the
+ * tap instead of navigating, and the page goes home: back through the entries
+ * it pushed when there are any (so the back gesture afterwards leaves the tab
+ * instead of reopening what you just left), or `showRoot` when it was opened
+ * on a deeper view and has nothing to pop.
  */
-export function useHistoryDepth() {
-  const depth = useRef(0);
-  // One object for the page's lifetime, so effects can list it as a dependency.
-  return useMemo(
-    () => ({
-      recordPush: () => {
-        depth.current += 1;
-      },
-      recordPop: () => {
-        depth.current = Math.max(0, depth.current - 1);
-      },
-      canGoBack: () => depth.current > 0,
-    }),
-    [],
-  );
+export function useTabHome(showRoot: () => void): void {
+  const handler = useRef(showRoot);
+  handler.current = showRoot;
+
+  useEffect(() => {
+    const listener = () => {
+      const depth = historyDepth();
+      if (depth > 0) window.history.go(-depth);
+      else handler.current();
+    };
+    window.addEventListener(TAB_HOME_EVENT, listener);
+    return () => window.removeEventListener(TAB_HOME_EVENT, listener);
+  }, []);
 }

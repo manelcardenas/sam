@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useAuthGate } from "@/components/auth/useAuthGate";
-import { currentParams, useBrowserNavigation, useHistoryDepth, writeUrl } from "@/lib/url-state";
+import { canGoBack, currentParams, historyDepth, useBrowserNavigation, useTabHome, writeUrl } from "@/lib/url-state";
 import { composeQuery, parseView, type DineView } from "@/lib/dine-url";
 import dynamic from "next/dynamic";
 import {
@@ -337,7 +337,6 @@ export default function DinePage() {
 
   // ── URL sync ────────────────────────────────────────────────────────────────
 
-  const history = useHistoryDepth();
   const urlRestored = useRef(false);
   // The view the URL currently shows, as `view|placeId`. The writer below
   // pushes only when the view moves away from it.
@@ -390,23 +389,26 @@ export default function DinePage() {
     if (urlRestored.current || loading) return;
     urlRestored.current = true;
     const params = currentParams();
-    if (parseView(params).view !== "list") {
-      // Opened straight into a restaurant (a link from /profile, a refresh):
-      // there is no list underneath in history. Put one there — rewrite this
-      // entry as the list and push the restaurant on top — so both the device
-      // back gesture and the in-app Back land on the list. Without it the
-      // gesture left /dine and the in-app Back pushed a list entry, after
-      // which the gesture walked back into the restaurant you had just left.
+    if (parseView(params).view !== "list" && historyDepth() === 0) {
+      // Opened straight into a restaurant (a link from /profile): there is no
+      // list underneath in history. Put one there — rewrite this entry as the
+      // list and push the restaurant on top — so both the device back gesture
+      // and the in-app Back land on the list. Without it the gesture left
+      // /dine and the in-app Back pushed a list entry, after which the gesture
+      // walked back into the restaurant you had just left. A *reload* of a
+      // restaurant we pushed has depth 1: its list is already underneath.
       writeUrl(composeQuery(toSearchParams(fromSearchParams(params)), "list", null), "replace");
       writeUrl(params.toString(), "push");
-      history.recordPush();
     }
     void applyUrl(params);
-  }, [loading, applyUrl, history]);
+  }, [loading, applyUrl]);
 
-  useBrowserNavigation((params) => {
-    history.recordPop();
-    void applyUrl(params);
+  useBrowserNavigation((params) => void applyUrl(params));
+
+  useTabHome(() => {
+    setSelectedRestaurant(null);
+    setReviewToEdit(null);
+    setView("list");
   });
 
   // One writer for the whole query string, because filters and view share it.
@@ -418,12 +420,10 @@ export default function DinePage() {
     const viewChanged = viewKey !== lastViewKey.current;
     lastViewKey.current = viewKey;
 
-    const before = window.location.search;
     const push = viewChanged && !replaceNextView.current;
     replaceNextView.current = false;
     writeUrl(composeQuery(toSearchParams(filters), view, selectedRestaurant?.id ?? null), push ? "push" : "replace");
-    if (push && window.location.search !== before) history.recordPush();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [filters, view, selectedRestaurant?.id]);
 
   // After the URL writer, so the detail is in history before the form is.
@@ -439,7 +439,7 @@ export default function DinePage() {
   const goBack = () => {
     // Real history where there is any, so the in-app button and the device
     // gesture stay in agreement — see lib/url-state.ts.
-    if (history.canGoBack()) {
+    if (canGoBack()) {
       window.history.back();
       return;
     }

@@ -7,7 +7,7 @@ import { signOut } from "aws-amplify/auth";
 import { useAuthGate } from "@/components/auth/useAuthGate";
 import { useMe } from "@/components/auth/UserProvider";
 import { apiClient, type PlanSummary, type Recipe, type UserReview, type UserStats } from "@/lib/api-client";
-import { currentParams, useBrowserNavigation, writeUrl } from "@/lib/url-state";
+import { currentParams, useBrowserNavigation, useTabHome, writeUrl } from "@/lib/url-state";
 import {
   INITIAL_STATE,
   fromQuery,
@@ -130,6 +130,12 @@ export default function ProfilePage() {
   // the query string with no reconciliation between separate variables — which
   // is why this page needs none of the applying-history guards /dashboard has.
   useBrowserNavigation((params) => setState(fromQuery(params)));
+
+  useTabHome(() => {
+    const home = fromQuery(new URLSearchParams());
+    setState(home);
+    writeUrl(toQuery(home), "push");
+  });
 
   /**
    * Tabs push a history entry (that is what makes back work); narrowing
