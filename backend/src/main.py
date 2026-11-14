@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
-from mangum import Mangum
 
 from src.infra.adapters.parsing import build_ingredient_parser
 from src.infra.adapters.places import GeoapifyPlacesProvider, resolve_geoapify_api_key
@@ -110,10 +109,8 @@ def _prefetch_jwks() -> bool:
         return False
 
 
+# Vercel serves this ASGI app directly (ADR 0008); there is no Lambda handler any more.
 app = create_app()
-
-# Lambda handler — wraps the ASGI app for API Gateway / Function URLs.
-handler = Mangum(app)
 
 
 def seed() -> None:
@@ -128,12 +125,13 @@ def seed() -> None:
 def serve() -> None:
     """Local dev entrypoint (`uv run start`): migrate + seed, then serve with reload.
 
-    Production never calls this — Lambda uses the Mangum `handler` above.
+    Production never calls this — Vercel imports `app` and migrates in its build
+    step (`scripts/vercel_build.py`).
 
-    These imports MUST stay local. Importing them at module top runs on every
-    Lambda cold start, and `from alembic import command` actually CRASHES there:
-    the bundled `alembic/` migrations directory shadows the installed alembic
-    library (`ImportError: cannot import name 'command' from 'alembic'`).
+    These imports stay local so a production cold start never pays for uvicorn or
+    alembic. (On Lambda it was worse than slow: the bundled `alembic/` migrations
+    directory shadowed the installed library and `from alembic import command`
+    crashed the function.)
     """
     import os
 

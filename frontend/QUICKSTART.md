@@ -109,34 +109,9 @@ frontend/
 
 ---
 
-## Deployment Options (When Ready)
+## Deployment
 
-See detailed instructions in `frontend/README.md`:
-
-### Recommended: AWS Amplify Hosting
-
-- **Cost**: $0-5/month (free tier)
-- **Setup**: 5 minutes
-- **Features**: CI/CD, SSL, CDN
-- **Best for**: Most projects
-
-### Alternative: Vercel
-
-- **Cost**: Free for personal projects
-- **Setup**: 2 minutes
-- **Features**: Best Next.js performance
-- **Best for**: Next.js apps
-
-### Budget: S3 + CloudFront
-
-- **Cost**: $1-2/month
-- **Setup**: 15 minutes
-- **Features**: Static hosting
-- **Best for**: Low cost
-
-See `frontend/README.md` for step-by-step deployment guides.
-
----
+Vercel (`sam-web`), built from `main` on merge. See [`docs/wiki/ci-cd.md`](../docs/wiki/ci-cd.md).
 
 ## Tech Stack Details
 

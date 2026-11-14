@@ -18,7 +18,7 @@ sam/
 │   ├── infra/
 │   │   ├── adapters/     # Interface implementations (InMemory, DynamoDB)
 │   │   └── controllers/  # HTTP controllers (FastAPI routes)
-│   └── main.py           # FastAPI app factory + Lambda handler
+│   └── main.py           # FastAPI app factory; Vercel serves its `app`
 ├── frontend/             # Next.js 15, `output: 'export'` (static — no SSR, no API routes)
 │   ├── app/              # Routes: /, /dashboard, /dine, /profile
 │   ├── components/       # By domain: dine/, map/, profile/, recipes/, ui/, auth/
