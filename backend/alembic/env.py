@@ -49,7 +49,9 @@ def build_sync_url() -> str:
     db = os.environ["POSTGRES_DB"]
     user = os.environ["POSTGRES_USER"]
     pwd = os.environ["POSTGRES_PASSWORD"]
-    return f"postgresql://{user}:{pwd}@{host}:{port}/{db}"
+    # Explicit driver: SQLAlchemy 2.1 made a bare postgresql:// mean psycopg 3,
+    # which is not installed (the app uses psycopg2-binary, see engine.py).
+    return f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{db}"
 
 
 def run_migrations_offline() -> None:
