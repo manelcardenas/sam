@@ -23,11 +23,21 @@ export type Segment<T extends string> = {
   value: T;
   label: string;
   icon: LucideIcon;
-  /** A small number after the label, e.g. items left on a list. Shown even while collapsed. */
+  /** A small number, e.g. items left on a list: on the icon's corner on a phone, after the label from `sm` up. */
   badge?: number;
   /** For `role="tablist"`: the panel this tab controls. */
   controls?: string;
 };
+
+/**
+ * Classes per breakpoint at which every segment starts spelling its label.
+ * Written out whole so Tailwind sees them; a template like `${bp}:inline` would
+ * never be generated.
+ */
+const EXPANDED_FROM = {
+  sm: { label: "sr-only sm:not-sr-only", idle: "sm:min-w-10 sm:px-3.5", corner: "sm:hidden", inline: "hidden sm:inline" },
+  md: { label: "sr-only md:not-sr-only", idle: "md:min-w-10 md:px-3.5", corner: "md:hidden", inline: "hidden md:inline" },
+} as const;
 
 export function SegmentedControl<T extends string>({
   segments,
@@ -37,6 +47,7 @@ export function SegmentedControl<T extends string>({
   role,
   idPrefix,
   stretch = false,
+  labelsFrom = "sm",
 }: {
   segments: readonly Segment<T>[];
   value: T;
@@ -48,7 +59,10 @@ export function SegmentedControl<T extends string>({
   idPrefix?: string;
   /** Span the container, spreading the segments out, instead of hugging them. */
   stretch?: boolean;
+  /** Where every segment starts showing its label. `md` for a row too long to spell out on a small tablet (the admin's six profile tabs). */
+  labelsFrom?: keyof typeof EXPANDED_FROM;
 }) {
+  const at = EXPANDED_FROM[labelsFrom];
   const refs = useRef(new Map<T, HTMLButtonElement>());
   const tabs = role === "tablist";
 
@@ -74,6 +88,7 @@ export function SegmentedControl<T extends string>({
       {segments.map((segment) => {
         const on = segment.value === value;
         const Icon = segment.icon;
+        const hasBadge = segment.badge !== undefined && segment.badge > 0;
         return (
           <button
             key={segment.value}
@@ -89,15 +104,23 @@ export function SegmentedControl<T extends string>({
               : { "aria-current": on ? ("page" as const) : undefined })}
             // sr-only keeps the label as the accessible name while it is hidden.
             title={segment.label}
-            className={`flex min-h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-              on ? "bg-accent px-3.5 text-white shadow-pop" : "px-2.5 text-muted hover:text-fg sm:px-3.5"
+            className={`flex min-h-10 min-w-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+              on ? "min-w-10 bg-accent px-3.5 text-white shadow-pop" : `px-2 text-muted hover:text-fg ${at.idle}`
             }`}
           >
-            <Icon className="h-4 w-4 shrink-0" aria-hidden />
-            <span className={on ? "" : "sr-only sm:not-sr-only"}>{segment.label}</span>
-            {segment.badge !== undefined && segment.badge > 0 && (
-              <span className="tabular-nums opacity-70">{segment.badge}</span>
-            )}
+            <span className="relative flex shrink-0">
+              <Icon className="h-4 w-4" aria-hidden />
+              {/* On a phone the number sits on the icon's corner instead of beside it,
+                  so it adds no width: beside it, two 2-digit counts pushed the sixth
+                  profile tab out of the pill at 360 px. */}
+              {hasBadge && (
+                <span className={`absolute -right-2.5 -top-2 min-w-4 rounded-full bg-surface-2 px-1 text-center text-[10px] leading-4 tabular-nums text-fg ring-1 ring-surface ${at.corner}`}>
+                  {segment.badge}
+                </span>
+              )}
+            </span>
+            <span className={on ? "" : at.label}>{segment.label}</span>
+            {hasBadge && <span className={`tabular-nums opacity-70 ${at.inline}`}>{segment.badge}</span>}
           </button>
         );
       })}

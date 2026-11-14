@@ -49,6 +49,7 @@ export function ProfileTabs({
       value={active}
       onChange={onSelect}
       stretch
+      labelsFrom={tabs.length > 5 ? "md" : "sm"}
       segments={tabs.map((tab) => ({
         value: tab,
         label: t(`profile.tab-${tab}` as MessageKey),
