@@ -64,7 +64,7 @@ Config lives in `backend/vercel.json` (region, `maxDuration`), `backend/.python-
 ### Web build
 
 `frontend/vercel.json`: install only the frontend workspace
-(`npm ci -w frontend --include-workspace-root` — a bare `npm ci` would also pull ~216 MB of
+(`cd .. && npm ci -w frontend --include-workspace-root`, run from the repo root because `-w` paths are relative to where npm runs — a bare `npm ci` would also pull ~216 MB of
 aws-cdk for `infra/`), then `next build`, which writes the static export Vercel serves from
 its CDN. The five `NEXT_PUBLIC_*` values are project env vars, baked in at build time.
 

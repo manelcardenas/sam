@@ -9,7 +9,7 @@ page's Amplify version is in git history.
 | Setting | Value | Why |
 |---|---|---|
 | Root Directory | `frontend` | The app lives in the monorepo's `frontend/` workspace. |
-| Install | `npm ci -w frontend --include-workspace-root` | One lockfile at the repo root; a bare `npm ci` would also install `infra/` (~216 MB of aws-cdk). |
+| Install | `cd .. && npm ci -w frontend --include-workspace-root` | Vercel runs it inside `frontend/`, and `-w frontend` from there means `frontend/frontend` ("No workspaces found"), hence the `cd ..`. One lockfile at the repo root; a bare `npm ci` would also install `infra/` (~216 MB of aws-cdk). |
 | Build | `npm run build` → `next build` | `output: 'export'` writes static HTML/JS that Vercel serves from its CDN. No server runs. |
 | Builds | `main` only, and only when `frontend/` or the root `package*.json` changed | The ignore command in `frontend/vercel.json`. |
 
