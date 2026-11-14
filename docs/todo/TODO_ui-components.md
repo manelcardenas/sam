@@ -37,6 +37,11 @@ automated check. This adds one.
 Also: `AppShell`'s desktop world switch onto `SegmentedControl` (it is links, so it needs a
 link variant).
 
+- [x] Dine's filter row (2026-11-14): at 360 px the sort select ("Visitados hace poco", 200 px)
+      cut the filters beside it mid-word. On a phone the sort is now its icon (tomato when the
+      order is not the default) and the filter strip fades at its right edge. `copy-fits` does
+      not see this kind of cut — a `<select>`'s text and a scroller's clipped child are not
+      measured — so it was found by eye.
 - [ ] Migrate file by file, adding variants only when a real button needs one
 - [ ] Extend `copy-fits` to the screens it does not reach yet: the slot sheet, the add-restaurant
       flow, the admin panel, open dialogs

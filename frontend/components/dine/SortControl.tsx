@@ -27,9 +27,15 @@ const OPTIONS: RestaurantSort[] = ["recent", "oldest", "rating", "rating_low"];
  * not sit *inside* the `rail-scroll` container or it scrolls away with the
  * chips — that is the one real layout trap here.
  *
- * **The current ordering stays visible.** The obvious way to save space is an
- * icon-only trigger, but then "what order is this list in?" costs a tap, where
- * today it is simply readable. So the trigger carries the value.
+ * **On a phone it is its icon; from `sm` it spells the current ordering.**
+ * It used to spell it everywhere, and at 360 px "Visitados hace poco" took 200
+ * of the row's 328 px, so the filters beside it were cut mid-word
+ * ("Reseñado po|"). Below `sm` the select's own text is made transparent and
+ * the control shrinks to a 44 px square around the icon; the select is still
+ * the whole hit area, and a screen reader still reads its value. What the
+ * phone loses — reading the order without a tap — is half given back: the
+ * icon turns tomato whenever the order is not the default, so "this list is
+ * sorted unusually" stays visible.
  *
  * Still a native `<select>`, and deliberately so: iOS renders its wheel picker
  * (genuinely better one-handed than any menu we would build), keyboard and
@@ -52,20 +58,28 @@ export function SortControl({
   className?: string;
 }) {
   const { t } = useI18n();
+  // OPTIONS[0] is DEFAULT_SORT (importing it from RestaurantFilters would be a cycle).
+  const unusual = value !== OPTIONS[0];
 
   return (
     <div className={`relative shrink-0 ${className}`}>
       <ArrowDownWideNarrow
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+        className={`pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 sm:left-3 sm:translate-x-0 ${
+          unusual ? "text-tomato" : "text-muted"
+        }`}
         aria-hidden
       />
       <select
         aria-label={t("sort.label")}
+        title={t(`sort.${value}` as MessageKey)}
         value={value}
         onChange={(e) => onChange(e.target.value as RestaurantSort)}
-        // h-11 = 44px, matching the chips it sits beside. pl-9/pr-8 leave room
-        // for the two icons layered over the control.
-        className="h-11 cursor-pointer appearance-none truncate rounded-2xl border border-line bg-surface pl-9 pr-8 text-sm font-semibold text-fg transition-colors hover:border-tomato/40 focus:border-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40"
+        // h-11 = 44px, matching the chips it sits beside. Phone: a 44 px
+        // square, text transparent (the options keep theirs). From sm: the
+        // value, with pl-9/pr-8 leaving room for the two layered icons.
+        className={`h-11 w-11 cursor-pointer appearance-none rounded-2xl border bg-surface text-sm font-semibold text-transparent transition-colors *:text-fg hover:border-tomato/40 focus:border-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/40 sm:w-auto sm:pl-9 sm:pr-8 sm:text-fg ${
+          unusual ? "border-tomato/60" : "border-line"
+        }`}
       >
         {OPTIONS.map((option) => (
           <option key={option} value={option}>
@@ -85,7 +99,7 @@ function ChevronDown() {
       viewBox="0 0 20 20"
       fill="none"
       aria-hidden
-      className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+      className="pointer-events-none absolute right-2.5 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-muted sm:block"
     >
       <path
         d="M5 7.5 10 12.5 15 7.5"
