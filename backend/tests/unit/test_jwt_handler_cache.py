@@ -1,8 +1,8 @@
 import time
 from typing import Any
 
+import jwt
 import pytest
-from jose import exceptions
 
 from src.infra.security.jwt_handler import JWTHandler, _region_from_pool_id
 
@@ -79,7 +79,7 @@ def test_decode_rejects_a_token_whose_key_is_unknown(handler: JWTHandler) -> Non
     # A syntactically valid JWT header naming a key that doesn't exist.
     token = "eyJhbGciOiJSUzI1NiIsImtpZCI6Im5vcGUifQ.e30.sig"  # gitleaks:allow
 
-    with pytest.raises(exceptions.JWTError, match="Public key not found"):
+    with pytest.raises(jwt.InvalidTokenError, match="Public key not found"):
         handler.decode_token(token)
 
 

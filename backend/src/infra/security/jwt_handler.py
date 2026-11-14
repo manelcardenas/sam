@@ -5,7 +5,7 @@ from threading import Lock
 from typing import Any
 
 import httpx
-from jose import exceptions, jwk, jwt
+import jwt
 
 from src.infra.security.schemas import TokenPayload
 
@@ -58,7 +58,8 @@ class JWTHandler:
             raise ValueError("COGNITO_CLIENT_ID environment variable is required")
 
         self.region = _region_from_pool_id(self.user_pool_id)
-        self.jwks_url = f"https://cognito-idp.{self.region}.amazonaws.com/{self.user_pool_id}/.well-known/jwks.json"
+        self.issuer = f"https://cognito-idp.{self.region}.amazonaws.com/{self.user_pool_id}"
+        self.jwks_url = f"{self.issuer}/.well-known/jwks.json"
         self.algorithm = algorithm
 
         # Keyed by `kid` so an unknown key id is distinguishable from an empty
@@ -97,41 +98,48 @@ class JWTHandler:
 
     def decode_token(self, token: str) -> TokenPayload:
         """
-        Decode and validate Cognito JWT token.
+        Decode and validate a Cognito **ID token** (what the frontend sends).
 
-        Args:
-            token: JWT token string from Cognito
+        PyJWT, not python-jose: python-jose has an unfixed critical advisory
+        (GHSA-3qf3-8w2g-rqmx, algorithm confusion via DER-encoded keys) and is
+        barely maintained. Two differences that matter here:
 
-        Returns:
-            TokenPayload with user information
+        - The algorithm is pinned to RS256 and the key is built as an RSA key
+          from the JWKS entry, so a token signed with HS256 using the public
+          key as the secret is rejected.
+        - A missing `aud` is an error, where python-jose silently skipped the
+          check. Cognito *access* tokens have no `aud`, so only ID tokens of
+          this app client pass; the frontend has only ever sent ID tokens.
 
         Raises:
             jwt.ExpiredSignatureError: Token has expired
-            jwt.JWTError: Token signature is invalid or malformed
+            jwt.InvalidTokenError: anything else wrong with the token
         """
-        # Get the unverified header to extract the "kid" (key ID)
-        header = jwt.get_unverified_header(token)
-        kid = header["kid"]
+        # Unverified on purpose: only to pick the key. Malformed input raises
+        # jwt.DecodeError, an InvalidTokenError.
+        kid = jwt.get_unverified_header(token).get("kid")
+        if not isinstance(kid, str):
+            raise jwt.InvalidTokenError("Token header has no kid")
 
         key = self._public_key_for(kid)
         if key is None:
-            raise exceptions.JWTError("Public key not found in JWKS")
+            raise jwt.InvalidTokenError("Public key not found in JWKS")
 
-        # Construct the public key
-        public_key = jwk.construct(key)
-
-        # Decode and verify token
         try:
+            signing_key = jwt.PyJWK(key, algorithm=self.algorithm)
             payload = jwt.decode(
                 token,
-                public_key,
-                algorithms=[self.algorithm],  # Cognito uses RS256
-                audience=self.client_id,  # Validate the audience (client ID)
-                options={"verify_at_hash": False},  # Don't verify at_hash claim (not needed for access tokens)
+                signing_key,
+                algorithms=[self.algorithm],
+                audience=self.client_id,
+                issuer=self.issuer,
+                options={"require": ["exp", "sub", "aud", "iss"]},
             )
             return TokenPayload(**payload)
-        except Exception as e:
-            raise exceptions.JWTError(f"Token validation failed: {e}") from e
+        except jwt.InvalidTokenError:
+            raise  # includes ExpiredSignatureError, so the API can say "expired"
+        except Exception as e:  # a JWKS entry PyJWK can't use, a payload TokenPayload rejects
+            raise jwt.InvalidTokenError(f"Token validation failed: {e}") from e
 
 
 @lru_cache(maxsize=1)

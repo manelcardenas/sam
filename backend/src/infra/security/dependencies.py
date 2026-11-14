@@ -1,8 +1,8 @@
 import sys
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import exceptions as jwt_exceptions
 
 from src.domain.ports import UserRepository
 from src.infra.security.jwt_handler import get_jwt_handler
@@ -45,13 +45,13 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
     try:
         token_payload = jwt_handler.decode_token(credentials.credentials)
-    except jwt_exceptions.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    except jwt_exceptions.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token signature",
