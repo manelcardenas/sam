@@ -23,6 +23,11 @@ dependencies = [
 start = "src.main:serve"  # migrate + seed + uvicorn (reload) — local only
 seed = "src.main:seed"    # (re)seed the local DB
 
+# Vercel (ADR 0008): migrations and the grocery seed run in the build, before
+# the deployment goes live. Production only — see scripts/vercel_build.py.
+[tool.vercel.scripts]
+build = "python -m scripts.vercel_build"
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.4.0",
