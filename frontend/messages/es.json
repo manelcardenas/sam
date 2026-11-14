@@ -350,7 +350,8 @@
       "other": "Actualizar {{count}} líneas"
     },
     "view-calendar": "La semana",
-    "view-list": "Lista de la compra"
+    "view-list": "Lista de la compra",
+    "view-switch": "Semana o lista de la compra"
   },
   "profile": {
     "account-body": "Tu nombre visible aparece como autor de tus recetas.",

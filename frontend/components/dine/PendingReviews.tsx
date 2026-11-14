@@ -72,7 +72,7 @@ export function PendingReviews({
               style={{ backgroundColor: cuisineAccent(r.cuisines[0] ?? "") }}
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-fg">{r.name}</p>
+              <p data-may-truncate className="truncate font-semibold text-fg">{r.name}</p>
               <p className="truncate text-xs text-muted">
                 {t("pending-reviews.added", { when: formatRelativeDate(r.created_at.slice(0, 10), locale) })}
               </p>

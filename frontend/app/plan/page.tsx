@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, DoorOpen, ListChecks, Lock, X } from "lucide-react";
+import { CalendarCheck, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, DoorOpen, ListChecks, Lock, X } from "lucide-react";
 import { useAuthGate } from "@/components/auth/useAuthGate";
 import {
   ApiError,
@@ -19,6 +19,8 @@ import {
   type ShoppingListItem,
 } from "@/lib/api-client";
 import { currentParams, useBrowserNavigation, useTabHome, writeUrl } from "@/lib/url-state";
+import { Button, IconButton } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { DAYS_IN_WEEK, fromQuery, homeWeekOf, shiftDate, toQuery, weekDays, weekStartOf, type PlanView } from "@/lib/plan-url";
 import type { ScaledLine } from "@/lib/plan-ingredients";
 import { entryForDish } from "@/lib/plan-entries";
@@ -532,9 +534,7 @@ export default function PlanPage() {
     <AppShell userName={userName}>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1">
-          <PagerButton label={t("plan.previous-week")} onClick={() => goToWeek(shiftDate(weekStart, -7))}>
-            <ChevronLeft className="h-4 w-4" />
-          </PagerButton>
+          <IconButton icon={ChevronLeft} label={t("plan.previous-week")} onClick={() => goToWeek(shiftDate(weekStart, -7))} />
           <div className="px-1">
             <h1 className="font-display text-lg font-bold tracking-tight text-fg sm:text-xl">
               {formatWeekRange(days[0], days[days.length - 1], locale)}
@@ -553,21 +553,19 @@ export default function PlanPage() {
                       : t("plan.later-week")}
             </p>
           </div>
-          <PagerButton label={t("plan.next-week")} onClick={() => goToWeek(shiftDate(weekStart, 7))}>
-            <ChevronRight className="h-4 w-4" />
-          </PagerButton>
+          <IconButton icon={ChevronRight} label={t("plan.next-week")} onClick={() => goToWeek(shiftDate(weekStart, 7))} />
           {weekStart !== today && (
-            <button
-              type="button"
-              onClick={() => goToWeek(today)}
-              className="ml-1 cursor-pointer rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-tomato/40 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-            >
-              {t("plan.back-to-this-week")}
-            </button>
+            // Its icon alone on a phone: "Tornar a aquesta setmana" next to the
+            // week pager wrapped onto two lines. The label stays the name.
+            <Button variant="secondary" size="sm" icon={CalendarCheck} title={t("plan.back-to-this-week")} onClick={() => goToWeek(today)} className="ml-1">
+              <span className="sr-only sm:not-sr-only">{t("plan.back-to-this-week")}</span>
+            </Button>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Wraps: with the shopping list selected its label is spelled out, and
+            beside the kitchen chip that is wider than a 360 px phone. */}
+        <div className="flex flex-wrap items-center gap-2">
           {/* Beside the view toggle rather than at the foot of the page, where
               the share panel used to live. Who you are planning with is context
               for everything below it, not a footnote after it. */}
@@ -582,30 +580,18 @@ export default function PlanPage() {
             />
           )}
 
-          <div className="inline-flex items-center rounded-full border border-line bg-surface p-1">
-            {(["calendar", "list"] as PlanView[]).map((option) => {
-              const on = view === option;
-              const Icon = option === "calendar" ? CalendarDays : ListChecks;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => {
-                    setSlot(null);
-                    setView(option);
-                  }}
-                  aria-current={on ? "page" : undefined}
-                  className={`flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 font-display text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50 ${
-                    on ? "bg-tomato text-white shadow-pop" : "text-muted hover:text-fg"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {t(option === "calendar" ? "plan.view-calendar" : "plan.view-list")}
-                  {option === "list" && outstanding > 0 && <span className="tabular-nums opacity-70">{outstanding}</span>}
-                </button>
-              );
-            })}
-          </div>
+          <SegmentedControl<PlanView>
+            label={t("plan.view-switch")}
+            value={view}
+            onChange={(option) => {
+              setSlot(null);
+              setView(option);
+            }}
+            segments={[
+              { value: "calendar", label: t("plan.view-calendar"), icon: CalendarDays },
+              { value: "list", label: t("plan.view-list"), icon: ListChecks, badge: outstanding },
+            ]}
+          />
         </div>
       </div>
 
@@ -742,19 +728,5 @@ export default function PlanPage() {
         />
       )}
     </AppShell>
-  );
-}
-
-function PagerButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-    >
-      {children}
-    </button>
   );
 }

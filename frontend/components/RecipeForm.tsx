@@ -8,6 +8,7 @@ import type { CreateRecipeInput, IngredientsData } from "@/lib/api-client";
 import { IngredientCapture, type CaptureRow } from "@/components/IngredientCapture";
 import { FoodTypePicker } from "@/components/FoodTypePicker";
 import SourceLink from "@/components/SourceLink";
+import { Button, FormActions } from "@/components/ui/Button";
 
 /** Add https:// if the user typed a bare host, then validate. Returns the
  * normalized URL, or null if blank/invalid. */
@@ -269,25 +270,14 @@ export default function RecipeForm({
         </p>
       )}
 
-      <div className="flex gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={submitting || !hasIngredient}
-          aria-describedby={hasIngredient ? undefined : "submit-blocked"}
-          className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-        >
-          <Save className="h-4 w-4" />
+      <FormActions>
+        <Button type="submit" icon={Save} disabled={submitting || !hasIngredient} aria-describedby={hasIngredient ? undefined : "submit-blocked"}>
           {submitting ? t("common.saving") : submitLabel}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-5 py-3 font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-        >
-          <X className="h-4 w-4" />
-          Cancel
-        </button>
-      </div>
+        </Button>
+        <Button variant="secondary" icon={X} onClick={onCancel}>
+          {t("common.cancel")}
+        </Button>
+      </FormActions>
     </form>
   );
 }

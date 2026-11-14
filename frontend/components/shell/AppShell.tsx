@@ -55,7 +55,7 @@ export function AppShell({
               <span className="font-display text-xl font-bold tracking-tight text-fg">
                 SAM
               </span>
-              <span className="text-[11px] font-medium text-muted">{t("shell.cook-and-dine")}</span>
+              <span className="hidden whitespace-nowrap text-[11px] font-medium text-muted sm:block">{t("shell.cook-and-dine")}</span>
             </span>
           </Link>
 

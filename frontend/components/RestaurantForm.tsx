@@ -7,6 +7,7 @@ import { apiClient, type Cuisine, type CreateRestaurantInput } from "@/lib/api-c
 import { MapLoading } from "@/components/map/MapLoading";
 import { CuisinePicker, PricePicker, fieldClass, labelClass, type PriceLevel } from "@/components/restaurant-fields";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import { Button, FormActions } from "@/components/ui/Button";
 
 // MapLibre is heavy and DOM-only — fetched only when someone opens the pin picker.
 const PinPickerMap = dynamic(() => import("@/components/map/PinPickerMap"), {
@@ -226,24 +227,14 @@ export default function RestaurantForm({
 
       <CuisinePicker options={cuisineOptions} value={selectedCuisines} onChange={setSelectedCuisines} />
 
-      <div className="flex gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-        >
-          <Save className="h-4 w-4" />
+      <FormActions>
+        <Button type="submit" icon={Save} disabled={submitting}>
           {submitting ? t("common.saving") : submitLabel}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-5 py-3 font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-        >
-          <X className="h-4 w-4" />
+        </Button>
+        <Button variant="secondary" icon={X} onClick={onCancel}>
           {t("common.cancel")}
-        </button>
-      </div>
+        </Button>
+      </FormActions>
     </form>
   );
 }

@@ -18,6 +18,7 @@ revisit it, never just dropped.
 | # | Task | Size | Depends on | Why here |
 |---|---|---|---|---|
 | 1 | [Quick wins on the web app](./TODO_quick-wins.md) — back button in `/dine`, mobile overflow, the duplicate-line 500 | ~1 day | — | Used every day; useful whatever comes next |
+| 1b | [Shared UI components](./TODO_ui-components.md) — one `Button`, labels that fit at 360 px, a Playwright check | A done; B ~1 day; C ½ day | B on 3 | 131 hand-made buttons; Catalan labels broke on phones |
 | 2 | [Backend off Lambda](./TODO_backend-off-lambda.md) — spike Vercel, then migrate | spike ½ day, migration 2–3 days | — | The slowness people feel: 10 of 10 sessions start with a 3.4–6.7 s request |
 | 3 | [Web or mobile app — decide](./TODO_web-or-mobile-decision.md) | ½ day, a decision | — | The plan redesign is mostly UI; deciding first avoids building it twice |
 | 4 | [Weekly plan redesign](./TODO_weekly-plan-redesign.md) | the big one | 3 | The calendar was used 3 weeks out of 8 and dropped after 24 Oct |

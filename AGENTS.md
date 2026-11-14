@@ -237,7 +237,20 @@ user_repository = PostgresUserRepository(session_factory=db.session_factory)
 Required: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`,
 `POSTGRES_PASSWORD`, `POSTGRES_SSLMODE`.
 
-## Frontend — two rules that are easy to break
+## Frontend — three rules that are easy to break
+
+### Buttons go through `components/ui/`, and labels must fit at 360 px in Catalan
+
+`Button`, `IconButton`, `FormActions` and `SegmentedControl` decide once what a label does when
+space runs out: it never breaks inside a word and is never cut with "…"; where a word does not
+fit, the action shows its icon with the label as accessible name. Do not hand-write a
+`<button>` with its own classes (112 older ones remain, see `docs/todo/TODO_ui-components.md`),
+and never use `truncate` or `overflow-wrap: anywhere` on app copy. Only user data may be cut,
+marked `data-may-truncate`.
+
+Catalan runs ~19 % longer than English. After changing copy or a control, run
+`npm run e2e -w frontend` with `npm run dev` up: it signs in, visits every screen at 360 px and
+fails on any label that does not fit.
 
 ### All user-facing copy lives in `frontend/messages/`, never in a component
 

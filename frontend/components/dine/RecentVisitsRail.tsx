@@ -240,7 +240,7 @@ function RailCard({
         </div>
 
         <p className="mt-3 flex min-w-0 items-baseline gap-2 px-4 text-[0.7rem] text-muted">
-          {reviewers && <span className="min-w-0 truncate">{reviewers}</span>}
+          {reviewers && <span data-may-truncate className="min-w-0 truncate">{reviewers}</span>}
           {r.last_visited_at && (
             <span className="ml-auto shrink-0 whitespace-nowrap font-medium">
               {formatRelativeDate(r.last_visited_at, locale)}

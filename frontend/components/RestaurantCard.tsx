@@ -88,7 +88,7 @@ export function RestaurantCard({
                       />
                     ))}
                   </span>
-                  <span className="min-w-0 truncate font-medium uppercase tracking-wide text-muted">
+                  <span data-may-truncate className="min-w-0 truncate font-medium uppercase tracking-wide text-muted">
                     {r.cuisines.map((name) => t(`cuisines.${name}` as MessageKey)).join(" · ")}
                   </span>
                 </span>
@@ -131,7 +131,7 @@ export function RestaurantCard({
         {reviewers && (
           <span className="flex min-w-0 items-center gap-1.5">
             <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="min-w-0 truncate">{reviewers}</span>
+            <span data-may-truncate className="min-w-0 truncate">{reviewers}</span>
           </span>
         )}
         {r.last_visited_at && (
@@ -140,7 +140,7 @@ export function RestaurantCard({
         {!reviewers && !r.last_visited_at && r.address && (
           <span className="flex min-w-0 items-center gap-1.5">
             <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="min-w-0 truncate">{r.address}</span>
+            <span data-may-truncate className="min-w-0 truncate">{r.address}</span>
           </span>
         )}
       </div>

@@ -350,7 +350,8 @@
       "other": "Update {{count}} lines"
     },
     "view-calendar": "The week",
-    "view-list": "Shopping list"
+    "view-list": "Shopping list",
+    "view-switch": "Week or shopping list"
   },
   "profile": {
     "account-body": "Your display name is shown as the author of your recipes.",

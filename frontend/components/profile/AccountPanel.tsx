@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, LogOut } from "lucide-react";
 import { apiClient, ApiError, type UserProfile } from "@/lib/api-client";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import { Button } from "@/components/ui/Button";
 
 const fieldClass =
   "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-fg placeholder:text-muted/70 transition-colors focus:border-tomato focus:outline-none focus:ring-2 focus:ring-tomato/30";
@@ -140,13 +141,9 @@ export function AccountPanel({
               placeholder={t("profile.display-name-placeholder")}
             />
           </div>
-          <button
-            type="submit"
-            disabled={saving || !dirty}
-            className="cursor-pointer rounded-full bg-tomato px-5 py-3 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-          >
+          <Button type="submit" disabled={saving || !dirty}>
             {saving ? t("common.saving") : t("common.save-changes")}
-          </button>
+          </Button>
         </form>
       </section>
 

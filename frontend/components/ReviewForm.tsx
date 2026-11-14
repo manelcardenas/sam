@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Save, X } from "lucide-react";
 import type { CreateReviewInput } from "@/lib/api-client";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import { Button, FormActions } from "@/components/ui/Button";
 
 interface ReviewFormProps {
   onSubmit: (data: CreateReviewInput) => Promise<void>;
@@ -156,24 +157,14 @@ export default function ReviewForm({ onSubmit, onCancel, initialData, submitLabe
         <p className="mt-1 text-right text-xs text-muted">{comment.length}/1000</p>
       </div>
 
-      <div className="flex gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-tomato py-3 px-4 font-display font-semibold text-white shadow-pop transition-all hover:bg-tomato-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-        >
-          <Save className="h-4 w-4" />
+      <FormActions>
+        <Button type="submit" icon={Save} disabled={submitting}>
           {submitting ? t("common.saving") : (submitLabel ?? t("review-form.submit"))}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-5 py-3 font-semibold text-fg transition-colors hover:border-tomato/40 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato/50"
-        >
-          <X className="h-4 w-4" />
+        </Button>
+        <Button variant="secondary" icon={X} onClick={onCancel}>
           {t("common.cancel")}
-        </button>
-      </div>
+        </Button>
+      </FormActions>
     </form>
   );
 }
