@@ -67,15 +67,16 @@ These four are constantly conflated, and every conclusion in
 keeping them apart.
 
 **Init**:
-The one-time work a Lambda container does before it can serve anything: importing the
-libraries, reading secrets from SSM, building the app. Reported by CloudWatch as
-`Init Duration`, which the `Duration` metric **excludes**. ~3.3 s measured.
+The one-time work a new function instance does before it can serve anything: importing the
+libraries, building the app, opening the first database connection, fetching Cognito's keys.
+The `{"evt": "boot"}` log line splits it by phase. ~1.7 s measured on Vercel (2026-11-14),
+plus ~1 s the platform spends starting the instance; it was ~3.3 s on Lambda.
 _Avoid_: Cold start (that's the whole first request, init included), Startup, Boot
 
 **Warm Path**:
-The time to serve a request in a container that already exists — CloudWatch `Duration` on a
-non-cold invocation. The number that matches "slow even after the cold start", and the target
-of the plan. ~540 ms measured.
+The time to serve a request in an instance that already exists — the request log line's `ms`
+on a non-cold request. The number that matches "slow even after the cold start". ~540 ms
+measured on Lambda; 27–240 ms on Vercel.
 _Avoid_: Response time, Latency (both too vague to argue with)
 
 **Wake**:
@@ -87,7 +88,8 @@ _Avoid_: Cold start, Spin-up
 
 **Handshake**:
 Establishing one Postgres connection: TCP, TLS and auth, ~5–7 round trips. Cross-region
-(`eu-west-3` Lambda → `eu-central-1` Neon) that is 60–90 ms. Distinct from a Wake, and from
+(the old `eu-west-3` Lambda → `eu-central-1` Neon) it was 60–90 ms; from Vercel's `fra1`,
+next to Neon, ~23 ms. Distinct from a Wake, and from
 the per-query RTT that remains once connections are pooled — see
 [`docs/adr/0006-pooled-connections-on-lambda.md`](docs/adr/0006-pooled-connections-on-lambda.md).
 _Avoid_: Connection time, Connect

@@ -23,9 +23,7 @@ updates:
         update-types:
           - version-update:semver-major
     groups:
-      # `next` is declared in both package.json and frontend/package.json
-      # (see scripts/check-next-pin.mjs). Keep it in one PR with its peers so
-      # both pins move together; CI's check:next-pin fails if they don't.
+      # Next and React move together: one PR, so a half-upgrade never lands.
       next-react:
         patterns:
           - next

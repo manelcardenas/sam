@@ -74,11 +74,6 @@ jobs:
       - name: Install dependencies
         run: npm ci -w frontend --include-workspace-root
 
-      # `next` is declared in both package.json files on purpose; this fails
-      # the build if they ever drift apart. See scripts/check-next-pin.mjs.
-      - name: Check the next pin matches across manifests
-        run: npm run check:next-pin
-
       - name: Lint (eslint)
         run: npm run lint -w frontend
 

@@ -108,13 +108,26 @@ instance.
       `deploy-frontend.yml` deleted. Moving origin means signing in again and re-adding the
       app to the home screen once.
 - [x] `docs/wiki/ci-cd.md` and `frontend-deployment.md` rewritten for Vercel.
-- [ ] After a few days without problems, delete the frozen rollbacks and what only they use:
-      the Lambda/API Gateway and Amplify stacks, `amplifyDomain` in `cdk.json` (and from
-      Cognito and CORS), the CI role and OIDC provider stacks, the gateway-route test, the
-      `addRoutes` rule (AGENTS.md, memory), the SSM parameters only Lambda or Amplify read
-      (`/recipe-manager/github-token`, the DB DSN and LLM/Geoapify keys), and the root
-      `package.json`'s `next` dependency (it existed only for Amplify's detection; drop it
-      with `check:next-pin`). `CONTEXT.md`'s Cold start entry still describes Lambda.
+- [x] Rollbacks deleted the same day, at the user's call (2026-11-14) rather than after a few
+      days: the Lambda/API Gateway, Amplify, CI role and OIDC provider stacks; the SSM
+      parameters only they read; three orphan log groups; `amplifyDomain` from Cognito and CORS;
+      the `AWS_ROLE_ARN` GitHub secret. In code: the SSM secret loader (`src/infra/ssm.py`,
+      `*_PARAM` env vars), the gateway-route test, the four stacks and `aws-lambda-python-alpha`,
+      the root `next` pin and its check. `cdk gc` cleared 170 old assets (1.49 GiB). AWS is now
+      Cognito + CDKToolkit only — see `docs/wiki/ci-cd.md` → "What is left on AWS".
+- [ ] Revoke the GitHub personal access token Amplify used (GitHub → Settings → Developer
+      settings). Its SSM copy is deleted, but the token itself lives on GitHub.
+- [ ] **Rate limiting lost its outer guard.** API Gateway's throttling was "the real guard";
+      the app's own `RATE_LIMIT_PER_MINUTE` is in-memory per instance, and Fluid compute runs
+      several. Vercel Firewall can rate-limit by IP at the edge — check what Hobby includes
+      before writing anything. **Revisit when** traffic is more than the household, or a
+      signed-out endpoint gets abused (LLM parsing and Geoapify are the costly ones).
+- [ ] **DB pool sized for Lambda.** `engine.py` holds 1 connection + 1 overflow because a
+      Lambda container served one request at a time. A Fluid instance serves many at once —
+      the plan page alone fires 4 GETs in parallel — so the 3rd and 4th wait for a free
+      connection, and the overflow one re-handshakes every time. Next step: measure with the
+      request log, then raise the pool (Neon's pooler takes thousands of clients, so the
+      limit is free to raise).
 - [ ] Previews per PR (web and API): a web preview has its own origin, which neither CORS nor
       Cognito accept, and an API preview needs its own database (a Neon branch), not
       production. **Revisit when** a PR needs testing before merge.
