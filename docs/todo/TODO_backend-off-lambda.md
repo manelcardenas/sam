@@ -1,6 +1,7 @@
 # TODO — Backend off Lambda
 
-> **Status: Proposed — not started.**
+> **Status: In progress** — 2026-11-14: the API runs on Vercel (`sam-api`, Frankfurt) and the
+> production web app calls it. Lambda stays deployed as the rollback until it is removed.
 
 ## What is actually slow (measured 2026-11-08)
 
@@ -46,21 +47,58 @@ fixed warm latency and left Init open on purpose; more memory did not reduce it.
 Neon plays a smaller part: the database is in Frankfurt (`aws-eu-central-1`), the Lambda in Paris
 (`eu-west-3`), and the free compute suspends after 5 min idle (a wake of a few hundred ms).
 
+## What the spike measured (2026-11-14)
+
+The plan page's four GETs fired together, from a laptop in Spain:
+
+| | Lambda (Paris) | Vercel (Frankfurt) |
+|---|---|---|
+| Cold, after 20 min idle | 5.46 s | **2.94 s** — the four requests shared one instance |
+| Both warm | 0.72 s | 0.67 s |
+
+Inside a warm Vercel request (the app's own `evt: req` line): connect to Neon 23 ms (was 60–90),
+a query ~1–2 ms (was 15–25), handlers 27–240 ms. Most of the 0.7 s seen from outside is TLS
+from the client.
+
+**The cold start missed the ~1.5 s bar**, so it is the next thing to work on. The `evt: boot`
+line splits it: Python start + imports **1.2–1.4 s** (0.4–0.7 s on a Mac), `create_app`
+0.14–0.17 s, first Neon connect 0.08–0.10 s; the remaining ~1 s is the platform's. Fluid
+compute does not always share: one of four parallel requests can still start a second, cold
+instance.
+
 ## Plan
 
-- [ ] **Spike (½ day):** deploy the FastAPI app unchanged to Vercel (Hobby, free — this is a
-      non-commercial personal project), region `fra1` next to Neon. Measure (1) a cold first
-      request and (2) **a plan-page load with 4 parallel requests after idle**: do they share one
-      instance (Fluid compute) or cold-start 4? Go on only if both stay clearly below ~1.5 s.
-- [ ] If it does: move env/secrets (today SSM), keep Cognito, point the frontend at the new URL,
-      delete the Lambda/API Gateway stacks. The gateway-route test and `addRoutes` rule go away
-      with them.
-- [ ] If it doesn't: fallback inside AWS — Lambda SnapStart for Python (shrinks every Init,
-      including mid-session ones), plus fewer parallel requests per page. A `/health` ping alone
-      only keeps one instance warm (see above). Hours of work, ~0 €.
-- [ ] Frontend hosting follows [the web-or-mobile decision](./TODO_web-or-mobile-decision.md);
-      Amplify is not a speed problem, so moving it is about convenience (preview deploys per PR).
-- [ ] Update `docs/wiki/ci-cd.md`, `CONTEXT.md` and an ADR for the move.
+- [x] **Spike:** FastAPI deployed unchanged to Vercel Hobby, `fra1`, Fluid compute on. Faster
+      than Lambda cold and warm, slower than the 1.5 s bar cold — migrated anyway (ADR 0008:
+      free, next to Neon, deploys without GitHub Actions) with the cold start as a follow-up.
+- [x] Project `sam-api`: Git-connected to `manelcardenas/sam`, Root Directory `backend`,
+      region pinned to `fra1` in the project too. **Builds only `main`, and only when `backend/`
+      changed** (the project's ignore command). Env vars set from SSM/Lambda (sensitive ones
+      marked sensitive); `CORS_ALLOW_ORIGINS` = the Amplify domain + `http://localhost:8080`,
+      since API Gateway's CORS no longer sits in front.
+- [x] Migrations + grocery seed in Vercel's build (`scripts/vercel_build.py`, production only,
+      direct endpoint) — verified: at head, 281 items upserted.
+- [x] The whole web app against Vercel locally: 11 screens, 43 calls to 12 endpoints, all 200
+      (the prod test user got a display name, "Test", so it is no longer bounced to
+      `/profile/complete`).
+- [x] Production web app switched: Amplify `NEXT_PUBLIC_API_URL` → `https://sam-api-five.vercel.app`
+      (by hand, and `infra/cdk.json` so a CDK deploy keeps it). **Rollback:** set it back to
+      `https://xbm9t398cd.execute-api.eu-west-3.amazonaws.com` and rebuild.
+- [ ] Cold start: lazy imports for what the first request doesn't need, then measure again
+      with the boot line. Keep-warm pings only after checking Hobby's provisioned-memory
+      allowance (an instance kept alive all day may exceed it).
+- [ ] After a few days without problems: delete the Lambda/API Gateway stacks,
+      `deploy-backend.yml`, the gateway-route test and the `addRoutes` rule (AGENTS.md,
+      memory), and the SSM parameters only Lambda reads.
+- [ ] Rotate the Neon password (printed to a local session log on 2026-11-14) and update it in
+      SSM (while the migration workflow still reads it) and in Vercel.
+- [ ] Backend previews per PR: need their own database (a Neon branch), not production.
+      **Revisit when** a backend PR needs testing before merge.
+- [ ] Update `docs/wiki/ci-cd.md`, `CONTEXT.md` and AGENTS.md for the move.
+
+**Deploying from a laptop** (while GitHub Actions is locked): a CLI upload of `backend/` needs
+the project's Root Directory cleared for the upload and restored afterwards; uploading from the
+repo root would also send the untracked production backups in `backend/`.
 
 **Not a reason to stay on Lambda:** none of the work repos (mywally, joblocal, rood) runs its API
 on Lambda — they use ECS Fargate + RDS, which is not free. So Lambda is not "practice for work".
