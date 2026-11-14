@@ -29,6 +29,7 @@ ready.
 | 5 | [Better ingredient capture](./TODO_ingredient-capture-v2.md) | 1–2 days | 2, ideally inside 3 | DeepSeek text-only parsing is weak |
 | 6 | Cook and Dine to parity in Expo (the map last) | to size | 3 | Needed before the web app can go |
 | 7 | Pay Apple (99 $/year) and Google Play (25 $), ship to the stores, Expo web replaces Next.js | small | 6 | Money only once the app is worth it |
+| — | [Photos](./TODO_photos.md) — dishes, restaurants, profiles | to size | 4 | Free on any of three stores at our size; most of the work is UI, so it waits for Expo |
 | — | [Heavy dependency migrations](./TODO_dependency-migrations.md) — only #71 (maplibre security) | small | — | The web app stays live until 7 |
 
 **Why the backend first?** It depends on no product decision, it is the pain felt on every
