@@ -11,6 +11,8 @@ splits the part the app controls:
 - `create_app_ms` — building the app: repositories, controllers, SSM/env reads.
 - `db_open_ms` — the lifespan's first database connection (it pings Neon, so a
   suspended compute shows up here as its wake-up time).
+- `jwks_ms` — fetching Cognito's signing keys at boot instead of on the first
+  signed-in request; `jwks_cached` says whether it worked.
 
 Whatever remains of an outside cold measurement after these three and the
 request's own `ms` is the platform's: starting the instance and loading the
@@ -38,7 +40,7 @@ def process_age_ms() -> float | None:
 
 
 class BootTimer:
-    """Collects the three phases and prints them once the database is open."""
+    """Collects the phases and prints them once the lifespan has finished booting."""
 
     def __init__(self) -> None:
         self.imports_ms = process_age_ms()
@@ -48,7 +50,7 @@ class BootTimer:
     def app_created(self) -> None:
         self.create_app_ms = round((time.perf_counter() - self._started) * 1000, 1)
 
-    def db_opened(self, db_open_ms: float) -> None:
+    def ready(self, *, db_open_ms: float, jwks_ms: float, jwks_cached: bool) -> None:
         print(
             json.dumps(
                 {
@@ -56,6 +58,8 @@ class BootTimer:
                     "imports_ms": self.imports_ms,
                     "create_app_ms": self.create_app_ms,
                     "db_open_ms": round(db_open_ms, 1),
+                    "jwks_ms": round(jwks_ms, 1),
+                    "jwks_cached": jwks_cached,
                 }
             ),
             flush=True,
