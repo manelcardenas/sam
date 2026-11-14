@@ -28,6 +28,12 @@ lets you do" has drifted from "what we want to do".
   products are not recipes — revised after the data above: keep ready-made as recipes but mark
   them as products; notes that remember what was typed) and B (tupper / eating out per person,
   weekly routine on the kitchen).
+- Layout leftovers from the 2026-11-14 spacing pass (`fix(layout)` on `refactor/ui-buttons`),
+  left for the redesign rather than patched:
+  - At 360 px with the shopping list selected, the kitchen chip and the view switch
+    ("Lista de la compra 3", ~235 px) do not share a row, so the toolbar is three rows.
+  - From `lg` (seven ~138 px columns) an empty slot's "+ Añadir una receta" wraps onto two
+    lines.
 
 ## Plan
 
