@@ -564,8 +564,9 @@ export default function PlanPage() {
         </div>
 
         {/* Wraps: with the shopping list selected its label is spelled out, and
-            beside the kitchen chip that is wider than a 360 px phone. */}
-        <div className="flex flex-wrap items-center gap-2">
+            beside the kitchen chip that is wider than a 360 px phone. Kept to
+            the right when it drops below the week pager, as it sits on desktop. */}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {/* Beside the view toggle rather than at the foot of the page, where
               the share panel used to live. Who you are planning with is context
               for everything below it, not a footnote after it. */}
