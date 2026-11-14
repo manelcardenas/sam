@@ -1,12 +1,14 @@
 version: 2
+# Monthly: one batch of version updates on the 1st instead of a trickle every
+# week. Security updates ignore this schedule and still arrive as soon as an
+# advisory is published, so nothing urgent waits for the 1st.
 updates:
   # One entry covers the root, frontend and infra: they are npm workspaces
   # sharing the single package-lock.json at the repo root.
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 10
     commit-message:
       prefix: chore
@@ -63,8 +65,7 @@ updates:
   - package-ecosystem: uv
     directory: /backend
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore
@@ -81,8 +82,7 @@ updates:
   - package-ecosystem: docker
     directory: /backend
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     commit-message:
       prefix: chore
       include: scope
@@ -96,8 +96,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     commit-message:
       prefix: chore
       include: scope
