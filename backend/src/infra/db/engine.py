@@ -6,7 +6,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.infra.observability import install_engine_instrumentation
-from src.infra.ssm import read_secure_parameter
 
 logger = logging.getLogger(__name__)
 
@@ -23,25 +22,13 @@ def build_dsn() -> str:
     """Build a synchronous PostgreSQL DSN. Uses psycopg2 (sync driver).
 
     Resolution order:
-      1. POSTGRES_DSN — a complete DSN (Neon-friendly). Used locally via .env.
-      2. POSTGRES_DSN_PARAM — name of an SSM SecureString holding the DSN.
-         CloudFormation can't inject an ssm-secure value into a Lambda env var,
-         so on Lambda we pass the parameter *name* and fetch+decrypt it here at
-         cold start.
-      3. Legacy 5-field POSTGRES_* config (local Docker Postgres; see
+      1. POSTGRES_DSN — a complete DSN (Neon's pooler in production, a Vercel
+         env var; optional locally).
+      2. The 5-field POSTGRES_* config (local Docker Postgres; see
          docker-compose.yml).
     """
     dsn = os.environ.get("POSTGRES_DSN")
     if dsn:
-        return dsn
-
-    param_name = os.environ.get("POSTGRES_DSN_PARAM")
-    if param_name:
-        # Batched with the Geoapify key — see src/infra/ssm.py. Unlike that
-        # key, a missing DSN is fatal: there is no app without a database.
-        dsn = read_secure_parameter(param_name)
-        if not dsn:
-            raise RuntimeError(f"SSM parameter {param_name} holds no value")
         return dsn
 
     host = os.environ["POSTGRES_HOST"]

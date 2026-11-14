@@ -5,7 +5,6 @@ import httpx
 
 from src.domain.entities import Area, Place
 from src.domain.ports import PlacesProvider, PlacesProviderError
-from src.infra.ssm import read_secure_parameter
 
 logger = logging.getLogger(__name__)
 
@@ -15,18 +14,10 @@ _RESULT_LIMIT = 10
 
 
 def resolve_geoapify_api_key() -> str | None:
-    """Resolution order mirrors build_dsn(): raw env var locally (.env), SSM
-    parameter name on Lambda. Returns None when neither is configured — the
-    provider then fails with PlacesProviderError on use, not at startup."""
-    key = os.environ.get("GEOAPIFY_API_KEY")
-    if key:
-        return key
-
-    param_name = os.environ.get("GEOAPIFY_API_KEY_PARAM")
-    if param_name:
-        return read_secure_parameter(param_name)
-
-    return None
+    """GEOAPIFY_API_KEY (`.env` locally, a Vercel env var in production). None
+    when unset — the provider then fails with PlacesProviderError on use, not at
+    startup."""
+    return os.environ.get("GEOAPIFY_API_KEY") or None
 
 
 class GeoapifyPlacesProvider(PlacesProvider):
@@ -84,7 +75,7 @@ class GeoapifyPlacesProvider(PlacesProvider):
 
     def _get(self, path: str, params: dict[str, str | int | float]) -> list[dict]:
         if not self._api_key:
-            raise PlacesProviderError("Geoapify is not configured — set GEOAPIFY_API_KEY (local) or GEOAPIFY_API_KEY_PARAM (Lambda)")
+            raise PlacesProviderError("Geoapify is not configured — set GEOAPIFY_API_KEY")
         try:
             response = httpx.get(f"{_BASE_URL}{path}", params={**params, "apiKey": self._api_key}, timeout=_TIMEOUT_SECONDS)
             response.raise_for_status()
