@@ -48,13 +48,14 @@ export class AmplifyStack extends Stack {
     const githubOrg = this.node.tryGetContext("githubOrg") || "manelcardenas";
     const githubRepo = this.node.tryGetContext("githubRepo") || "sam";
 
-    // API endpoint is read from context (set in cdk.json after first LambdaApiStack deploy).
-    // We intentionally avoid a cross-stack CloudFormation Fn::ImportValue reference here:
-    // that would lock the LambdaApiStack export and prevent it from being updated independently.
+    // API endpoint is read from context (`apiEndpoint` in cdk.json). Since ADR 0008 it is the
+    // Vercel project (sam-api), not LambdaApiStack — the reason it was never a cross-stack
+    // Fn::ImportValue reference (that would have locked the Lambda stack's export) is also what
+    // lets the API move hosts by changing one value.
     const apiEndpoint = (this.node.tryGetContext("apiEndpoint") as string | undefined) ?? "";
     if (!apiEndpoint) {
       Annotations.of(this).addWarning(
-        'CDK context "apiEndpoint" is missing. Add it to cdk.json after deploying LambdaApiStack.',
+        'CDK context "apiEndpoint" is missing. Set it in cdk.json to the URL of the API (the Vercel project, ADR 0008).',
       );
     }
 

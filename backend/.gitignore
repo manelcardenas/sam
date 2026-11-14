@@ -1,0 +1,3 @@
+# Vercel CLI: the project link, and the OIDC token `vercel link` writes to .env.local.
+.vercel
+.env.local
