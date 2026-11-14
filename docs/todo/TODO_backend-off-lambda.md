@@ -101,12 +101,23 @@ instance.
       Actions come back, it would have deployed a Lambda with no handler *and* run migrations
       alongside Vercel's build. The deployed Lambda keeps running its last bundle, so the
       rollback URL still works, frozen at that version.
-- [ ] After a few days without problems: delete the Lambda/API Gateway stacks, the
-      gateway-route test and the `addRoutes` rule (AGENTS.md, memory), and the SSM parameters
-      only Lambda reads.
-- [ ] Backend previews per PR: need their own database (a Neon branch), not production.
-      **Revisit when** a backend PR needs testing before merge.
-- [ ] Update `docs/wiki/ci-cd.md`, `CONTEXT.md` and AGENTS.md for the move.
+- [x] Web off Amplify too (2026-11-14): Vercel project `sam-web`,
+      `https://sam-web-zeta.vercel.app`, Git-connected, `main` only (`frontend/vercel.json`).
+      Its origin added to Cognito (`webDomain` in `cdk.json`, stack deployed) and to the API's
+      `CORS_ALLOW_ORIGINS`; the e2e walk signs in there and visits all 16 screens.
+      `deploy-frontend.yml` deleted. Moving origin means signing in again and re-adding the
+      app to the home screen once.
+- [x] `docs/wiki/ci-cd.md` and `frontend-deployment.md` rewritten for Vercel.
+- [ ] After a few days without problems, delete the frozen rollbacks and what only they use:
+      the Lambda/API Gateway and Amplify stacks, `amplifyDomain` in `cdk.json` (and from
+      Cognito and CORS), the CI role and OIDC provider stacks, the gateway-route test, the
+      `addRoutes` rule (AGENTS.md, memory), the SSM parameters only Lambda or Amplify read
+      (`/recipe-manager/github-token`, the DB DSN and LLM/Geoapify keys), and the root
+      `package.json`'s `next` dependency (it existed only for Amplify's detection; drop it
+      with `check:next-pin`). `CONTEXT.md`'s Cold start entry still describes Lambda.
+- [ ] Previews per PR (web and API): a web preview has its own origin, which neither CORS nor
+      Cognito accept, and an API preview needs its own database (a Neon branch), not
+      production. **Revisit when** a PR needs testing before merge.
 
 **Deploying from a laptop** (while GitHub Actions is locked): a CLI upload of `backend/` needs
 the project's Root Directory cleared for the upload and restored afterwards; uploading from the

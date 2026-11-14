@@ -50,7 +50,7 @@ Auth is real Cognito (free), so both env files need the same
 
 Docker only runs Postgres; the API runs on the host via `uv run start` (above),
 which gives hot-reload, CORS for the dev frontend, and auto-seeding. Production
-is Lambda and never uses this file.
+runs on Vercel against Neon and never uses this file.
 
 ```bash
 docker compose up postgres -d   # start the DB (host port from POSTGRES_PORT, default 5432; we use 5440)

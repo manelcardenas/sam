@@ -19,6 +19,7 @@
   "context": {
     "githubOrg": "manelcardenas",
     "githubRepo": "sam",
+    "webDomain": "https://sam-web-zeta.vercel.app",
     "amplifyDomain": "https://main.digg8p5ivgpv8.amplifyapp.com",
     "apiEndpoint": "https://sam-api-five.vercel.app",
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,

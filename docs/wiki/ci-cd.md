@@ -1,182 +1,127 @@
 # CI/CD Pipelines
 
-How code gets tested and shipped. Everything runs in **GitHub Actions** and
-authenticates to AWS via **OIDC** (no long-lived AWS keys in GitHub).
+How code gets tested and shipped. Since ADR 0008 the split is:
 
-Current stack: **Lambda + API Gateway** (backend) · **Neon Postgres** (DB,
-`eu-central-1`) · **Cognito** (auth) · **Amplify** (frontend). AWS region for
-everything except Neon is `eu-west-3`.
+- **GitHub Actions checks** the code (CI). It deploys nothing.
+- **Vercel deploys** it (CD): a merge to `main` builds and ships whichever app changed.
 
----
+Current stack: **Vercel** (the API `sam-api` and the web `sam-web`, both region `fra1`) ·
+**Neon Postgres** (`eu-central-1`) · **Cognito** (auth, `eu-west-3`, deployed with CDK).
 
-## The three workflows
-
-| Workflow | Trigger | What it does |
-|---|---|---|
-| `pr-health-checks.yml` | `pull_request` → `main` (+ push to `main`) | Lint + test the backend **and** the infra. The merge gate. |
-| `deploy-backend.yml` | push to `main` touching `backend/**` or the Lambda/Cognito CDK | Run Neon migrations → deploy the Lambda API stack. |
-| `deploy-frontend.yml` | push to `main` touching `frontend/**` or the Amplify CDK | Deploy the Amplify stack → trigger an Amplify build. |
-
-Deploys are **path-filtered**: a backend-only change never redeploys the
-frontend and vice versa. A docs-only change deploys nothing. A change touching
-both runs both.
+| App | Vercel project | Production URL | Root Directory |
+|---|---|---|---|
+| API (FastAPI) | `sam-api` | `https://sam-api-five.vercel.app` | `backend` |
+| Web (Next.js static export) | `sam-web` | `https://sam-web-zeta.vercel.app` | `frontend` |
 
 ---
 
-## 1. `pr-health-checks.yml` — the merge gate
+## 1. `pr-health-checks.yml` — the merge gate (GitHub Actions)
 
-Two parallel jobs, both must pass:
+Four parallel jobs, all required by the "Sam" ruleset:
 
-- **`backend`** — `ruff check` + `ruff format --check` + `pytest` (in `backend/`).
-- **`infra`** — `tsc --noEmit` + `jest` + `cdk synth --all` (in `infra/`).
+- **`backend`** — `requirements.txt` matches `uv.lock`, `ruff check`, `ruff format --check`, `pytest`.
+- **`frontend`** — Next pin check, lint, tests, `next build`.
+- **`knip`** — unused files, exports and dependencies.
+- **`infra`** — `tsc --noEmit`, `jest`, `cdk synth --all` (no AWS credentials needed).
 
-The `infra` job catches a broken CDK stack at PR time instead of at deploy
-time. `cdk synth` needs **no AWS credentials**: there are no `fromLookup()`
-calls, and the Amplify stack only *warns* (doesn't fail) when the `githubToken`
-context is absent.
+GitHub only lists a status check in the ruleset UI after it has run once.
 
-Polish: `concurrency` cancels superseded runs on the same branch;
-`timeout-minutes: 15`; PR triggers include
-`opened`/`synchronize`/`reopened`/`ready_for_review`.
-
-### Making it a required check (one-time GitHub setup)
-
-GitHub only lists a status check in the ruleset UI **after it has run once**.
-
-1. Get `pr-health-checks.yml` onto `main` and let it run once (a push or PR triggers it).
-2. Repo → **Settings → Rules / Rulesets** (or branch protection) → **Require status checks to pass**.
-3. Search for and add `backend` and `infra`.
-4. Future PRs are now blocked until both are green.
+> **While Actions is locked by billing** (since 2026-11-14) the ruleset is disabled and the same
+> checks run locally before each merge. Re-enable the ruleset when Actions works again.
 
 ---
 
-## 2. `deploy-backend.yml` — migrations + Lambda
+## 2. Deploys — Vercel's Git integration
 
-Runs on push to `main` when any of these change: `backend/**`,
-`lambda-api-stack.ts`, `cognito-stack.ts`, `ci-role-stack.ts`, `constants.ts`,
-`infra.ts`. Also `workflow_dispatch` (manual button).
-
-Steps, in order:
-
-1. Set up `uv` (Python 3.13) + Node 20, assume the OIDC role.
-2. `uv sync` (backend deps, incl. Alembic).
-3. **Run migrations** (see below).
-4. `npm ci` + `cdk deploy RecipeManagerLambdaApiStack`.
-
-**Expand-contract ordering**: migrations run *before* the deploy, so additive
-schema changes are in place before the new code that uses them.
-
-### How migrations reach Neon
+Both projects are connected to `manelcardenas/sam` with `main` as the production branch. Each
+has an **ignore command** that builds only `main`, and only when its own folder changed:
 
 ```bash
-POOLED_DSN=$(aws ssm get-parameter --name /recipe-manager/db/dsn \
-  --with-decryption --query Parameter.Value --output text --region eu-west-3)
-DIRECT_DSN="${POOLED_DSN/-pooler/}"
-POSTGRES_DSN="$DIRECT_DSN" uv run alembic upgrade head
+# exit 1 = build, exit 0 = skip
+if [ "$VERCEL_GIT_COMMIT_REF" = "main" ] && ! git diff --quiet HEAD^ HEAD -- . ; then exit 1; else exit 0; fi
 ```
 
-- The DSN is fetched from SSM (decrypted) — no DB secret lives in GitHub.
-- **`-pooler` is stripped from the host** to get Neon's *direct* endpoint.
-  Migrations must NOT go through PgBouncer transaction pooling — it breaks
-  Alembic's DDL and advisory locks. (If the stored DSN is already direct, the
-  strip is a harmless no-op.)
-- `alembic upgrade head` is idempotent — a no-op when already at head.
-- `backend/alembic/env.py` prefers `POSTGRES_DSN` when set, else falls back to
-  the five `POSTGRES_*` fields (local `.env`).
+The web's also watches the root `package.json`/`package-lock.json` (npm workspaces). So a
+backend-only merge never rebuilds the web, a docs-only merge deploys nothing, and no PR gets a
+preview (see "Previews" below).
 
-**Failure behavior**: if a migration fails, the job stops — `cdk deploy` never
-runs, so code is never deployed against a schema that didn't apply.
+### API build: migrations first
+
+`backend/pyproject.toml` → `[tool.vercel.scripts] build` runs `scripts/vercel_build.py` after
+dependencies install and before the deployment goes live:
+
+1. `alembic upgrade head`, then 2. the grocery seed (`scripts.seed_grocery`, an upsert).
+
+- **Production only** (`VERCEL_ENV=production`); every other build skips both.
+- **Direct endpoint:** `-pooler` is stripped from `POSTGRES_DSN`'s host. PgBouncer in
+  transaction mode breaks Alembic's DDL and advisory locks.
+- **A failed migration fails the build**, so production keeps serving the previous version —
+  schema always lands before the code that needs it (expand-contract).
+
+Config lives in `backend/vercel.json` (region, `maxDuration`), `backend/.python-version`
+(3.13) and `backend/.vercelignore`.
+
+### Web build
+
+`frontend/vercel.json`: install only the frontend workspace
+(`npm ci -w frontend --include-workspace-root` — a bare `npm ci` would also pull ~216 MB of
+aws-cdk for `infra/`), then `next build`, which writes the static export Vercel serves from
+its CDN. The five `NEXT_PUBLIC_*` values are project env vars, baked in at build time.
+
+### Previews
+
+Off for now. A web preview would get its own origin, which neither the API's CORS list nor
+Cognito's callback URLs accept, and a backend preview needs its own database (a Neon branch),
+not production. **Revisit when** a PR needs testing before merge.
 
 ---
 
-## 3. `deploy-frontend.yml` — Amplify
+## Secrets
 
-Runs on push to `main` touching `frontend/**` or `amplify-stack.ts` (or manual).
+| Where | What |
+|---|---|
+| Vercel `sam-api` env (sensitive) | `POSTGRES_DSN` (Neon pooler), LLM and Geoapify keys, Cognito ids, `CORS_ALLOW_ORIGINS` |
+| Vercel `sam-web` env (plain) | `NEXT_PUBLIC_*` — public by design, they ship in the bundle |
+| SSM `/recipe-manager/google-client-*` | Google sign-in for the Cognito stack |
 
-1. Node 20 + OIDC role.
-2. Fetch the GitHub PAT from SSM (`/recipe-manager/github-token`) and pass it
-   via `--context githubToken=…` — CloudFormation can't reference an SSM
-   SecureString inside `AWS::Amplify::App`.
-3. `cdk deploy RecipeManagerAmplifyStack`.
-4. `aws amplify start-job … --job-type RELEASE` to kick the build (Amplify
-   auto-build is disabled; builds are triggered explicitly from CI).
+Changing an env var does not redeploy: trigger a new production deployment afterwards. The
+Vercel CLI refuses `vercel env rm` from an agent (it needs a typed confirmation); use
+`vercel env update NAME production --yes` to change a value.
 
----
-
-## SSM parameters
-
-All deploy secrets live in **SSM Parameter Store** under `/recipe-manager/`,
-never in GitHub. The CI role grants `ssm:GetParameter` on `/recipe-manager/*`
-plus `kms:Decrypt` on the `aws/ssm` key.
-
-| Parameter | Type | Used by |
-|---|---|---|
-| `/recipe-manager/db/dsn` | SecureString | Lambda runtime (cold-start fetch) + backend migrations |
-| `/recipe-manager/github-token` | SecureString | Frontend deploy (Amplify PAT) |
-| `/recipe-manager/google-client-id` | String | Cognito stack |
-| `/recipe-manager/google-client-secret` | SecureString | Cognito stack |
-| `/recipe-manager/github-oidc-provider-arn` | String | CI role bootstrap |
-
-> The Lambda runtime fetches `/recipe-manager/db/dsn` at cold start via boto3,
-> because CloudFormation can't inject an `ssm-secure` value into a Lambda env
-> var. The function receives the parameter **name** (`POSTGRES_DSN_PARAM`), not
-> the value. See `backend/src/infra/db/engine.py`.
-
-The only GitHub secret is `AWS_ROLE_ARN` (the OIDC role to assume).
+`CORS_ALLOW_ORIGINS` and Cognito's callback/logout URLs (`webDomain` in `infra/cdk.json`) must
+both list every web origin. A new origin means updating both.
 
 ---
 
-## Running migrations manually (fallback)
+## Deploying by hand
 
-CI handles migrations automatically on backend deploy, but you can always run
-them from your laptop against the **direct** Neon endpoint:
-
-```bash
-cd backend
-# .env must point POSTGRES_HOST at the direct (non -pooler) host
-uv run alembic upgrade head
-```
-
-Or pass a DSN explicitly:
-
-```bash
-POSTGRES_DSN="postgresql://neondb_owner:…@ep-…<no -pooler>…/neondb?sslmode=require" \
-  uv run alembic upgrade head
-```
+- **Redeploy `main`** (e.g. after an env change): Vercel dashboard → Deployments → Redeploy,
+  or create a deployment from the Git source `main` through the API.
+- **Cognito** (the only stack still deployed by CDK):
+  `cd infra && npx cdk diff RecipeManagerCognitoStack`, then
+  `npx cdk deploy RecipeManagerCognitoStack --exclusively`.
+- **Migrations from a laptop**, against the direct (non-`-pooler`) endpoint:
+  `cd backend && POSTGRES_DSN="postgresql://…<no -pooler>…/neondb?sslmode=require" uv run alembic upgrade head`.
 
 ---
 
-## Deploying manually (fallback)
+## Being retired (ADR 0008)
 
-If you need to deploy outside CI (active AWS creds required):
-
-```bash
-cd infra
-npm ci
-npx cdk deploy RecipeManagerLambdaApiStack --require-approval never
-
-# Frontend (needs the PAT from SSM):
-GITHUB_TOKEN=$(aws ssm get-parameter --name /recipe-manager/github-token \
-  --with-decryption --query Parameter.Value --output text --region eu-west-3)
-npx cdk deploy RecipeManagerAmplifyStack --require-approval never \
-  --context githubToken="$GITHUB_TOKEN"
-```
-
----
-
-## Stack list
+Still deployed as a frozen rollback for a few days, no longer updated by anything:
 
 ```
-RecipeManagerOidcProviderStack   foundation, one-time
-RecipeManagerCiRoleStack         foundation, GitHub Actions OIDC role
-RecipeManagerCognitoStack        foundation, auth
-RecipeManagerLambdaApiStack      application, deployed by deploy-backend.yml
-RecipeManagerAmplifyStack        application, deployed by deploy-frontend.yml
+RecipeManagerLambdaApiStack   Lambda + API Gateway, https://xbm9t398cd.execute-api.eu-west-3.amazonaws.com
+RecipeManagerAmplifyStack     https://main.digg8p5ivgpv8.amplifyapp.com
+RecipeManagerCiRoleStack      the GitHub Actions OIDC role the old deploy workflows assumed
+RecipeManagerOidcProviderStack
 ```
+
+Their deploy workflows (`deploy-backend.yml`, `deploy-frontend.yml`) are deleted. What remains
+to remove is tracked in `docs/todo/TODO_backend-off-lambda.md`.
 
 ---
 
 ## Cross-links
 
+- [`../adr/0008-expo-app-replaces-the-web-frontend.md`](../adr/0008-expo-app-replaces-the-web-frontend.md) — why Vercel.
 - [`../plans/neon-migration-plan.md`](../plans/neon-migration-plan.md) — how the DB moved to Neon.
-- [`../plans/ec2-migration-plan.md`](../plans/ec2-migration-plan.md) — a shelved Lambda→EC2 move. **Not planned** (decided 2026-09-01); Lambda is the chosen shape.

@@ -19,7 +19,8 @@ import {
 import * as ssm from "aws-cdk-lib/aws-ssm";
 
 interface CognitoStackProps extends StackProps {
-  amplifyDomain?: string; // Optional Amplify domain for OAuth callbacks
+  amplifyDomain?: string; // Old web host, kept until Amplify is deleted (ADR 0008)
+  webDomain?: string; // The web app's origin on Vercel (ADR 0008)
 }
 
 export class CognitoStack extends Stack {
@@ -119,10 +120,13 @@ export class CognitoStack extends Stack {
       "http://localhost:8080",
     ];
 
-    // Add Amplify domain if provided
-    if (props.amplifyDomain) {
-      callbackUrls.push(props.amplifyDomain);
-      logoutUrls.push(props.amplifyDomain);
+    // The deployed web origins. Both while the web moves from Amplify to Vercel,
+    // so the old install keeps signing in until it is deleted.
+    for (const origin of [props.webDomain, props.amplifyDomain]) {
+      if (origin) {
+        callbackUrls.push(origin);
+        logoutUrls.push(origin);
+      }
     }
 
     this.userPoolClient = this.userPool.addClient("WebClient", {

@@ -18,12 +18,15 @@ const env = {
 new GithubOidcProviderStack(app, "RecipeManagerOidcProviderStack", { env });
 new CiRoleStack(app, "RecipeManagerCiRoleStack", { env });
 
-// Cognito (foundation layer — redeploy after first Amplify deployment to add
-// amplifyDomain to cdk.context.json and update OAuth callback URLs)
+// Cognito (foundation layer). Its OAuth callback/logout URLs are the web's
+// origins from cdk.json: `webDomain` (Vercel) and, until Amplify is deleted,
+// `amplifyDomain`. Changing either means redeploying this stack.
 const amplifyDomain = app.node.tryGetContext("amplifyDomain");
+const webDomain = app.node.tryGetContext("webDomain");
 const cognitoStack = new CognitoStack(app, "RecipeManagerCognitoStack", {
   env,
   amplifyDomain,
+  webDomain,
 });
 
 // ── Application (deploy frequently via CI/CD) ────────────────────────────────

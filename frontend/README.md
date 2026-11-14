@@ -163,80 +163,11 @@ npm run lint
 
 ---
 
-## Deployment Options
+## Deployment
 
-### AWS Amplify Hosting (Recommended)
-
-**Why Amplify?**
-
-- ✅ Free tier: 1000 build minutes/month + 15 GB data transfer
-- ✅ Automatic CI/CD from git
-- ✅ Built-in SSL certificate
-- ✅ Global CDN
-- ✅ Easy custom domain setup
-- ✅ Serverless (no servers to manage)
-
-**Steps:**
-
-1. **Push code to GitHub/GitLab/Bitbucket**
-
-2. **Create Amplify App:**
-
-   ```bash
-   # Via AWS Console:
-   # 1. Go to AWS Amplify console
-   # 2. Click "New app" → "Host web app"
-   # 3. Connect your git repository
-   # 4. Select branch (e.g., main)
-   # 5. Framework: Next.js - SSR
-   # 6. Build settings (auto-detected):
-   #    - Build command: npm run build
-   #    - Base directory: frontend
-   ```
-
-3. **Configure Environment Variables:**
-
-   In Amplify console → App settings → Environment variables:
-
-   ```
-   NEXT_PUBLIC_AWS_REGION=eu-west-3
-   NEXT_PUBLIC_USER_POOL_ID=eu-west-public_user_pool_id
-   NEXT_PUBLIC_USER_POOL_CLIENT_ID=public_user_pool_client
-   NEXT_PUBLIC_COGNITO_DOMAIN=sam-recipe-manager
-   NEXT_PUBLIC_API_URL=https://your-api.execute-api.eu-west-3.amazonaws.com
-   ```
-
-4. **Update Cognito Callback URLs:**
-
-   After deployment, add your Amplify URL to Cognito callbacks:
-
-   ```bash
-   # Get Amplify URL from console (e.g., https://main.d1234abcd.amplifyapp.com)
-
-   aws cognito-idp update-user-pool-client \
-     --user-pool-id eu-west-3_HCDXBhOyi \
-     --client-id ji735ceuv5enoiuslcg0a9v4l \
-     --region eu-west-3 \
-     --callback-urls "http://localhost:8080" "https://main.d1234abcd.amplifyapp.com" \
-     --logout-urls "http://localhost:8080" "https://main.d1234abcd.amplifyapp.com"
-   ```
-
-5. **Deploy:**
-   - Push to git → Amplify auto-deploys
-   - Or click "Redeploy" in Amplify console
-
-**Cost:** ~$0-5/month (within free tier for most personal projects)
-
----
-
-## Deployment Comparison
-
-| Option              | Cost     | Ease       | SSR | Best For      |
-| ------------------- | -------- | ---------- | --- | ------------- |
-| **AWS Amplify**     | $0-5/mo  | ⭐⭐⭐⭐⭐ | ✅  | Most projects |
-| **Vercel**          | Free     | ⭐⭐⭐⭐⭐ | ✅  | Next.js apps  |
-| **S3 + CloudFront** | $1-2/mo  | ⭐⭐⭐     | ❌  | Static sites  |
-| **App Runner**      | $5-20/mo | ⭐⭐⭐     | ✅  | High traffic  |
+Vercel project `sam-web` (production: `https://sam-web-zeta.vercel.app`) builds `main` on every
+merge that touches `frontend/`. Config is `frontend/vercel.json`; the whole pipeline, env vars
+and the Cognito/CORS origins rule are in [`docs/wiki/ci-cd.md`](../docs/wiki/ci-cd.md).
 
 ---
 
