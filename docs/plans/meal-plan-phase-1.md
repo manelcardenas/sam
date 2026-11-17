@@ -1,6 +1,7 @@
 # Meal plan redesign — Phase 1 (web, tested by hand, then on real Saturdays)
 
-> **Status: In progress** — agreed 2026-11-17, reshaped the same day into two blocks. The
+> **Status: In progress** — agreed 2026-11-17, reshaped the same day into two blocks. Block 1
+> built 2026-11-17 on `feat-recipes-block-1`; waiting for the hand test. The
 > decisions and their reasons are in
 > [ADR-0009](../adr/0009-a-meal-is-recipes-products-and-notes.md); this file is what gets built
 > and in which order. Phases 2 and 3 are in
@@ -41,70 +42,70 @@ the pastel palette), and is meant to carry over to Expo in spirit, not in code.
       (`infra/adapters/parsing/`), with a **strict tool schema** instead of prompt-and-parse.
       `LLM_PRIMARY_MODEL` moves from `deepseek-chat` (no longer listed by DeepSeek) once the new
       call is proven
-- [ ] One schema for the whole recipe: title, servings (only if the text states it), prep and
+- [x] One schema for the whole recipe: title, servings (only if the text states it), prep and
       cook time, tags, method, and one ingredient row **per original line** with `source_line`,
       `name`, `amount`, `unit`, `optional`
-- [ ] **Unit context:** before the call, each line is matched to the vocabulary by normalised
+- [x] **Unit context:** before the call, each line is matched to the vocabulary by normalised
       name (no AI). The prompt gets each match's `default_unit` and how the kitchen's own
       recipes wrote it ("patata: g in 6 recipes"), with the rule "use that unit unless the text
       clearly says another"
-- [ ] **Never fewer rows than lines:** a line the model drops comes back as a row holding only
+- [x] **Never fewer rows than lines:** a line the model drops comes back as a row holding only
       its text; a test proves it with a fake model that drops one
-- [ ] **No vocabulary writes before save:** `POST /ingredients/parse` stops writing
+- [x] **No vocabulary writes before save:** `POST /ingredients/parse` stops writing
       `source=ai` rows and returns proposals; saving the recipe writes them
 - [ ] Rate limit: the new endpoint(s) join the firewall rule on paid endpoints
 
 ### 1.2 Three ways in · backend + frontend
 
-- [ ] **Text:** pasted, sent to the model
-- [ ] **Link:** fetched server-side (https only, no internal addresses, time and size limits);
+- [x] **Text:** pasted, sent to the model
+- [x] **Link:** fetched server-side (https only, no internal addresses, time and size limits);
       its `schema.org/Recipe` JSON-LD is read without AI when present, and its ingredient lines
       still go through the unit pass; without JSON-LD, the page text goes to the model
-- [ ] **Photo:** sent to the model as an image and discarded; nothing stored
+- [x] **Photo:** sent to the model as an image and discarded; nothing stored
 
 ### 1.3 The review screen · frontend
 
-- [ ] The original text alongside the rows (side by side on wide screens, a toggle on phones)
-- [ ] Each row: name (with catalog suggestions while typing, no AI), amount, unit, optional,
+- [x] The original text alongside the rows (side by side on wide screens, a toggle on phones)
+- [x] Each row: name (with catalog suggestions while typing, no AI), amount, unit, optional,
       and under it the line it came from ("de: 1 cebolla grande picada")
-- [ ] **Line counter:** "9 líneas → 9 ingredientes", and "(1 quitada por ti)" when you delete
-- [ ] **"Separar"** a row ("sal y pimienta" → two)
-- [ ] **Grams proposed** for products bought by weight when a line came in pieces ("4 patatas"
+- [x] **Line counter:** "9 líneas → 9 ingredientes", and "(1 quitada por ti)" when you delete
+- [x] **"Separar"** a row ("sal y pimienta" → two)
+- [x] **Grams proposed** for products bought by weight when a line came in pieces ("4 patatas"
       → "≈ 800 g"), one tap to accept
-- [ ] **Warning** when the method names an ingredient the list lacks, with "Añadir"
-- [ ] **"Volver a leer"** after editing the original text: shows what changes ("1 ingrediente
+- [x] **Warning** when the method names an ingredient the list lacks, with "Añadir"
+- [x] **"Volver a leer"** after editing the original text: shows what changes ("1 ingrediente
       más, 1 menos") before replacing your rows
-- [ ] **"¿Salir sin guardar?"** when leaving with changes. Drafts: later (Expo may change it)
-- [ ] Nothing is saved, and nothing enters the vocabulary, until "Guardar"
+- [x] **"¿Salir sin guardar?"** when leaving with changes. Drafts: later (Expo may change it)
+- [x] Nothing is saved, and nothing enters the vocabulary, until "Guardar"
 
 ### 1.4 Servings · frontend
 
-- [ ] Required on new recipes. Empty unless the text states it, then prefilled and marked "leído
+- [x] Required on new recipes. Empty unless the text states it, then prefilled and marked "leído
       del texto"
-- [ ] **Changing it scales the amounts** (5 → 3: 500 g → 300 g), with a link right below —
+- [x] **Changing it scales the amounts** (5 → 3: 500 g → 300 g), with a link right below —
       *"No, las cantidades ya eran para 3"* — that undoes the scaling and keeps the number. Same
       rule when editing a saved recipe
 
 ### 1.5 Simple recipes and optional ingredients · backend + frontend
 
-- [ ] `recipes.visibility` (`public · kitchen`) and `kitchen_id`; `GET /recipes` returns public
+- [x] `recipes.visibility` (`public · kitchen`) and `kitchen_id`; `GET /recipes` returns public
       ones plus your kitchen's; another kitchen's simple recipe is a 404
-- [ ] A **simple recipe** made by hand: title, servings default 1 ("por persona"), ingredients,
+- [x] A **simple recipe** made by hand: title, servings default 1 ("por persona"), ingredients,
       optional ones, no method; saved as `kitchen`. Writing a method in later can make it public
-- [ ] Ingredient `optional: bool` in the JSONB items; optional ones start **unticked** in the
+- [x] Ingredient `optional: bool` in the JSONB items; optional ones start **unticked** in the
       "add to the list" popup
-- [ ] The recipe book marks simple recipes ("solo tu cocina")
+- [x] The recipe book marks simple recipes ("solo tu cocina")
 
 ### 1.6 Tags · backend + frontend
 
-- [ ] `recipes.tags` from the fixed set: 🍱 tupper, 🔥 horno, 🌀 airfryer, 🥗 sin cocinar,
+- [x] `recipes.tags` from the fixed set: 🍱 tupper, 🔥 horno, 🌀 airfryer, 🥗 sin cocinar,
       ❄️ congelable, 🌶️ picante, 🍳 una sola sartén, ♨️ olla exprés. ⚡ rápida derived from
       total time ≤ 30 min, never stored
-- [ ] Proposed by the model, editable in the form, shown in the recipe book and on the recipe
+- [x] Proposed by the model, editable in the form, shown in the recipe book and on the recipe
 
 ### 1.7 Units on the list · backend
 
-- [ ] g↔kg and ml↔l merge into one line automatically (500 g + 1 kg = 1,5 kg). Lines in units
+- [x] g↔kg and ml↔l merge into one line automatically (500 g + 1 kg = 1,5 kg). Lines in units
       that do not convert stay separate, which is acceptable now that capture keeps units
       consistent
 

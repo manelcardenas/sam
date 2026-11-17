@@ -48,6 +48,14 @@ NULL until the profile is completed. Everything else in the database points here
 `{"servings": 4, "items": [{"name": "espaguetis", "amount": 400, "unit": "g"}]}`.
 It is never queried by shape, only read whole, and a row per ingredient would buy joins nobody makes.
 
+Each item may carry `"optional": true` (ADR-0009 §2): it starts unticked when the recipe goes on
+the list. `tags` is an array of `RecipeTag` values (tupper, oven, air_fryer, no_cook, freezable,
+spicy, one_pan, pressure_cooker); "quick" is derived from the times and never stored.
+
+`visibility` is `public` (every recipe before 2026-11-17) or `kitchen`: a household's simple
+recipe, seen and edited only by that kitchen (`kitchen_id`, SET NULL) and its author; anybody else
+gets a 404 (ADR-0009 §2).
+
 `instructions IS NULL` means the row is a **dish** rather than a recipe (ADR-0007). It is derived
 state, not a `kind` column — writing the method in promotes it, with nothing to keep in sync.
 
@@ -98,7 +106,7 @@ one-off text entries can share one.
 
 | Table | What one row is | Created by |
 | --- | --- | --- |
-| `grocery_items` | **One buyable thing**, with no quantity, ever | Seeded (274 rows); proposed by the parser; filed by hand from the list; aisle corrected by anyone; edited or deleted (non-seed only) by admins; a confirmed row is never touched by re-seeding |
+| `grocery_items` | **One buyable thing**, with no quantity, ever | Seeded (274 rows); proposed by the parser and **written when the recipe is saved**, never while it is being read (ADR-0009 §8); filed by hand from the list; aisle corrected by anyone; edited or deleted (non-seed only) by admins; a confirmed row is never touched by re-seeding |
 
 Keyed on `normalise_ingredient_name(name_es)` — lowercase, whitespace-collapsed, diacritics stripped.
 **No foreign keys point into it and none point out of it.** Recipes and list lines match it by
@@ -154,9 +162,12 @@ rice. That is the entire reason quick-create exists.
 anything; it receives already-scaled numbers and merges them. A recipe with no `servings` is passed
 through unscaled rather than guessed at.
 
-**Merging** is on `(plan_id, normalised_name, COALESCE(unit,''))`. So 400 g + 200 g of espaguetis is
-one line of 600 g; `2 cebollas` and `200 g cebolla` stay two lines, because there is deliberately no
-unit conversion. `sal` with no amount merges with `sal` with no amount and stays amount-less — NULL
+**Merging** is on `(plan_id, COALESCE(grocery_key, normalised_name), lower(COALESCE(unit,'')))`. So
+400 g + 200 g of espaguetis is one line of 600 g. **Weights are stored in grams and volumes in
+millilitres** (ADR-0009 §5, `ShoppingListItem` converts kg/l/cl on the way in), so 500 g + 1 kg is
+one line of 1500 g, shown as 1,5 kg. `2 cebollas` and `200 g cebolla` stay two lines: there is no
+honest conversion from a piece to a weight, and the fix for that is upstream, when the recipe is
+captured. `sal` with no amount merges with `sal` with no amount and stays amount-less — NULL
 and 0 are different totals.
 
 **`list_item_sources` is what makes any of this reversible.** It records each dish's contribution
