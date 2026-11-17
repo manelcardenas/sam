@@ -60,7 +60,9 @@ Replace the Next.js frontend with an Expo app, in this order:
 ## Consequences
 
 **The web app is frozen, not abandoned.** It stays live until step 6. It gets fixes, including
-security ones (maplibre #71), but no new features and no redesign. The open web PRs (back button,
+security ones (maplibre #71), but no new features and no redesign. *One exception, 2026-11-17:
+[ADR-0009](./0009-a-meal-is-recipes-products-and-notes.md) builds Phase 1 of the plan redesign
+here, to test it on real Saturdays before Expo exists.* The open web PRs (back button,
 palette, copy fitting) are merged as they are.
 
 **Work cancelled because it would be thrown away:** migrating the 112 remaining hand-written
