@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Lock } from "lucide-react";
 import { FOOD_TYPES } from "@/lib/constants";
+import { isQuick, QuickIcon, tagIcon } from "@/lib/recipe-tags";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import type { Recipe } from "@/lib/api-client";
 
@@ -56,10 +57,46 @@ export function RecipeRow({
         </span>
       </span>
 
+      <RecipeMarks recipe={recipe} />
+
       <ChevronRight
         className="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-accent"
         aria-hidden
       />
     </button>
+  );
+}
+
+/**
+ * A recipe's tags as small icons at the end of its row — quick first, then the
+ * tags, then the lock of a kitchen-only recipe — so a list can be scanned for
+ * "something for the tupper" without opening anything. Three at most, then a
+ * count: a row is not where a recipe describes itself in full.
+ */
+export function RecipeMarks({ recipe }: { recipe: Recipe }) {
+  const { t } = useI18n();
+  const marks = [
+    ...(isQuick(recipe) ? [{ key: "quick", icon: QuickIcon, label: t("recipe-tags.quick") }] : []),
+    ...(recipe.tags ?? []).map((tag) => ({ key: tag, icon: tagIcon(tag), label: t(`recipe-tags.${tag}`) })),
+  ];
+  const shown = marks.slice(0, 3);
+  const kitchenOnly = recipe.visibility === "kitchen";
+  if (shown.length === 0 && !kitchenOnly) return null;
+  return (
+    <span className="flex shrink-0 items-center gap-1.5 text-muted">
+      {shown.map(({ key, icon: Icon, label }) => (
+        <span key={key} title={label}>
+          <Icon className="h-3.5 w-3.5" aria-hidden />
+          <span className="sr-only">{label}</span>
+        </span>
+      ))}
+      {marks.length > shown.length && <span className="text-xs font-semibold tabular-nums">+{marks.length - shown.length}</span>}
+      {kitchenOnly && (
+        <span title={t("recipe-form.kitchen-only")}>
+          <Lock className="h-3.5 w-3.5" aria-hidden />
+          <span className="sr-only">{t("recipe-form.kitchen-only")}</span>
+        </span>
+      )}
+    </span>
   );
 }

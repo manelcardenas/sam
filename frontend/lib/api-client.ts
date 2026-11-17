@@ -4,15 +4,39 @@ import { fetchAuthSession } from "aws-amplify/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+export interface IngredientItem {
+  name: string;
+  amount?: number | null;
+  unit?: string | null;
+  /** Sometimes goes in (corn in the salad): starts unticked when the recipe goes on the list. */
+  optional?: boolean;
+}
+
 export interface IngredientsData {
   servings: number | null;
-  items: { name: string; amount?: number; unit?: string }[];
+  items: IngredientItem[];
+}
+
+/** A product the vocabulary would gain if this recipe is saved — written on save, never before (ADR 0009 §8). */
+export interface ProposedGroceryItem {
+  name_es: string;
+  name_ca: string;
+  name_en: string;
+  aisle: Aisle;
+  is_pantry: boolean;
+  default_unit: string | null;
 }
 
 export interface IngredientsInput {
   servings: number;
-  items: { name: string; amount?: number; unit?: string }[];
+  items: (IngredientItem & { new_item?: ProposedGroceryItem | null })[];
 }
+
+/** What a recipe is like (ADR 0009 §7). ⚡ quick is derived from the times, never stored. */
+export type RecipeTag = "tupper" | "oven" | "air_fryer" | "no_cook" | "freezable" | "spicy" | "one_pan" | "pressure_cooker";
+
+/** `kitchen`: a household's simple recipe, seen only by that kitchen (ADR 0009 §2). */
+export type Visibility = "public" | "kitchen";
 
 export interface Recipe {
   id: string;
@@ -24,6 +48,9 @@ export interface Recipe {
   source_url: string | null;
   prep_time_minutes: number | null;
   cook_time_minutes: number | null;
+  tags: RecipeTag[];
+  visibility: Visibility;
+  kitchen_id: string | null;
   created_by: string;
   created_by_name: string | null;
   created_at: string;
@@ -112,8 +139,10 @@ export interface ParsedIngredientLine {
   item: GroceryItem;
   amount: number | null;
   unit: string | null;
-  /** This call created the vocabulary row. Doubles as the typo detector. */
+  /** Not in the vocabulary yet. Doubles as the typo detector. */
   is_new: boolean;
+  /** The row to create if the recipe is saved. Optional only so fixtures can omit it; the API always sends it. */
+  new_item?: ProposedGroceryItem | null;
   /** Existing names it might be a misspelling of. A question, never a decision. */
   did_you_mean: string[];
 }
@@ -426,7 +455,47 @@ export interface CreateRecipeInput {
   source_url?: string;
   prep_time_minutes?: number | null;
   cook_time_minutes?: number | null;
+  tags?: RecipeTag[];
+  visibility?: Visibility;
 }
+
+/** One row of the import review: a source line understood (or not) as one ingredient. */
+export interface DraftIngredient {
+  /** Index into `RecipeDraft.ingredient_lines`. Several rows can share one ("sal y pimienta"). */
+  line: number;
+  source_line: string;
+  name: string;
+  amount: number | null;
+  unit: string | null;
+  optional: boolean;
+  /** A product the vocabulary has… */
+  item: GroceryItem | null;
+  /** …or one it would gain on save. Neither when the line was not understood. */
+  new_item: ProposedGroceryItem | null;
+  did_you_mean: string[];
+  /** "≈ 800 g" for "4 patatas", when the product is bought by weight. */
+  grams_suggestion: number | null;
+  /** The model skipped this line and the server put it back. */
+  restored: boolean;
+}
+
+/** A recipe read from text, a link or a photo. Nothing in it is saved yet. */
+export interface RecipeDraft {
+  title: string | null;
+  servings: number | null;
+  /** The number came from the source ("para 4 personas"). */
+  servings_from_source: boolean;
+  prep_time_minutes: number | null;
+  cook_time_minutes: number | null;
+  tags: RecipeTag[];
+  instructions: string | null;
+  source_url: string | null;
+  ingredient_lines: string[];
+  ingredients: DraftIngredient[];
+}
+
+/** Exactly one: pasted text, a link, or a photo as a `data:image/…;base64,` URL. */
+export type RecipeImportSource = { text: string } | { url: string } | { image: string };
 
 async function getAuthToken(): Promise<string> {
   try {
@@ -513,6 +582,19 @@ export class RecipeAPIClient {
     return this.request<Recipe>(`/recipes/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Read a recipe from text, a link or a photo into a draft to review. Saves nothing.
+   *
+   * `ApiError` 422 means the link could not be read (paste the text instead);
+   * 503 means the model is unreachable (write it by hand).
+   */
+  async importRecipe(source: RecipeImportSource): Promise<RecipeDraft> {
+    return this.request<RecipeDraft>("/recipes/import", {
+      method: "POST",
+      body: JSON.stringify(source),
     });
   }
 

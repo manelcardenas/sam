@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthGate } from "@/components/auth/useAuthGate";
-import { apiClient, type Recipe, type CreateRecipeInput, type MealPlan } from "@/lib/api-client";
+import { apiClient, type Recipe, type CreateRecipeInput, type GroceryItem, type MealPlan, type RecipeDraft } from "@/lib/api-client";
 import { FOOD_TYPES } from "@/lib/constants";
 import { RecipeFilterChips } from "@/components/recipes/RecipeFilterChips";
 import { NO_FILTERS, filterRecipes, type RecipeFilterState } from "@/lib/recipe-filters";
 import { canGoBack, currentParams, useBrowserNavigation, useTabHome, writeUrl } from "@/lib/url-state";
 import { fromQuery, toQuery, type DashboardView } from "@/lib/dashboard-url";
-import RecipeForm from "@/components/RecipeForm";
+import RecipeForm, { type RecipeFormValues } from "@/components/RecipeForm";
+import { RecipeStart, type DraftOrigin, type ManualKind } from "@/components/recipes/RecipeStart";
+import { rowsFromDraft, rowsFromRecipe } from "@/lib/recipe-review";
+import { byKey } from "@/lib/grocery";
+import { Loader } from "@/components/ui/Loader";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import SourceLink from "@/components/SourceLink";
 import IngredientsPanel from "@/components/IngredientsPanel";
@@ -20,10 +24,28 @@ import { EmptyPanel } from "@/components/profile/EmptyPanel";
 import { RecipeRow } from "@/components/recipes/RecipeRow";
 import { RecipePlanRow } from "@/components/recipes/RecipePlanRow";
 import { weekStartOf } from "@/lib/plan-url";
-import { ArrowLeft, Plus, Edit, Trash2, ChefHat, SearchX, NotebookPen } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, ChefHat, SearchX, NotebookPen, Clock, Lock } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import type { MessageKey } from "@/lib/i18n/dictionary";
 import { formatDate } from "@/lib/format";
+import { tagIcon, isQuick, QuickIcon, totalMinutes } from "@/lib/recipe-tags";
+
+/** Where "new recipe" is: choosing how to start, or reviewing what that gave. */
+type Adding = { stage: "start" } | { stage: "form"; initial: RecipeFormValues; origin?: DraftOrigin; simple: boolean };
+
+const BLANK: Omit<RecipeFormValues, "rows"> = {
+  title: "",
+  instructions: "",
+  food_type: "comida",
+  source_url: "",
+  prep_time_minutes: null,
+  cook_time_minutes: null,
+  tags: [],
+  visibility: "public",
+  servings: null,
+  servingsFromSource: false,
+  lines: [],
+};
 
 /**
  * The COOK world: every recipe in the collection, as one filterable list.
@@ -64,6 +86,14 @@ export default function DashboardPage() {
   // Delete modal
   const [recipeToDelete, setRecipeToDelete] = useState<Recipe | null>(null);
 
+  // Writing a recipe: how it started, the vocabulary its rows match against,
+  // and the kitchen whose simple recipes this person may edit.
+  const [adding, setAdding] = useState<Adding>({ stage: "start" });
+  const [vocabulary, setVocabulary] = useState<GroceryItem[] | null>(null);
+  const [kitchenId, setKitchenId] = useState<string | null>(null);
+  const rowIds = useRef(0);
+  const nextRowId = () => ++rowIds.current;
+
   // ── Auth ────────────────────────────────────────────────────────────────────
 
   // `me` comes from the session-wide provider, so this page no longer opens
@@ -85,6 +115,12 @@ export default function DashboardPage() {
       if (!cancelled) setLoading(false);
     });
     void apiClient
+      .getKitchen()
+      .then((view) => {
+        if (!cancelled) setKitchenId(view.kitchen.id);
+      })
+      .catch(() => undefined);
+    void apiClient
       .getPlan(weekStartOf(new Date()))
       .then((plan) => {
         if (!cancelled) setWeek(plan);
@@ -95,6 +131,64 @@ export default function DashboardPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.id]);
+
+  // The vocabulary is only needed while writing, so it loads when the form
+  // opens rather than with the list. A failure costs the suggestions and the
+  // aisles, never the form.
+  useEffect(() => {
+    if ((view !== "add" && view !== "edit") || vocabulary !== null) return;
+    void apiClient
+      .listGroceryItems()
+      .then(setVocabulary)
+      .catch(() => setVocabulary([]));
+  }, [view, vocabulary]);
+
+  // Every visit to "new" starts at the beginning — a half-reviewed draft from an
+  // earlier visit is not something to come back to by surprise.
+  useEffect(() => {
+    if (view !== "add") setAdding({ stage: "start" });
+  }, [view]);
+
+  const startFromDraft = (draft: RecipeDraft, origin: DraftOrigin) =>
+    setAdding({
+      stage: "form",
+      origin,
+      simple: false,
+      initial: {
+        ...BLANK,
+        title: draft.title ?? "",
+        instructions: draft.instructions ?? "",
+        food_type: filters.category ?? "comida",
+        source_url: draft.source_url ?? "",
+        prep_time_minutes: draft.prep_time_minutes,
+        cook_time_minutes: draft.cook_time_minutes,
+        tags: draft.tags,
+        servings: draft.servings,
+        servingsFromSource: draft.servings_from_source,
+        rows: rowsFromDraft(draft, locale, nextRowId),
+        lines: draft.ingredient_lines,
+      },
+    });
+
+  const startByHand = (kind: ManualKind) => {
+    const blankRow = () => ({ id: nextRowId(), name: "", amount: "", unit: "", optional: false });
+    setAdding({
+      stage: "form",
+      simple: kind === "simple",
+      initial: {
+        ...BLANK,
+        food_type: filters.category ?? "comida",
+        // A simple recipe is written for one person and kept for the kitchen
+        // (ADR 0009 §2); the plan multiplies it by whoever is eating.
+        servings: kind === "simple" ? 1 : null,
+        visibility: kind === "simple" ? "kitchen" : "public",
+        rows: [blankRow(), blankRow(), blankRow()],
+      },
+    });
+  };
+
+  const canEdit = (recipe: Recipe) =>
+    recipe.created_by === currentUserId || (recipe.visibility === "kitchen" && recipe.kitchen_id != null && recipe.kitchen_id === kitchenId);
 
   // ── Data ────────────────────────────────────────────────────────────────────
 
@@ -360,8 +454,9 @@ export default function DashboardPage() {
                     <SourceLink url={selectedRecipe.source_url} />
                   </div>
                 )}
+                <RecipeFacts recipe={selectedRecipe} />
               </div>
-              {selectedRecipe.created_by === currentUserId && (
+              {canEdit(selectedRecipe) && (
                 <div className="flex shrink-0 items-center gap-1">
                   <button
                     onClick={() => setView("edit")}
@@ -401,7 +496,7 @@ export default function DashboardPage() {
                   </p>
                 </section>
               ) : (
-                selectedRecipe.created_by === currentUserId && (
+                canEdit(selectedRecipe) && (
                   <button
                     type="button"
                     onClick={() => setView("edit")}
@@ -424,24 +519,27 @@ export default function DashboardPage() {
 
       {/* ── ADD ── */}
       {view === "add" && (
-        <div className="mx-auto max-w-xl">
+        <div className={`mx-auto ${adding.stage === "form" && adding.origin ? "max-w-xl lg:max-w-5xl" : "max-w-xl"}`}>
           <h1 className="mb-6 font-display text-2xl font-bold text-fg sm:text-3xl">
-            {t("dashboard.new-recipe-title")}
+            {adding.stage === "form" && adding.simple ? t("dashboard.new-simple-recipe-title") : t("dashboard.new-recipe-title")}
           </h1>
-          <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
-            <RecipeForm
-              // A category filter is a statement about what you were browsing,
-              // so it seeds the form — you were looking at desserts, you are
-              // probably adding one.
-              initialData={
-                filters.category
-                  ? { title: "", instructions: "", ingredients: { servings: null, items: [] }, food_type: filters.category }
-                  : undefined
-              }
-              onSubmit={handleCreate}
-              onCancel={goBack}
-              submitLabel={t("recipe-form.submit-add")}
-            />
+          <div className="rounded-4xl border border-line bg-surface p-5 shadow-paw sm:p-6">
+            {adding.stage === "start" ? (
+              <RecipeStart onDraft={startFromDraft} onManual={startByHand} />
+            ) : vocabulary === null ? (
+              <Loader />
+            ) : (
+              <RecipeForm
+                initial={adding.initial}
+                origin={adding.origin}
+                simple={adding.simple}
+                vocabulary={vocabulary}
+                nextId={nextRowId}
+                onSubmit={handleCreate}
+                onCancel={goBack}
+                submitLabel={t("recipe-form.submit-add")}
+              />
+            )}
           </div>
         </div>
       )}
@@ -452,19 +550,33 @@ export default function DashboardPage() {
           <h1 className="mb-6 font-display text-2xl font-bold text-fg sm:text-3xl">
             {t("dashboard.edit-recipe-title")}
           </h1>
-          <div className="rounded-4xl border border-line bg-surface p-6 shadow-paw">
-            <RecipeForm
-              initialData={{
-                title: selectedRecipe.title,
-                instructions: selectedRecipe.instructions,
-                ingredients: selectedRecipe.ingredients,
-                food_type: selectedRecipe.food_type,
-                source_url: selectedRecipe.source_url ?? undefined,
-              }}
-              onSubmit={handleUpdate}
-              onCancel={goBack}
-              submitLabel={t("common.save-changes")}
-            />
+          <div className="rounded-4xl border border-line bg-surface p-5 shadow-paw sm:p-6">
+            {vocabulary === null ? (
+              <Loader />
+            ) : (
+              <RecipeForm
+                initial={{
+                  title: selectedRecipe.title,
+                  instructions: selectedRecipe.instructions ?? "",
+                  food_type: selectedRecipe.food_type,
+                  source_url: selectedRecipe.source_url ?? "",
+                  prep_time_minutes: selectedRecipe.prep_time_minutes,
+                  cook_time_minutes: selectedRecipe.cook_time_minutes,
+                  tags: selectedRecipe.tags ?? [],
+                  visibility: selectedRecipe.visibility ?? "public",
+                  servings: selectedRecipe.ingredients.servings,
+                  servingsFromSource: false,
+                  rows: rowsFromRecipe(selectedRecipe.ingredients, byKey(vocabulary), nextRowId),
+                  lines: [],
+                }}
+                simple={selectedRecipe.visibility === "kitchen" && !selectedRecipe.instructions}
+                vocabulary={vocabulary}
+                nextId={nextRowId}
+                onSubmit={handleUpdate}
+                onCancel={goBack}
+                submitLabel={t("common.save-changes")}
+              />
+            )}
           </div>
         </div>
       )}
@@ -478,5 +590,43 @@ export default function DashboardPage() {
         />
       )}
     </AppShell>
+  );
+}
+
+/**
+ * What the recipe is like, under its title: total time, ⚡ when it is quick,
+ * its tags, and the lock when only the kitchen sees it. Said in words, with the
+ * icons as a quick read, not instead of them.
+ */
+function RecipeFacts({ recipe }: { recipe: Recipe }) {
+  const { t } = useI18n();
+  const total = totalMinutes(recipe);
+  const tags = recipe.tags ?? [];
+  if (!total && tags.length === 0 && recipe.visibility !== "kitchen") return null;
+  const pill = "inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-fg";
+  return (
+    <ul className="mt-3 flex flex-wrap gap-1.5" aria-label={t("recipe-form.tags")}>
+      {total > 0 && (
+        <li className={pill}>
+          {isQuick(recipe) ? <QuickIcon className="h-3.5 w-3.5 text-amber-700 dark:text-amber" aria-hidden /> : <Clock className="h-3.5 w-3.5 text-muted" aria-hidden />}
+          {t("recipe-form.total-minutes", { count: total })}
+        </li>
+      )}
+      {tags.map((tag) => {
+        const Icon = tagIcon(tag);
+        return (
+          <li key={tag} className={pill}>
+            <Icon className="h-3.5 w-3.5 text-muted" aria-hidden />
+            {t(`recipe-tags.${tag}`)}
+          </li>
+        );
+      })}
+      {recipe.visibility === "kitchen" && (
+        <li className={pill}>
+          <Lock className="h-3.5 w-3.5 text-muted" aria-hidden />
+          {t("recipe-form.kitchen-only")}
+        </li>
+      )}
+    </ul>
   );
 }

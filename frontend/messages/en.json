@@ -85,7 +85,8 @@
     "planned-on": "This week: {{day}} · {{meal}}",
     "search-label": "Search recipes by title",
     "search-placeholder": "Search by title…",
-    "title": "What shall we fetch?"
+    "title": "What shall we fetch?",
+    "new-simple-recipe-title": "New simple recipe"
   },
   "delete-recipe": {
     "body": "Delete \"{{name}}\"? SAM can't fetch this one back.",
@@ -181,7 +182,8 @@
     "fewer-servings": "Fewer servings",
     "more-servings": "More servings",
     "servings": "servings",
-    "servings-count": "Number of servings"
+    "servings-count": "Number of servings",
+    "heading": "Ingredients ({{count}})"
   },
   "kitchen": {
     "accept": "Join",
@@ -457,7 +459,7 @@
     "remove-ingredient": "Remove ingredient",
     "review-heading": "Check the ingredients",
     "servings": "Servings",
-    "servings-hint": "The number of people these amounts feed — lets anyone viewing the recipe scale it up or down later.",
+    "servings-hint": "How many people these amounts are for. Change it and the amounts change too.",
     "servings-placeholder": "4",
     "source": "Source",
     "source-hint": "Where the recipe comes from. We'll show just the site, not the full link.",
@@ -468,7 +470,60 @@
     "title": "Title",
     "title-placeholder": "e.g. Vegetable lasagne",
     "type": "Type",
-    "unit": "Unit"
+    "unit": "Unit",
+    "lines": {
+      "one": "{{count}} line",
+      "other": "{{count}} lines"
+    },
+    "rows": {
+      "one": "{{count}} ingredient",
+      "other": "{{count}} ingredients"
+    },
+    "removed-by-you": {
+      "one": "({{count}} removed by you)",
+      "other": "({{count}} removed by you)"
+    },
+    "method-mentions": {
+      "one": "The steps mention {{names}}, which isn't in the list.",
+      "other": "The steps mention {{names}}, which aren't in the list."
+    },
+    "suggestions": "Products",
+    "restored": "We didn't understand this line: check it",
+    "from-line": "from: {{line}}",
+    "use-grams": "Use ≈ {{grams}} g",
+    "split": "Split",
+    "optional": "Optional",
+    "per-person": "per person",
+    "people": "people",
+    "from-source": "from the text",
+    "servings-undo": "No, the amounts were already for {{count}}",
+    "servings-hint-simple": "Write the amounts for one person; the plan multiplies them.",
+    "title-placeholder-simple": "e.g. Salad with meat",
+    "original": "Original text",
+    "original-photo": "Read from the photo:",
+    "original-link": "Ingredients on the page:",
+    "reread": "Read again",
+    "reread-same": "Same ingredients as now.",
+    "reread-added": "Adds: {{names}}",
+    "reread-removed": "Takes out: {{names}}",
+    "reread-warning": "Using it replaces the rows, with your changes.",
+    "reread-apply": "Use new reading",
+    "reread-keep": "Keep mine",
+    "add-steps": "Add steps",
+    "times": "Time",
+    "prep": "Prep",
+    "cook": "Cooking",
+    "minutes": "min",
+    "total-minutes": "{{count}} min",
+    "tags": "What it's like",
+    "quick-on": "Quick: {{max}} min or less in total.",
+    "quick-hint": "Marked quick by itself when the times add up to {{max}} min or less.",
+    "kitchen-only": "Only your kitchen",
+    "kitchen-only-on": "Only you and whoever shares your kitchen see it.",
+    "kitchen-only-off": "Everyone using SAM can see it.",
+    "leave-title": "Leave without saving?",
+    "leave-body": "You'll lose this recipe and your changes.",
+    "leave-confirm": "Leave without saving"
   },
   "recipe-row": {
     "ingredients": {
@@ -678,5 +733,37 @@
     "where-body": "Tap the restaurant you're in. If it isn't there, tap the map right where it is.",
     "where-title": "Where are you?",
     "you-are-here": "You are here"
+  },
+  "recipe-start": {
+    "intro": "How do you want to add it?",
+    "text": "Paste the text",
+    "text-hint": "From a note, a message or a website: ingredients and steps.",
+    "text-placeholder": "Lentil stew (serves 4)\n\n300 g lentils\n1 chorizo\n1 onion\n…\n\n1. Fry the onion…",
+    "url": "From a link",
+    "url-hint": "A recipe page: we read its ingredients and steps.",
+    "photo": "From a photo",
+    "photo-hint": "Of a cookbook or a handwritten note. The photo isn't kept.",
+    "simple": "Simple recipe",
+    "simple-hint": "Per person and without steps, like salad with meat. Only your kitchen sees it.",
+    "read": "Read recipe",
+    "reading": "Reading the recipe…",
+    "reading-hint": "It usually takes a few seconds.",
+    "failed": "We couldn't read it right now. Try again, or write it yourself.",
+    "link-failed": "We couldn't read that page. Copy its text and paste it instead.",
+    "link-invalid": "That doesn't look like a link.",
+    "photo-unreadable": "We couldn't open that photo. Try another one.",
+    "by-hand": "Write it myself",
+    "or-by-hand": "Or write it yourself"
+  },
+  "recipe-tags": {
+    "tupper": "Lunchbox",
+    "no_cook": "No cooking",
+    "oven": "Oven",
+    "air_fryer": "Air fryer",
+    "one_pan": "One pan",
+    "pressure_cooker": "Pressure cooker",
+    "freezable": "Freezes well",
+    "spicy": "Spicy",
+    "quick": "Quick"
   }
 }

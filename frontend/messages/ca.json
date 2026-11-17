@@ -85,7 +85,8 @@
     "planned-on": "Aquesta setmana: {{day}} · {{meal}}",
     "search-label": "Cerca receptes per títol",
     "search-placeholder": "Cerca per títol…",
-    "title": "Què cuinem?"
+    "title": "Què cuinem?",
+    "new-simple-recipe-title": "Nova recepta senzilla"
   },
   "delete-recipe": {
     "body": "Vols eliminar «{{name}}»? SAM no la podrà tornar a buscar.",
@@ -181,7 +182,8 @@
     "fewer-servings": "Menys racions",
     "more-servings": "Més racions",
     "servings": "racions",
-    "servings-count": "Nombre de racions"
+    "servings-count": "Nombre de racions",
+    "heading": "Ingredients ({{count}})"
   },
   "kitchen": {
     "accept": "Entrar",
@@ -457,7 +459,7 @@
     "remove-ingredient": "Treu l'ingredient",
     "review-heading": "Revisa els ingredients",
     "servings": "Racions",
-    "servings-hint": "El nombre de persones per a les quals donen aquestes quantitats — així qualsevol que vegi la recepta pot escalar-la després.",
+    "servings-hint": "Per a quantes persones són aquestes quantitats. Si ho canvies, canvien les quantitats.",
     "servings-placeholder": "4",
     "source": "Origen",
     "source-hint": "D'on ve la recepta. Mostrarem només el lloc, no l'enllaç sencer.",
@@ -468,7 +470,60 @@
     "title": "Títol",
     "title-placeholder": "p. ex. Lasanya de verdures",
     "type": "Tipus",
-    "unit": "Unitat"
+    "unit": "Unitat",
+    "lines": {
+      "one": "{{count}} línia",
+      "other": "{{count}} línies"
+    },
+    "rows": {
+      "one": "{{count}} ingredient",
+      "other": "{{count}} ingredients"
+    },
+    "removed-by-you": {
+      "one": "({{count}} treta per tu)",
+      "other": "({{count}} tretes per tu)"
+    },
+    "method-mentions": {
+      "one": "Els passos parlen de {{names}}, que no és a la llista.",
+      "other": "Els passos parlen de {{names}}, que no són a la llista."
+    },
+    "suggestions": "Productes",
+    "restored": "No hem entès aquesta línia: revisa-la",
+    "from-line": "de: {{line}}",
+    "use-grams": "Fer servir ≈ {{grams}} g",
+    "split": "Separar",
+    "optional": "Opcional",
+    "per-person": "per persona",
+    "people": "persones",
+    "from-source": "llegit del text",
+    "servings-undo": "No, les quantitats ja eren per a {{count}}",
+    "servings-hint-simple": "Escriu les quantitats per a una persona; el pla les multiplica.",
+    "title-placeholder-simple": "p. ex. Amanida amb carn",
+    "original": "Text original",
+    "original-photo": "Llegit de la foto:",
+    "original-link": "Ingredients de la pàgina:",
+    "reread": "Tornar a llegir",
+    "reread-same": "Els mateixos ingredients que ara.",
+    "reread-added": "Afegeix: {{names}}",
+    "reread-removed": "Treu: {{names}}",
+    "reread-warning": "Si la fas servir, substitueix les files, amb els teus canvis.",
+    "reread-apply": "Fer servir la nova lectura",
+    "reread-keep": "Quedar-me la meva",
+    "add-steps": "Afegeix els passos",
+    "times": "Temps",
+    "prep": "Preparar",
+    "cook": "Cocció",
+    "minutes": "min",
+    "total-minutes": "{{count}} min",
+    "tags": "Com és",
+    "quick-on": "Ràpida: {{max}} min o menys en total.",
+    "quick-hint": "Es marca ràpida sola si els temps sumen {{max}} min o menys.",
+    "kitchen-only": "Només la vostra cuina",
+    "kitchen-only-on": "Només la veieu tu i qui comparteix la teva cuina.",
+    "kitchen-only-off": "La pot veure qualsevol que faci servir SAM.",
+    "leave-title": "Sortir sense desar?",
+    "leave-body": "Perdràs aquesta recepta i els teus canvis.",
+    "leave-confirm": "Sortir sense desar"
   },
   "recipe-row": {
     "ingredients": {
@@ -678,5 +733,37 @@
     "where-body": "Toca el restaurant on ets. Si no hi surt, toca el mapa just on és.",
     "where-title": "On ets?",
     "you-are-here": "Ets aquí"
+  },
+  "recipe-start": {
+    "intro": "Com la vols afegir?",
+    "text": "Enganxar el text",
+    "text-hint": "D'una nota, un missatge o un web: ingredients i passos.",
+    "text-placeholder": "Llenties amb xoriço (per a 4)\n\n300 g de llenties\n1 xoriço\n1 ceba\n…\n\n1. Sofregeix la ceba…",
+    "url": "Des d'un enllaç",
+    "url-hint": "Una pàgina de receptes: en llegim els ingredients i els passos.",
+    "photo": "Des d'una foto",
+    "photo-hint": "D'un llibre o una nota a mà. La foto no es desa.",
+    "simple": "Recepta senzilla",
+    "simple-hint": "Per persona i sense passos, com una amanida amb carn. Només la veu la vostra cuina.",
+    "read": "Llegir la recepta",
+    "reading": "Llegint la recepta…",
+    "reading-hint": "Sol trigar uns segons.",
+    "failed": "Ara no l'hem pogut llegir. Torna-ho a provar o escriu-la tu.",
+    "link-failed": "No hem pogut llegir aquesta pàgina. Copia'n el text i enganxa'l.",
+    "link-invalid": "Això no sembla un enllaç.",
+    "photo-unreadable": "No hem pogut obrir aquesta foto. Prova'n una altra.",
+    "by-hand": "Escriure-la jo",
+    "or-by-hand": "O escriu-la tu"
+  },
+  "recipe-tags": {
+    "tupper": "Tàper",
+    "no_cook": "Sense cuinar",
+    "oven": "Forn",
+    "air_fryer": "Airfryer",
+    "one_pan": "Una sola paella",
+    "pressure_cooker": "Olla exprés",
+    "freezable": "Congelable",
+    "spicy": "Picant",
+    "quick": "Ràpida"
   }
 }

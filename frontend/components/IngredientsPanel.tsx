@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { Minus, Plus, Users } from "lucide-react";
-import type { IngredientsData } from "@/lib/api-client";
+import type { IngredientItem, IngredientsData } from "@/lib/api-client";
 
 /** Flat rounding to 2 decimals, no unit-aware whole-number logic — see docs/adr/0001. */
 function scale(amount: number, baseServings: number, desiredServings: number): number {
   return Math.round(((amount / baseServings) * desiredServings) * 100) / 100;
 }
 
-function formatItem(item: { name: string; amount?: number; unit?: string }): string {
+function formatItem(item: IngredientItem): string {
   if (item.amount == null) return item.name;
   const amount = Number(item.amount.toFixed(2));
   return item.unit ? `${amount} ${item.unit} ${item.name}` : `${amount} ${item.name}`;
@@ -34,7 +34,7 @@ export default function IngredientsPanel({ ingredients }: { ingredients: Ingredi
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xs font-bold uppercase tracking-wider text-muted">
-          Ingredients ({ingredients.items.length})
+          {t("ingredients-panel.heading", { count: ingredients.items.length })}
         </h2>
 
         {baseServings && (
@@ -75,9 +75,14 @@ export default function IngredientsPanel({ ingredients }: { ingredients: Ingredi
 
       <ul className="space-y-2">
         {items.map((item, idx) => (
-          <li key={idx} className="flex items-start gap-2.5 text-fg/90">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-            {formatItem(item)}
+          <li key={idx} className={`flex items-start gap-2.5 ${item.optional ? "text-muted" : "text-fg/90"}`}>
+            {/* An optional ingredient gets a hollow dot and the word: it is
+                there, but it starts unticked on the list. */}
+            <span className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${item.optional ? "border border-accent" : "bg-accent"}`} />
+            <span>
+              {formatItem(item)}
+              {item.optional && <span className="ml-1.5 text-xs font-semibold">· {t("recipe-form.optional").toLowerCase()}</span>}
+            </span>
           </li>
         ))}
       </ul>

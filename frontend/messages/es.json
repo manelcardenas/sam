@@ -85,7 +85,8 @@
     "planned-on": "Esta semana: {{day}} · {{meal}}",
     "search-label": "Buscar recetas por título",
     "search-placeholder": "Buscar por título…",
-    "title": "¿Qué cocinamos?"
+    "title": "¿Qué cocinamos?",
+    "new-simple-recipe-title": "Nueva receta sencilla"
   },
   "delete-recipe": {
     "body": "¿Eliminar «{{name}}»? SAM no podrá traerla de vuelta.",
@@ -181,7 +182,8 @@
     "fewer-servings": "Menos raciones",
     "more-servings": "Más raciones",
     "servings": "raciones",
-    "servings-count": "Número de raciones"
+    "servings-count": "Número de raciones",
+    "heading": "Ingredientes ({{count}})"
   },
   "kitchen": {
     "accept": "Entrar",
@@ -457,7 +459,7 @@
     "remove-ingredient": "Quitar ingrediente",
     "review-heading": "Revisa los ingredientes",
     "servings": "Raciones",
-    "servings-hint": "El número de personas para las que dan estas cantidades — así cualquiera que vea la receta puede escalarla después.",
+    "servings-hint": "Para cuántas personas son estas cantidades. Si lo cambias, cambian las cantidades.",
     "servings-placeholder": "4",
     "source": "Origen",
     "source-hint": "De dónde viene la receta. Mostraremos solo el sitio, no el enlace completo.",
@@ -468,7 +470,60 @@
     "title": "Título",
     "title-placeholder": "p. ej. Lasaña de verduras",
     "type": "Tipo",
-    "unit": "Unidad"
+    "unit": "Unidad",
+    "lines": {
+      "one": "{{count}} línea",
+      "other": "{{count}} líneas"
+    },
+    "rows": {
+      "one": "{{count}} ingrediente",
+      "other": "{{count}} ingredientes"
+    },
+    "removed-by-you": {
+      "one": "({{count}} quitada por ti)",
+      "other": "({{count}} quitadas por ti)"
+    },
+    "method-mentions": {
+      "one": "Los pasos mencionan {{names}}, que no está en la lista.",
+      "other": "Los pasos mencionan {{names}}, que no están en la lista."
+    },
+    "suggestions": "Productos",
+    "restored": "No hemos entendido esta línea: revísala",
+    "from-line": "de: {{line}}",
+    "use-grams": "Usar ≈ {{grams}} g",
+    "split": "Separar",
+    "optional": "Opcional",
+    "per-person": "por persona",
+    "people": "personas",
+    "from-source": "leído del texto",
+    "servings-undo": "No, las cantidades ya eran para {{count}}",
+    "servings-hint-simple": "Escribe las cantidades para una persona; el plan las multiplica.",
+    "title-placeholder-simple": "p. ej. Ensalada con carne",
+    "original": "Texto original",
+    "original-photo": "Leído de la foto:",
+    "original-link": "Ingredientes de la página:",
+    "reread": "Volver a leer",
+    "reread-same": "Los mismos ingredientes que ahora.",
+    "reread-added": "Añade: {{names}}",
+    "reread-removed": "Quita: {{names}}",
+    "reread-warning": "Si la usas, sustituye las filas, con tus cambios.",
+    "reread-apply": "Usar la nueva lectura",
+    "reread-keep": "Quedarme con la mía",
+    "add-steps": "Añadir pasos",
+    "times": "Tiempo",
+    "prep": "Preparar",
+    "cook": "Cocción",
+    "minutes": "min",
+    "total-minutes": "{{count}} min",
+    "tags": "Cómo es",
+    "quick-on": "Rápida: {{max}} min o menos en total.",
+    "quick-hint": "Se marca rápida sola si los tiempos suman {{max}} min o menos.",
+    "kitchen-only": "Solo vuestra cocina",
+    "kitchen-only-on": "Solo la veis tú y quien comparte tu cocina.",
+    "kitchen-only-off": "La puede ver cualquiera que use SAM.",
+    "leave-title": "¿Salir sin guardar?",
+    "leave-body": "Perderás esta receta y tus cambios.",
+    "leave-confirm": "Salir sin guardar"
   },
   "recipe-row": {
     "ingredients": {
@@ -678,5 +733,37 @@
     "where-body": "Toca el restaurante en el que estás. Si no sale, toca el mapa justo donde está.",
     "where-title": "¿Dónde estás?",
     "you-are-here": "Estás aquí"
+  },
+  "recipe-start": {
+    "intro": "¿Cómo quieres añadirla?",
+    "text": "Pegar el texto",
+    "text-hint": "De una nota, un mensaje o una web: ingredientes y pasos.",
+    "text-placeholder": "Lentejas con chorizo (para 4)\n\n300 g de lentejas\n1 chorizo\n1 cebolla\n…\n\n1. Sofríe la cebolla…",
+    "url": "Desde un enlace",
+    "url-hint": "Una página de recetas: leemos sus ingredientes y pasos.",
+    "photo": "Desde una foto",
+    "photo-hint": "De un libro o una nota a mano. La foto no se guarda.",
+    "simple": "Receta sencilla",
+    "simple-hint": "Por persona y sin pasos, como una ensalada con carne. Solo la ve vuestra cocina.",
+    "read": "Leer receta",
+    "reading": "Leyendo la receta…",
+    "reading-hint": "Suele tardar unos segundos.",
+    "failed": "Ahora no hemos podido leerla. Vuelve a probar o escríbela tú.",
+    "link-failed": "No hemos podido leer esa página. Copia su texto y pégalo.",
+    "link-invalid": "Eso no parece un enlace.",
+    "photo-unreadable": "No hemos podido abrir esa foto. Prueba con otra.",
+    "by-hand": "Escribirla yo",
+    "or-by-hand": "O escríbela tú"
+  },
+  "recipe-tags": {
+    "tupper": "Tupper",
+    "no_cook": "Sin cocinar",
+    "oven": "Horno",
+    "air_fryer": "Airfryer",
+    "one_pan": "Una sola sartén",
+    "pressure_cooker": "Olla exprés",
+    "freezable": "Congelable",
+    "spicy": "Picante",
+    "quick": "Rápida"
   }
 }
