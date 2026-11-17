@@ -6,8 +6,9 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
 
-from src.infra.adapters.parsing import build_ingredient_parser
+from src.infra.adapters.parsing import build_ingredient_parser, build_recipe_reader
 from src.infra.adapters.places import GeoapifyPlacesProvider, resolve_geoapify_api_key
+from src.infra.adapters.recipe_pages import HttpRecipePageFetcher
 from src.infra.adapters.repos import (
     PostgresCuisineRepository,
     PostgresGroceryRepository,
@@ -18,7 +19,16 @@ from src.infra.adapters.repos import (
     PostgresReviewRepository,
     PostgresUserRepository,
 )
-from src.infra.controllers import GroceryController, KitchenController, MealPlanController, PlacesController, RecipeController, RestaurantController, UserController
+from src.infra.controllers import (
+    GroceryController,
+    KitchenController,
+    MealPlanController,
+    PlacesController,
+    RecipeController,
+    RecipeImportController,
+    RestaurantController,
+    UserController,
+)
 from src.infra.db import DatabaseConnectionPool, build_dsn
 from src.infra.middleware import (
     CORSMiddlewareConfigurator,
@@ -94,6 +104,7 @@ def create_app() -> FastAPI:
     MealPlanController(meal_plan_repository, kitchen_repository, grocery_repository, ingredient_parser, router)
     KitchenController(kitchen_repository, user_repository, router)
     GroceryController(grocery_repository, recipe_repository, ingredient_parser, router)
+    RecipeImportController(build_recipe_reader(), HttpRecipePageFetcher(), grocery_repository, recipe_repository, kitchen_repository, router)
     app.include_router(router)
 
     boot.app_created()

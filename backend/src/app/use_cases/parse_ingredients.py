@@ -1,5 +1,5 @@
-from src.domain.entities import GroceryItem, GrocerySource, ParsedLine, key_for, name_index, near_duplicates
-from src.domain.entities.parsed_ingredient import ResolvedIngredients, ResolvedLine
+from src.domain.entities import GroceryItem, ParsedLine, ProposedGroceryItem, key_for, name_index, near_duplicates
+from src.domain.entities.parsed_ingredient import ResolvedIngredients, ResolvedLine, match_line
 from src.domain.ports import GroceryRepository, IngredientParser
 
 
@@ -7,17 +7,15 @@ class ParseIngredients:
     """Free text in, reviewable structured lines out (plan §4).
 
     The model proposes; **this decides**. It never trusts a `grocery_key` it did
-    not recognise, it derives every key itself with `key_for`, and it marks every
-    row the model invented as `source='ai'` with no confirmation — so
-    `WHERE source = 'ai' AND confirmed_at IS NULL` stays an honest list of
-    everything nobody has vouched for.
+    not recognise, and it derives every key itself with `key_for`.
 
-    New rows are written **here, at parse time, before the user confirms**. That
-    is deliberate: the vocabulary is not user data, it is a shared dictionary, and
-    a word somebody typed is a word the app has now seen. Writing it on save
-    instead would mean the review table showing an aisle for a row that does not
-    exist yet, and two people parsing `calçots` in the same minute racing to
-    create it.
+    **It writes nothing** (ADR-0009 §8, 2026-11-17). New vocabulary rows used to
+    be written here, at parse time, on the grounds that a word somebody typed is
+    a word the app has seen. In practice that left a guess behind for every
+    recipe abandoned halfway and every line the person then renamed. A new row
+    now travels with its line as `new_item`, and the recipe's save writes it
+    (`RememberGroceries`). The list's background lookup (`ClassifyListItem`)
+    still calls `propose` and keeps what it decides is worth keeping.
     """
 
     def __init__(self, parser: IngredientParser, groceries: GroceryRepository) -> None:
@@ -25,9 +23,7 @@ class ParseIngredients:
         self.groceries = groceries
 
     def execute(self, text: str, servings: int) -> ResolvedIngredients:
-        resolved, created = self.propose(text, servings)
-        if created:
-            self.groceries.upsert_many(created)
+        resolved, _created = self.propose(text, servings)
         return resolved
 
     def propose(self, text: str, servings: int) -> tuple[ResolvedIngredients, list[GroceryItem]]:
@@ -75,6 +71,7 @@ class ParseIngredients:
                     # vague where the old answer was wrong.
                     unit=line.unit,
                     is_new=is_new,
+                    new_item=_proposal_of(item) if is_new else None,
                     # Only ever on a new row. Asking "did you mean Huevos?" about
                     # a row that already exists is asking about a decision the
                     # vocabulary already made.
@@ -85,48 +82,22 @@ class ParseIngredients:
         return ResolvedIngredients(lines=resolved), created
 
     def _resolve(self, line: ParsedLine, known: dict[str, GroceryItem], aliases: dict[str, str]) -> tuple[GroceryItem | None, bool]:
-        """The vocabulary row this line means, and whether it is brand new.
+        """The vocabulary row this line means — see `match_line`.
 
-        A `grocery_key` the vocabulary does not hold is treated as **no match**
-        rather than as an error: models occasionally echo a plausible key they
-        invented, and the proposal beside it is usually right. Falling through is
-        better than failing the whole block over one line.
+        A line with neither a match nor a proposal is dropped here: this box
+        feeds the plan's quick create, where the person sees every row. The
+        recipe import (`ImportRecipe`) keeps such lines instead.
         """
-        if line.grocery_key and line.grocery_key in known:
-            return known[line.grocery_key], False
+        return match_line(line.grocery_key, line.proposed, known, aliases)
 
-        if line.proposed is None:
-            # Neither a match nor a proposal. The schema forbids it, so this is a
-            # model that ignored its own tool definition — drop the line rather
-            # than invent an ingredient nobody typed.
-            return None, False
 
-        key = key_for(line.proposed.name_es)
-        if key in known:
-            # It proposed something that already exists under a different
-            # spelling of the same name. Silently the right answer.
-            return known[key], False
-
-        # **Any of the three names, not just the Spanish one.** A proposal whose
-        # Catalan or English name is already another row's name is that row: a
-        # second row owning the same written form makes `name_index` refuse to
-        # build, and every shopping-list write after it fails. Hand-filed rows
-        # (`FileListItem`) carry the typed word in all three columns, so a later
-        # proposal naming `Bosses d'escombraries` in Catalan is the common way in.
-        for name in (line.proposed.name_es, line.proposed.name_ca, line.proposed.name_en):
-            owner = aliases.get(key_for(name))
-            if owner is not None:
-                return known[owner], False
-
-        return (
-            GroceryItem(
-                key=key,
-                name_es=line.proposed.name_es,
-                name_ca=line.proposed.name_ca,
-                name_en=line.proposed.name_en,
-                aisle=line.proposed.aisle,
-                is_pantry=line.proposed.is_pantry,
-                source=GrocerySource.AI,
-            ),
-            True,
-        )
+def _proposal_of(item: GroceryItem) -> ProposedGroceryItem:
+    """What the client sends back on save for a row this call would create."""
+    return ProposedGroceryItem(
+        name_es=item.name_es,
+        name_ca=item.name_ca,
+        name_en=item.name_en,
+        aisle=item.aisle,
+        is_pantry=item.is_pantry,
+        default_unit=item.default_unit,
+    )

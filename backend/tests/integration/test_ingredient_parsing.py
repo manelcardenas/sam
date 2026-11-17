@@ -112,17 +112,21 @@ class TestResolving:
 
         assert (lines[0].item.key, lines[0].is_new) == ("calcots", True)
 
-    def test_a_new_row_is_written_and_marked_unvouched_for(self, groceries: InMemoryGroceryRepository) -> None:
+    def test_a_new_row_is_proposed_but_not_written(self, groceries: InMemoryGroceryRepository) -> None:
+        """ADR-0009 §8: parsing proposes, saving writes. A recipe abandoned
+        halfway must not leave its guesses autocompleting for everybody."""
         parsed = ParsedIngredients(
             lines=[line(raw="salsa de soja", proposed=ProposedGroceryItem(name_es="Salsa de soja", name_ca="Salsa de soja", name_en="Soy sauce", aisle=Aisle.CONDIMENTS))]
         )
 
-        self.run(parsed, groceries)
+        lines = self.run(parsed, groceries)
 
-        stored = next(item for item in groceries.list_all() if item.key == "salsa de soja")
-        # `source='ai' AND confirmed_at IS NULL` is the review queue. A new row
-        # claiming to be seeded would hide from it for ever.
-        assert (stored.source, stored.confirmed_at) == (GrocerySource.AI, None)
+        assert "salsa de soja" not in {item.key for item in groceries.list_all()}
+        # `source='ai' AND confirmed_at IS NULL` is the review queue: the row the
+        # save will write must not claim to be seeded, or it hides from it for ever.
+        assert (lines[0].item.source, lines[0].item.confirmed_at) == (GrocerySource.AI, None)
+        assert lines[0].new_item is not None
+        assert lines[0].new_item.name_en == "Soy sauce"
 
     def test_a_proposal_that_already_exists_reuses_the_row(self, groceries: InMemoryGroceryRepository) -> None:
         """`Huevos` proposed when `huevos` is already there is the same thing

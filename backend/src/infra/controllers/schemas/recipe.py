@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 from src.domain.entities import Ingredient, ProposedGroceryItem, RecipeTag, Visibility
 
@@ -90,3 +90,24 @@ class UpdateRecipeRequest(BaseModel):
     visibility: Visibility = Visibility.PUBLIC
 
     _normalise_instructions = field_validator("instructions")(_blank_to_none)
+
+
+class ImportRecipeRequest(BaseModel):
+    """One recipe to read: pasted text, a link, or a photo — exactly one of them.
+
+    The caps are what a paid call is allowed to cost. 20,000 characters is a long
+    recipe with its life story; a photo is resized on the phone to ~1600 px
+    before it is sent, so 4 MB of base64 is far more than one needs, and stays
+    under the 4.5 MB a Vercel function accepts.
+    """
+
+    text: str | None = Field(default=None, min_length=1, max_length=20_000)
+    url: str | None = Field(default=None, min_length=1, max_length=2048)
+    image: str | None = Field(default=None, max_length=4_000_000, pattern=r"^data:image/(jpeg|png|webp|gif);base64,")
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> "ImportRecipeRequest":
+        given = [value for value in (self.text, self.url, self.image) if value]
+        if len(given) != 1:
+            raise ValueError("Send exactly one of text, url or image")
+        return self

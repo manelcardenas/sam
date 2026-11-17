@@ -21,6 +21,7 @@ from src.app.use_cases.get_recipe import GetRecipe
 from src.app.use_cases.get_restaurant import GetRestaurant
 from src.app.use_cases.get_review import GetReview
 from src.app.use_cases.get_user_stats import GetUserStats
+from src.app.use_cases.import_recipe import ImportRecipe
 from src.app.use_cases.invite_to_kitchen import InviteToKitchen
 from src.app.use_cases.list_cuisines import ListCuisines
 from src.app.use_cases.list_grocery_items import ListGroceryItems
@@ -73,6 +74,7 @@ __all__ = [
     "GetRestaurant",
     "GetReview",
     "GetUserStats",
+    "ImportRecipe",
     "InviteToKitchen",
     "ListCuisines",
     "ListGroceryItems",

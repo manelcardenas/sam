@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from src.domain.entities.grocery import Aisle, GroceryItem
+from src.domain.entities.grocery import Aisle, GroceryItem, GrocerySource, key_for
 
 
 class ProposedGroceryItem(BaseModel):
@@ -80,6 +80,9 @@ class ResolvedLine(BaseModel):
     #: doubles as the typo detector: you have added eggs twenty times, so seeing
     #: it beside `huveos` is wrong in a way you spot instantly.
     is_new: bool = False
+    #: The row to create **if the recipe is saved** — sent back with the
+    #: ingredient, then written by `RememberGroceries` (ADR-0009 §8).
+    new_item: ProposedGroceryItem | None = None
     #: Existing names close enough that this might be a misspelling of one.
     #: **A question, never a decision** — see `grocery.near_duplicates`.
     did_you_mean: list[str] = Field(default_factory=list)
@@ -87,3 +90,51 @@ class ResolvedLine(BaseModel):
 
 class ResolvedIngredients(BaseModel):
     lines: list[ResolvedLine] = Field(default_factory=list)
+
+
+def match_line(grocery_key: str | None, proposed: ProposedGroceryItem | None, known: dict[str, GroceryItem], aliases: dict[str, str]) -> tuple[GroceryItem | None, bool]:
+    """The vocabulary row a model's answer means, and whether it would be brand new.
+
+    Shared by every reader of model output, so "is this the same product?" has
+    one answer whether it came from the ingredient box, a pasted recipe, a link
+    or a photo.
+
+    - A `grocery_key` the vocabulary holds is that row.
+    - A key it does not hold is treated as **no match** rather than an error:
+      models occasionally echo a plausible key they invented, and the proposal
+      beside it is usually right.
+    - A proposal whose name — in **any** of the three languages — already belongs
+      to a row is that row. A second row owning the same written form would make
+      `name_index` refuse to build, and every shopping-list write after it fail.
+    - Otherwise the proposal becomes a new row, keyed by the server (never the
+      model) and marked `source=ai`. **Not written here**: callers decide when.
+    - Neither a key nor a proposal is `(None, False)`.
+    """
+    if grocery_key and grocery_key in known:
+        return known[grocery_key], False
+
+    if proposed is None:
+        return None, False
+
+    key = key_for(proposed.name_es)
+    if key in known:
+        return known[key], False
+
+    for name in (proposed.name_es, proposed.name_ca, proposed.name_en):
+        owner = aliases.get(key_for(name))
+        if owner is not None:
+            return known[owner], False
+
+    return (
+        GroceryItem(
+            key=key,
+            name_es=proposed.name_es,
+            name_ca=proposed.name_ca,
+            name_en=proposed.name_en,
+            aisle=proposed.aisle,
+            is_pantry=proposed.is_pantry,
+            default_unit=proposed.default_unit,
+            source=GrocerySource.AI,
+        ),
+        True,
+    )

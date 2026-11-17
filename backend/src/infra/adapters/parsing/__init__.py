@@ -2,8 +2,9 @@ import os
 
 from src.domain.ports import IngredientParser
 from src.infra.adapters.parsing.openai_compatible_parser import FailoverParser, OpenAICompatibleParser
+from src.infra.adapters.parsing.recipe_reader import OpenAICompatibleRecipeReader, build_recipe_reader
 
-__all__ = ["FailoverParser", "OpenAICompatibleParser", "build_ingredient_parser"]
+__all__ = ["FailoverParser", "OpenAICompatibleParser", "OpenAICompatibleRecipeReader", "build_ingredient_parser", "build_recipe_reader"]
 
 # (key env var, base-url env var, model env var).
 #

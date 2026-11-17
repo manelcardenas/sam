@@ -18,6 +18,15 @@ from src.domain.entities.plan_lifecycle import (
     require,
 )
 from src.domain.entities.recipe import QUICK_MINUTES, FoodType, Ingredient, Ingredients, Recipe, RecipeRef, RecipeTag, Viewer, Visibility
+from src.domain.entities.recipe_draft import (
+    DraftIngredient,
+    ReadIngredient,
+    ReadRecipe,
+    RecipeDraft,
+    RecipePage,
+    RecipePageError,
+    RecipeReaderError,
+)
 from src.domain.entities.restaurant import Restaurant, RestaurantDetail, RestaurantFilters, RestaurantSort
 from src.domain.entities.review import Review, ReviewAggregate, UserReview, UserStats
 from src.domain.entities.shopping_list import (
@@ -36,6 +45,7 @@ __all__ = [
     "Aisle",
     "Area",
     "Cuisine",
+    "DraftIngredient",
     "FoodType",
     "GroceryItem",
     "GrocerySource",
@@ -59,7 +69,13 @@ __all__ = [
     "PlanStatus",
     "PlanSummary",
     "ProposedGroceryItem",
+    "ReadIngredient",
+    "ReadRecipe",
     "Recipe",
+    "RecipeDraft",
+    "RecipePage",
+    "RecipePageError",
+    "RecipeReaderError",
     "RecipeRef",
     "RecipeTag",
     "Restaurant",
