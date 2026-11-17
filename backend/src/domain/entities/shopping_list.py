@@ -2,7 +2,7 @@ import unicodedata
 import uuid
 from datetime import date
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def normalise_ingredient_name(name: str) -> str:
@@ -45,6 +45,38 @@ def merge_key(name: str, unit: str | None, grocery_key: str | None = None) -> tu
     return (grocery_key or normalise_ingredient_name(name)), (unit or "").strip().lower()
 
 
+#: Spellings of a weight or a volume, and how many of the base unit each is.
+#: Base units are g and ml: what a kitchen weighs and pours in, and a whole
+#: number for nearly every amount a recipe asks for.
+_CONVERSIONS: dict[str, tuple[str, float]] = {
+    **dict.fromkeys(("g", "gr", "grs", "gramo", "gramos"), ("g", 1)),
+    **dict.fromkeys(("kg", "kgs", "kilo", "kilos", "kilogramo", "kilogramos"), ("g", 1000)),
+    **dict.fromkeys(("ml", "mililitro", "mililitros"), ("ml", 1)),
+    **dict.fromkeys(("cl", "centilitro", "centilitros"), ("ml", 10)),
+    **dict.fromkeys(("l", "lt", "litro", "litros"), ("ml", 1000)),
+}
+
+
+def canonical_unit(unit: str | None) -> tuple[str | None, float]:
+    """The unit a line is stored in, and the factor to get there (ADR-0009 §5).
+
+    **Weights become grams and volumes millilitres**, so 500 g and 1 kg of carne
+    are one line of 1500 g, which the list shows as 1,5 kg. Anything else — pieces,
+    lonchas, latas — is kept as written, trimmed: there is no honest conversion
+    from a tin to a gram.
+    """
+    if unit is None or not unit.strip():
+        return None, 1
+    written = unit.strip()
+    base = _CONVERSIONS.get(written.lower())
+    return (base[0], base[1]) if base else (written, 1)
+
+
+def _scaled(amount: float | None, factor: float) -> float | None:
+    # Rounded so 0.3 kg is 300 g rather than 299.99999999999994.
+    return None if amount is None else round(amount * factor, 3)
+
+
 class ListItemSource(BaseModel):
     """Why a line is on the list, and how much of it this dish accounts for.
 
@@ -77,6 +109,24 @@ class ShoppingListItem(BaseModel):
     sources: list[ListItemSource] = Field(default_factory=list)
     created_by: str | None = None
     created_by_name: str | None = None
+
+    @model_validator(mode="after")
+    def _in_canonical_unit(self) -> "ShoppingListItem":
+        """Every line is stored in g or ml when it is a weight or a volume — whoever built it.
+
+        On the entity rather than in each route that writes lines, so the three
+        that do (a dish, a resync, a hand-typed extra) cannot disagree, and a
+        line read back from the database passes through unchanged. Each dish's
+        share is converted with the total, so removing the dish still subtracts
+        exactly what it added.
+        """
+        unit, factor = canonical_unit(self.unit)
+        self.unit = unit
+        if factor != 1:
+            self.total_amount = _scaled(self.total_amount, factor)
+            for source in self.sources:
+                source.amount = _scaled(source.amount, factor)
+        return self
 
 
 def sort_items(items: list[ShoppingListItem]) -> list[ShoppingListItem]:

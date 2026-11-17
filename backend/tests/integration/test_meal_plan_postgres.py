@@ -179,7 +179,8 @@ class TestCarryingForward:
         assert repository.carry_forward(kitchen, this.id, self.THIS_WEEK) == 1
 
         sugar = repository.get_plan(this.id).items[0]
-        assert (sugar.display_name, sugar.total_amount, sugar.pending_since) == ("Azúcar", 1, self.LAST_WEEK)
+        # kg is stored as g since ADR-0009 §5.
+        assert (sugar.display_name, sugar.total_amount, sugar.pending_since) == ("Azúcar", 1000, self.LAST_WEEK)
         assert [s.dish_name for s in sugar.sources] == ["Tortilla"]
         assert [i.display_name for i in repository.get_plan(last.id).items] == ["Pan"]
         assert repository.count_pending_before(kitchen, self.THIS_WEEK) == 0
@@ -194,7 +195,7 @@ class TestCarryingForward:
         repository.carry_forward(kitchen, this.id, self.THIS_WEEK)
 
         (sugar,) = repository.get_plan(this.id).items
-        assert sugar.total_amount == 3
+        assert sugar.total_amount == 3000
         assert sugar.is_checked is False
         assert sorted(s.dish_name for s in sugar.sources) == ["Bizcocho", "Flan"]
         assert repository.get_plan(last.id).items == []

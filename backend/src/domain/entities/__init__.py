@@ -32,6 +32,7 @@ from src.domain.entities.review import Review, ReviewAggregate, UserReview, User
 from src.domain.entities.shopping_list import (
     ListItemSource,
     ShoppingListItem,
+    canonical_unit,
     merge_key,
     normalise_ingredient_name,
     sort_items,
@@ -91,6 +92,7 @@ __all__ = [
     "Viewer",
     "Visibility",
     "aisle_order",
+    "canonical_unit",
     "is_member",
     "key_for",
     "merge_key",

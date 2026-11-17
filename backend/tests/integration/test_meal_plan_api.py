@@ -1421,7 +1421,8 @@ class TestTheListKeepsGoing:
         # Still "from Lentejas": that is the answer to "why is this here?".
         assert [s["dish_name"] for s in sugar["sources"]] == ["Lentejas"]
         assert sugar["pending_since"] == self.LAST_SATURDAY.isoformat()
-        assert (sugar["total_amount"], sugar["unit"]) == (1, "kg")
+        # Stored in grams since ADR-0009 §5; the list shows it as 1 kg.
+        assert (sugar["total_amount"], sugar["unit"]) == (1000, "g")
 
     def test_something_carried_twice_keeps_its_first_week(self, client: TestClient) -> None:
         """Three weeks without sugar should read as three weeks, not one."""
@@ -1440,7 +1441,7 @@ class TestTheListKeepsGoing:
         sugar = _item(self._carry(client), "Azúcar")
 
         # One line, summed — and unticked, because a kilo of it is still to buy.
-        assert sugar["total_amount"] == 3
+        assert sugar["total_amount"] == 3000
         assert sugar["is_checked"] is False
         assert [s["dish_name"] for s in sugar["sources"]] == ["Lentejas"]
 
