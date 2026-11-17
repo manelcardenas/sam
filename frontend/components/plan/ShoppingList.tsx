@@ -10,6 +10,7 @@ import { PersonMark } from "@/components/ui/PersonMark";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { byKey, displayName, groceryFor, groupByAisle, nameFor, readQuantity, suggest, type TypedLine } from "@/lib/grocery";
 import { formatDayAndMonth, formatWeekday } from "@/lib/format";
+import { formatAmount } from "@/lib/plan-ingredients";
 
 /**
  * The list you walk into the shop with.
@@ -231,7 +232,7 @@ export function ShoppingList({
               quantity and not as part of the name. */}
           {typed.amount != null && (
             <p aria-live="polite" className="px-1 text-xs text-muted">
-              {t("plan.typed-amount", { amount: formatQuantity(typed.amount, typed.unit), name: typed.name })}
+              {t("plan.typed-amount", { amount: formatQuantity(typed.amount, typed.unit, locale), name: typed.name })}
             </p>
           )}
 
@@ -326,7 +327,7 @@ function Line({
       }),
     ).values(),
   ];
-  const amount = item.total_amount != null ? formatQuantity(item.total_amount, item.unit) : null;
+  const amount = item.total_amount != null ? formatQuantity(item.total_amount, item.unit, locale) : null;
 
   return (
     <li
@@ -477,8 +478,8 @@ function Line({
 }
 
 /** "4", "500 g", "1.5 kg" — how a quantity reads on the list. */
-function formatQuantity(amount: number, unit: string | null): string {
-  return `${amount}${unit ? ` ${unit}` : ""}`;
+function formatQuantity(amount: number, unit: string | null, locale: string): string {
+  return formatAmount(amount, unit, locale) ?? "";
 }
 
 /**

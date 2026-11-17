@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findExistingLine, formatAmount, linesFromEntry, normaliseName, scaleIngredients } from "./plan-ingredients";
+import { canonicalUnit, findExistingLine, formatAmount, isTicked, linesFromEntry, normaliseName, scaleIngredients } from "./plan-ingredients";
 import type { IngredientsData, ShoppingListItem } from "@/lib/api-client";
 
 const recipe = (servings: number | null, items: IngredientsData["items"]): IngredientsData => ({ servings, items });
@@ -173,5 +173,35 @@ describe("linesFromEntry", () => {
     const manual = item({ id: "a", is_manual: true, sources: [] });
 
     expect(linesFromEntry([manual], { id: "e1" })).toEqual([]);
+  });
+});
+
+describe("units on the list (ADR 0009 §5)", () => {
+  it("canonicalises weights and volumes like the server", () => {
+    expect(canonicalUnit("Kg")).toEqual({ unit: "g", factor: 1000 });
+    expect(canonicalUnit("cl")).toEqual({ unit: "ml", factor: 10 });
+    expect(canonicalUnit(" Lonchas ")).toEqual({ unit: "Lonchas", factor: 1 });
+    expect(canonicalUnit("")).toEqual({ unit: null, factor: 1 });
+  });
+
+  it("finds the list's grams for a recipe's kilos", () => {
+    const onList = { grocery_key: "carne", normalised_name: "carne", unit: "g" } as ShoppingListItem;
+
+    expect(findExistingLine([onList], { key: "carne", unit: "kg" })).toBe(onList);
+  });
+
+  it("shows kilos and litres from 1000 up, in the reader's locale", () => {
+    expect(formatAmount(1500, "g", "es")).toBe("1,5 kg");
+    expect(formatAmount(750, "g", "es")).toBe("750 g");
+    expect(formatAmount(1200, "ml", "en")).toBe("1.2 l");
+    expect(formatAmount(3, null, "ca")).toBe("3");
+  });
+
+  it("marks optional lines so they start unticked", () => {
+    const [corn, meat] = scaleIngredients({ servings: 1, items: [{ name: "maíz", optional: true }, { name: "carne", amount: 150, unit: "g" }] }, 2);
+
+    expect(isTicked(corn, new Set())).toBe(false);
+    expect(isTicked(meat, new Set())).toBe(true);
+    expect(isTicked(corn, new Set([corn.id]))).toBe(true);
   });
 });

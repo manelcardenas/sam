@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CircleAlert, Plus, Trash2 } from "lucide-react";
-import { apiClient, type Aisle, type ParsedIngredientLine } from "@/lib/api-client";
+import { apiClient, type Aisle, type ParsedIngredientLine, type ProposedGroceryItem } from "@/lib/api-client";
 import { AisleIcon } from "@/components/AisleIcon";
 import { AislePicker } from "@/components/AislePicker";
 import { DeepSeekMark } from "@/components/brand/DeepSeekMark";
@@ -48,6 +48,8 @@ export interface CaptureRow {
   aisle?: Aisle;
   isPantry?: boolean;
   isNew?: boolean;
+  /** What saving would add to the vocabulary for a new row — nothing is written before (ADR 0009 §8). */
+  newItem?: ProposedGroceryItem;
   didYouMean?: string[];
   /**
    * What the vocabulary says this is normally measured in — `g`, `ml`, or absent
@@ -81,6 +83,7 @@ export function rowsFromParsed(lines: ParsedIngredientLine[], locale: string, ne
     aisle: line.item.aisle,
     isPantry: line.item.is_pantry,
     isNew: line.is_new,
+    newItem: line.new_item ?? undefined,
     didYouMean: line.did_you_mean,
     defaultUnit: line.item.default_unit ?? undefined,
   }));
@@ -255,7 +258,7 @@ export function IngredientCapture({
             <input
               type="text"
               value={row.name}
-              onChange={(e) => update(row.id, { name: e.target.value, groceryKey: undefined })}
+              onChange={(e) => update(row.id, { name: e.target.value, groceryKey: undefined, isNew: false, newItem: undefined })}
               aria-label={t("recipe-form.ingredient-name")}
               className={`${fieldClass} min-w-0 flex-1`}
             />
@@ -299,7 +302,7 @@ export function IngredientCapture({
           {(row.aisle || row.isNew || row.isPantry) && (
             <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-3 text-[0.7rem] text-muted">
               {row.aisle &&
-                (row.groceryKey ? (
+                (row.groceryKey && !row.isNew ? (
                   <button
                     type="button"
                     onClick={() => setPicking(picking === row.id ? null : row.id)}

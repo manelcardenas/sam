@@ -21,6 +21,19 @@ export interface ScaledLine {
   label: string | null;
   /** The merge key's name half, so the popup can find the line already on the list. */
   key: string;
+  /** Sometimes goes in: starts unticked (ADR 0009 §2). */
+  optional: boolean;
+}
+
+/**
+ * Whether a line goes on the list, given which ones the person flipped.
+ *
+ * Every line starts in its default — ticked, or unticked when the recipe calls
+ * it optional — and a tap flips it. Storing the flips rather than the ticks is
+ * what lets one set mean the right thing for both kinds.
+ */
+export function isTicked(line: Pick<ScaledLine, "id" | "optional">, flipped: Set<string>): boolean {
+  return line.optional ? flipped.has(line.id) : !flipped.has(line.id);
 }
 
 /**
@@ -66,29 +79,42 @@ export function scaleIngredients(ingredients: IngredientsData, wanted: number): 
       // list line's null total.
       label: amount != null ? `${amount}${unit ? ` ${unit}` : ""}` : null,
       key: normaliseName(item.name),
+      optional: Boolean(item.optional),
     };
   });
 }
 
 
 /**
+ * The unit a list line is stored in — the client's copy of the backend's
+ * `canonical_unit` (ADR 0009 §5). Weights become grams and volumes
+ * millilitres, so a recipe's 1 kg finds the list's 500 g; anything else is
+ * kept as written. The two copies must agree, or the popup's "already on the
+ * list" points at a different line than the one the server merges into.
+ */
+const CONVERSIONS: Record<string, [string, number]> = {
+  ...Object.fromEntries(["g", "gr", "grs", "gramo", "gramos"].map((u) => [u, ["g", 1] as [string, number]])),
+  ...Object.fromEntries(["kg", "kgs", "kilo", "kilos", "kilogramo", "kilogramos"].map((u) => [u, ["g", 1000] as [string, number]])),
+  ...Object.fromEntries(["ml", "mililitro", "mililitros"].map((u) => [u, ["ml", 1] as [string, number]])),
+  ...Object.fromEntries(["cl", "centilitro", "centilitros"].map((u) => [u, ["ml", 10] as [string, number]])),
+  ...Object.fromEntries(["l", "lt", "litro", "litros"].map((u) => [u, ["ml", 1000] as [string, number]])),
+};
+
+export function canonicalUnit(unit: string | null | undefined): { unit: string | null; factor: number } {
+  const written = unit?.trim();
+  if (!written) return { unit: null, factor: 1 };
+  const base = CONVERSIONS[written.toLowerCase()];
+  return base ? { unit: base[0], factor: base[1] } : { unit: written, factor: 1 };
+}
+
+/**
  * The list line this ingredient would merge into, if any.
  *
  * **This is the client's copy of the server's `merge_key`**, and the two have to
- * agree exactly. The popup uses it to show *"already on the list: 3"* before you
- * decide; the server uses its own to decide which row actually receives the
- * amount. If they disagree, the annotation points at a different row than the
- * one that gets updated — which is worse than no annotation, because it is
- * confidently wrong.
- *
- * `?? ""` on both sides is the `COALESCE(unit, '')` from the SQL index: a line
- * with no unit and a line with an empty unit are the same line, and most
- * household ingredients have no unit at all.
- *
- * `groceryKey` is the identity half of that same COALESCE, and passing the
- * vocabulary in is what keeps this honest across languages: without it, an
- * `Onion` line already on the list would not be found for a recipe's `cebolla`,
- * and the popup would say "new" about something it is about to merge into.
+ * agree exactly: identity is the vocabulary key when there is one (so `Onion`
+ * on the list is found for a recipe's `cebolla`), and the unit is compared
+ * canonical and case-blind (so 1 kg finds 500 g, and `Lonchas` finds
+ * `lonchas`).
  */
 export function findExistingLine(
   items: ShoppingListItem[],
@@ -96,13 +122,25 @@ export function findExistingLine(
   groceryKey?: string | null,
 ): ShoppingListItem | undefined {
   const identity = groceryKey ?? line.key;
-  return items.find((item) => (item.grocery_key ?? item.normalised_name) === identity && (item.unit ?? "") === (line.unit ?? ""));
+  const unit = (canonicalUnit(line.unit).unit ?? "").toLowerCase();
+  return items.find((item) => (item.grocery_key ?? item.normalised_name) === identity && (canonicalUnit(item.unit).unit ?? "").toLowerCase() === unit);
 }
 
-/** How the list shows a quantity, or null when there isn't one. */
-export function formatAmount(amount: number | null, unit: string | null): string | null {
+/**
+ * How the list shows a quantity, or null when there isn't one.
+ *
+ * Stored in grams and millilitres, shown in kilos and litres from 1000 up —
+ * "1,5 kg" reads at the shelf, "1500 g" has to be worked out. With the
+ * reader's locale, so Catalan and Spanish get their decimal comma.
+ */
+export function formatAmount(amount: number | null, unit: string | null, locale?: string): string | null {
   if (amount == null) return null;
-  return `${amount}${unit ? ` ${unit}` : ""}`;
+  let value = amount;
+  let shown = unit;
+  if (unit === "g" && amount >= 1000) [value, shown] = [amount / 1000, "kg"];
+  else if (unit === "ml" && amount >= 1000) [value, shown] = [amount / 1000, "l"];
+  const number = locale ? new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value) : String(Math.round(value * 100) / 100);
+  return `${number}${shown ? ` ${shown}` : ""}`;
 }
 
 /** List lines this slot put there. Drives the "already added?" tick on the week grid. */

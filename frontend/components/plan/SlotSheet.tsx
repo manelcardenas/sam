@@ -6,7 +6,7 @@ import { ArrowUpRight, Check, Minus, Package, Plus, Search, Sparkles, StickyNote
 import type { CreateRecipeInput, GroceryItem, MealPlan, PlanEntry, Recipe } from "@/lib/api-client";
 import type { FoodType } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
-import { findExistingLine, formatAmount, linesFromEntry, scaleIngredients, type ScaledLine } from "@/lib/plan-ingredients";
+import { findExistingLine, formatAmount, isTicked, linesFromEntry, scaleIngredients, type ScaledLine } from "@/lib/plan-ingredients";
 import { RecipeFilterChips } from "@/components/recipes/RecipeFilterChips";
 import { NO_FILTERS, filterRecipes, type RecipeFilterState } from "@/lib/recipe-filters";
 import { IngredientCapture, type CaptureRow } from "@/components/IngredientCapture";
@@ -101,7 +101,7 @@ export function SlotSheet({
   /** For ordering the author chips — you come first in your own collection. */
   currentUserId: string | null;
 }) {
-  const { t, tp } = useI18n();
+  const { t, tp, locale } = useI18n();
   const [step, setStep] = useState<Step>(preselect || entries.length === 0 ? "pick" : "dishes");
   // Same shape `/dashboard` holds, through the same component. Deliberately
   // *not* the same instance: the sheet is mounted per open, so it always starts
@@ -113,7 +113,7 @@ export function SlotSheet({
   // is the number of people actually eating.
   const [servings, setServings] = useState(entries.length > 0 ? Math.max(...entries.map((e) => e.servings)) : 2);
   const [busy, setBusy] = useState(false);
-  const [unticked, setUnticked] = useState<Set<string>>(new Set());
+  const [flipped, setFlipped] = useState<Set<string>>(new Set());
   // The dish whose ingredients are open, when that is an existing one. Held
   // locally so the step works before the parent has refetched.
   const [working, setWorking] = useState<PlanEntry | undefined>(undefined);
@@ -155,7 +155,7 @@ export function SlotSheet({
     () => (source ? scaleIngredients(source.ingredients, live?.servings ?? servings) : []),
     [source, live?.servings, servings],
   );
-  const chosen = lines.filter((l) => !unticked.has(l.id));
+  const chosen = lines.filter((l) => isTicked(l, flipped));
 
   const aliases = useMemo(() => byKey(vocabulary), [vocabulary]);
   const shown = useMemo(() => filterRecipes(recipes, filters), [recipes, filters]);
@@ -166,11 +166,11 @@ export function SlotSheet({
     if (!existing) return null;
     // A line already there with no quantity still deserves saying so — "sal" is
     // on the list even though the list cannot say how much.
-    return formatAmount(existing.total_amount, existing.unit) ?? "✓";
+    return formatAmount(existing.total_amount, existing.unit, locale) ?? "✓";
   };
 
   const toggleLine = (id: string) =>
-    setUnticked((prev) => {
+    setFlipped((prev) => {
       const next = new Set(prev);
       if (!next.delete(id)) next.add(id);
       return next;
@@ -180,7 +180,7 @@ export function SlotSheet({
     setPicked(recipe);
     // Unticks belong to the recipe they were made on; carrying them to the next
     // one would untick its line 2 because the last one's line 2 was salt.
-    setUnticked(new Set());
+    setFlipped(new Set());
   };
 
   const backToDishes = () => {
@@ -236,7 +236,13 @@ export function SlotSheet({
   };
 
   const typed = rows
-    .map((row) => ({ name: row.name.trim(), amount: row.amount.trim() ? Number(row.amount) : undefined, unit: row.unit.trim() || undefined }))
+    .map((row) => ({
+      name: row.name.trim(),
+      amount: row.amount.trim() ? Number(row.amount) : undefined,
+      unit: row.unit.trim() || undefined,
+      // A product the vocabulary does not have yet joins it when this is saved (ADR 0009 §8).
+      new_item: row.isNew ? row.newItem : undefined,
+    }))
     .filter((item) => item.name.length > 0);
   // Ready-made, the thing you buy *is* the ingredient: one of it, for however
   // many people one of it feeds. Scaling does the rest — a tub for two is two
@@ -420,7 +426,7 @@ export function SlotSheet({
               onDismissResync={() => setListBuiltFor(null)}
               onOpen={(chosenEntry) => {
                 setWorking(chosenEntry);
-                setUnticked(new Set());
+                setFlipped(new Set());
                 setStep("ingredients");
               }}
               onRemove={(chosenEntry) => {
@@ -442,7 +448,7 @@ export function SlotSheet({
               onPick={pick}
               inSlot={inSlot}
               lines={lines}
-              unticked={unticked}
+              flipped={flipped}
               onToggle={toggleLine}
               alreadyOnList={alreadyOnList}
               listEditable={listEditable}
@@ -479,7 +485,7 @@ export function SlotSheet({
                   <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
                 </Link>
               )}
-              <IngredientChecklist lines={lines} unticked={unticked} onToggle={toggleLine} alreadyOnList={alreadyOnList} />
+              <IngredientChecklist lines={lines} flipped={flipped} onToggle={toggleLine} alreadyOnList={alreadyOnList} />
               {listedCount > 0 && (
                 <p className="rounded-2xl bg-surface-2 px-4 py-2.5 text-xs text-muted">
                   {t("plan.dish-on-list")} · {listedCount}
@@ -740,7 +746,7 @@ function PickStep({
   onPick,
   inSlot,
   lines,
-  unticked,
+  flipped,
   onToggle,
   alreadyOnList,
   listEditable,
@@ -762,7 +768,7 @@ function PickStep({
   inSlot: Set<string>;
   /** The picked recipe's ingredients, scaled to the slot. */
   lines: ScaledLine[];
-  unticked: Set<string>;
+  flipped: Set<string>;
   onToggle: (id: string) => void;
   alreadyOnList: (line: ScaledLine) => string | null;
   listEditable: boolean;
@@ -840,7 +846,7 @@ function PickStep({
                 {on && listEditable && lines.length > 0 && (
                   <div className="border-t border-accent/20 px-3 pb-3 pt-2.5">
                     <p className="mb-1.5 px-1 text-xs text-muted">{t("plan.ingredients-body")}</p>
-                    <IngredientChecklist lines={lines} unticked={unticked} onToggle={onToggle} alreadyOnList={alreadyOnList} />
+                    <IngredientChecklist lines={lines} flipped={flipped} onToggle={onToggle} alreadyOnList={alreadyOnList} />
                   </div>
                 )}
               </li>
@@ -1024,12 +1030,12 @@ function Stepper({ label, onClick, disabled, icon }: { label: string; onClick: (
  */
 function IngredientChecklist({
   lines,
-  unticked,
+  flipped,
   onToggle,
   alreadyOnList,
 }: {
   lines: ScaledLine[];
-  unticked: Set<string>;
+  flipped: Set<string>;
   onToggle: (id: string) => void;
   alreadyOnList: (line: ScaledLine) => string | null;
 }) {
@@ -1042,14 +1048,17 @@ function IngredientChecklist({
   return (
     <ul className="space-y-0.5">
       {lines.map((line) => {
-        const on = !unticked.has(line.id);
+        const on = isTicked(line, flipped);
         const existing = alreadyOnList(line);
         return (
           <li key={line.id}>
             <label className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-surface-2">
               <input type="checkbox" checked={on} onChange={() => onToggle(line.id)} className="h-5 w-5 shrink-0 cursor-pointer accent-accent" />
               <span className="min-w-0 flex-1">
-                <span className={`block text-sm ${on ? "text-fg" : "text-muted line-through"}`}>{line.name}</span>
+                <span className={`block text-sm ${on ? "text-fg" : "text-muted line-through"}`}>
+                  {line.name}
+                  {line.optional && <span className="ml-1.5 text-xs font-semibold text-muted no-underline">· {t("recipe-form.optional").toLowerCase()}</span>}
+                </span>
                 {existing && (
                   // The running total before you decide, not after — §4.6's
                   // annotation. Unticks are deliberately not remembered across
