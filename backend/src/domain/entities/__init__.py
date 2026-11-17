@@ -17,7 +17,7 @@ from src.domain.entities.plan_lifecycle import (
     permits,
     require,
 )
-from src.domain.entities.recipe import FoodType, Ingredient, Ingredients, Recipe, RecipeRef
+from src.domain.entities.recipe import QUICK_MINUTES, FoodType, Ingredient, Ingredients, Recipe, RecipeRef, RecipeTag, Viewer, Visibility
 from src.domain.entities.restaurant import Restaurant, RestaurantDetail, RestaurantFilters, RestaurantSort
 from src.domain.entities.review import Review, ReviewAggregate, UserReview, UserStats
 from src.domain.entities.shopping_list import (
@@ -32,6 +32,7 @@ from src.domain.entities.week import DAYS_IN_WEEK, week_start_for
 
 __all__ = [
     "DAYS_IN_WEEK",
+    "QUICK_MINUTES",
     "Aisle",
     "Area",
     "Cuisine",
@@ -60,6 +61,7 @@ __all__ = [
     "ProposedGroceryItem",
     "Recipe",
     "RecipeRef",
+    "RecipeTag",
     "Restaurant",
     "RestaurantDetail",
     "RestaurantFilters",
@@ -70,6 +72,8 @@ __all__ = [
     "User",
     "UserReview",
     "UserStats",
+    "Viewer",
+    "Visibility",
     "aisle_order",
     "is_member",
     "key_for",

@@ -17,6 +17,9 @@ class ProposedGroceryItem(BaseModel):
     name_en: str = Field(min_length=1, max_length=255)
     aisle: Aisle
     is_pantry: bool = False
+    #: `g`, `ml`, or None for something counted — so the next recipe that uses
+    #: it gets the same unit (ADR-0009 §5).
+    default_unit: str | None = Field(default=None, max_length=50)
 
 
 class ParsedLine(BaseModel):

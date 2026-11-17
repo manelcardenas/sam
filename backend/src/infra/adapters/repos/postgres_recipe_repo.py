@@ -1,9 +1,10 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.domain.entities import Recipe
+from src.domain.entities import Recipe, Viewer, Visibility
 from src.domain.ports import RecipeRepository
 from src.infra.db import RecipeModel
 
@@ -29,6 +30,9 @@ class PostgresRecipeRepository(RecipeRepository):
             source_url=str(model.source_url) if model.source_url else None,
             prep_time_minutes=model.prep_time_minutes,
             cook_time_minutes=model.cook_time_minutes,
+            tags=model.tags,
+            visibility=model.visibility,
+            kitchen_id=str(model.kitchen_id) if model.kitchen_id else None,
             created_by=model.created_by,
             created_by_name=model.creator.display_name if model.creator else None,
             created_at=model.created_at.isoformat(),
@@ -45,6 +49,9 @@ class PostgresRecipeRepository(RecipeRepository):
                 source_url=recipe.source_url,
                 prep_time_minutes=recipe.prep_time_minutes,
                 cook_time_minutes=recipe.cook_time_minutes,
+                tags=[tag.value for tag in recipe.tags],
+                visibility=recipe.visibility,
+                kitchen_id=uuid.UUID(recipe.kitchen_id) if recipe.kitchen_id else None,
                 created_by=recipe.created_by,
             )
             session.add(model)
@@ -59,11 +66,18 @@ class PostgresRecipeRepository(RecipeRepository):
                 return None
             return self._to_entity(model)
 
-    def list_recipes(self, created_by: str | None = None) -> list[Recipe]:
+    def list_recipes(self, created_by: str | None = None, viewer: Viewer | None = None) -> list[Recipe]:
         with self._session_factory() as session:
             query = session.query(RecipeModel)
             if created_by is not None:
                 query = query.filter(RecipeModel.created_by == created_by)
+            if viewer is not None:
+                # `Recipe.visible_to`, in SQL. The two must agree; the in-memory
+                # repo runs the Python one, and the Postgres suite pins this one.
+                visible = [RecipeModel.visibility == Visibility.PUBLIC, RecipeModel.created_by == viewer.user_id]
+                if viewer.kitchen_id is not None:
+                    visible.append(RecipeModel.kitchen_id == uuid.UUID(viewer.kitchen_id))
+                query = query.filter(or_(*visible))
             return [self._to_entity(m) for m in query.all()]
 
     def update_recipe(self, recipe: Recipe) -> Recipe:
@@ -78,6 +92,9 @@ class PostgresRecipeRepository(RecipeRepository):
             model.source_url = recipe.source_url
             model.prep_time_minutes = recipe.prep_time_minutes
             model.cook_time_minutes = recipe.cook_time_minutes
+            model.tags = [tag.value for tag in recipe.tags]
+            model.visibility = recipe.visibility
+            model.kitchen_id = uuid.UUID(recipe.kitchen_id) if recipe.kitchen_id else None
             model.updated_at = datetime.now(UTC)
             session.commit()
             session.refresh(model)

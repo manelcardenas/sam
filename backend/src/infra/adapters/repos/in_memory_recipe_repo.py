@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from src.domain.entities import Recipe
+from src.domain.entities import Recipe, Viewer
 from src.domain.ports import RecipeRepository
 
 
@@ -24,11 +24,13 @@ class InMemoryRecipeRepository(RecipeRepository):
             return None
         return Recipe(**recipe_data)
 
-    def list_recipes(self, created_by: str | None = None) -> list[Recipe]:
+    def list_recipes(self, created_by: str | None = None, viewer: Viewer | None = None) -> list[Recipe]:
         recipes = []
         for recipe_data in self.table.values():
             recipe = Recipe(**recipe_data)
             if created_by is not None and recipe.created_by != created_by:
+                continue
+            if viewer is not None and not recipe.visible_to(viewer):
                 continue
             recipes.append(recipe)
         return recipes

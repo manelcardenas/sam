@@ -84,7 +84,7 @@ def create_app() -> FastAPI:
     places_provider = GeoapifyPlacesProvider(api_key=resolve_geoapify_api_key())
 
     router = APIRouter()
-    RecipeController(recipe_repository, router)
+    RecipeController(recipe_repository, router, kitchen_repository, grocery_repository)
     UserController(user_repository, review_repository, router)
     RestaurantController(restaurant_repository, review_repository, cuisine_repository, router)
     PlacesController(places_provider, router)

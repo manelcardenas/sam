@@ -31,6 +31,7 @@ from src.app.use_cases.list_reviews import ListReviews
 from src.app.use_cases.list_user_reviews import ListUserReviews
 from src.app.use_cases.nearby_places import NearbyPlaces
 from src.app.use_cases.parse_ingredients import ParseIngredients
+from src.app.use_cases.remember_groceries import RememberGroceries
 from src.app.use_cases.remove_dish import RemoveDish
 from src.app.use_cases.remove_from_kitchen import RemoveFromKitchen
 from src.app.use_cases.remove_list_item import RemoveListItem
@@ -82,6 +83,7 @@ __all__ = [
     "ListUserReviews",
     "NearbyPlaces",
     "ParseIngredients",
+    "RememberGroceries",
     "RemoveDish",
     "RemoveFromKitchen",
     "RemoveListItem",

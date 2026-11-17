@@ -2,10 +2,10 @@ from datetime import date, datetime
 from uuid import UUID as PythonUUID  # noqa: N811 — alias avoids collision with SQLAlchemy's UUID dialect type
 
 from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, Numeric, String, Table, Text, func, text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.domain.entities import Aisle, FoodType, GrocerySource, Meal, PlanStatus
+from src.domain.entities import Aisle, FoodType, GrocerySource, Meal, PlanStatus, Visibility
 from src.infra.db.base import Base
 
 
@@ -46,6 +46,21 @@ class RecipeModel(Base):
     # Timing
     prep_time_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cook_time_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # `RecipeTag` values. Plain text in an array rather than a Postgres enum: the
+    # set is meant to change as the kitchen learns which tags it uses, and adding
+    # a value to an enum type is a migration while adding one here is not. The
+    # domain enum is what validates.
+    tags: Mapped[list[str]] = mapped_column(ARRAY(String(32)), nullable=False, server_default=text("'{}'"), comment="RecipeTag values — see the domain enum")
+    visibility: Mapped[Visibility] = mapped_column(
+        Enum(Visibility, name="recipe_visibility_enum", values_callable=lambda enum: [member.value for member in enum]),
+        nullable=False,
+        server_default="public",
+        comment="kitchen = a household's simple recipe, seen only there (ADR-0009 §2)",
+    )
+    # SET NULL rather than CASCADE: a kitchen disappearing must not delete what
+    # somebody wrote. The recipe falls back to being seen by its author only.
+    kitchen_id: Mapped[PythonUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("kitchens.id", ondelete="SET NULL"), nullable=True, index=True)
 
     created_by: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

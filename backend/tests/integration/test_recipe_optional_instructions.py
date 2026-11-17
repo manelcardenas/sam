@@ -17,6 +17,8 @@ from fastapi import APIRouter, FastAPI
 from starlette.testclient import TestClient
 
 from src.domain.entities import Ingredient, Ingredients, Recipe
+from src.infra.adapters.repos.in_memory_grocery_repo import InMemoryGroceryRepository
+from src.infra.adapters.repos.in_memory_kitchen_repo import InMemoryKitchenRepository
 from src.infra.adapters.repos.in_memory_recipe_repo import InMemoryRecipeRepository
 from src.infra.controllers import RecipeController
 from src.infra.security import TokenPayload, get_current_user
@@ -38,7 +40,7 @@ def repository() -> InMemoryRecipeRepository:
 @pytest.fixture
 def client(repository: InMemoryRecipeRepository) -> TestClient:
     router = APIRouter()
-    RecipeController(repository, router)
+    RecipeController(repository, router, InMemoryKitchenRepository(), InMemoryGroceryRepository())
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_current_user] = lambda: TokenPayload(sub=CALLER, email="n@example.com", exp=9999999999)

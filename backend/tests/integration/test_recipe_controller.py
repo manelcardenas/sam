@@ -10,6 +10,8 @@ validation error. Regression test for that 500 on create/update with a source.
 import pytest
 from fastapi import APIRouter, HTTPException
 
+from src.infra.adapters.repos.in_memory_grocery_repo import InMemoryGroceryRepository
+from src.infra.adapters.repos.in_memory_kitchen_repo import InMemoryKitchenRepository
 from src.infra.adapters.repos.in_memory_recipe_repo import InMemoryRecipeRepository
 from src.infra.controllers.recipe_controller import RecipeController
 from src.infra.controllers.schemas import CreateRecipeRequest, UpdateRecipeRequest
@@ -22,7 +24,7 @@ INGREDIENTS = {"servings": 2, "items": [{"name": "flour"}]}
 
 
 def _controller() -> RecipeController:
-    return RecipeController(InMemoryRecipeRepository(), APIRouter())
+    return RecipeController(InMemoryRecipeRepository(), APIRouter(), InMemoryKitchenRepository(), InMemoryGroceryRepository())
 
 
 def test_create_recipe_with_source_url_returns_str() -> None:

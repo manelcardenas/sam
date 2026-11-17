@@ -2,7 +2,19 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
-from src.domain.entities import Ingredient
+from src.domain.entities import Ingredient, ProposedGroceryItem, RecipeTag, Visibility
+
+
+class IngredientInput(Ingredient):
+    """An ingredient as the form sends it: the stored fields, plus what it may add to the vocabulary.
+
+    `new_item` is the model's proposal for a product the vocabulary does not have
+    yet, carried through the review untouched. It is **not stored on the recipe**
+    — saving turns it into a vocabulary row (`RememberGroceries`) and the recipe
+    keeps only the name, as every ingredient always has.
+    """
+
+    new_item: ProposedGroceryItem | None = None
 
 
 class IngredientsInput(BaseModel):
@@ -14,7 +26,7 @@ class IngredientsInput(BaseModel):
     """
 
     servings: int = Field(ge=1, description="Number of people the ingredient amounts are sized for.")
-    items: list[Ingredient]
+    items: list[IngredientInput]
 
     model_config = {
         "json_schema_extra": {
@@ -51,8 +63,10 @@ class CreateRecipeRequest(BaseModel):
     ingredients: IngredientsInput
     food_type: Literal["bebida", "postre", "comida", "aperitivo", "guarnicion"]
     source_url: HttpUrl | None = None
-    prep_time_minutes: int | None = None
-    cook_time_minutes: int | None = None
+    prep_time_minutes: int | None = Field(default=None, ge=0, le=10_000)
+    cook_time_minutes: int | None = Field(default=None, ge=0, le=10_000)
+    tags: list[RecipeTag] = Field(default_factory=list)
+    visibility: Visibility = Visibility.PUBLIC
     created_by: str | None = None
 
     _normalise_instructions = field_validator("instructions")(_blank_to_none)
@@ -70,7 +84,9 @@ class UpdateRecipeRequest(BaseModel):
     ingredients: IngredientsInput
     food_type: Literal["bebida", "postre", "comida", "aperitivo", "guarnicion"]
     source_url: HttpUrl | None = None
-    prep_time_minutes: int | None = None
-    cook_time_minutes: int | None = None
+    prep_time_minutes: int | None = Field(default=None, ge=0, le=10_000)
+    cook_time_minutes: int | None = Field(default=None, ge=0, le=10_000)
+    tags: list[RecipeTag] = Field(default_factory=list)
+    visibility: Visibility = Visibility.PUBLIC
 
     _normalise_instructions = field_validator("instructions")(_blank_to_none)
