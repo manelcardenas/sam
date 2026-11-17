@@ -5,7 +5,8 @@
 Two different things:
 
 1. **A photo of a recipe → text.** No storage: the image goes to a vision model and is thrown
-   away. Part of [better ingredient capture](./TODO_ingredient-capture-v2.md).
+   away. Built in Phase 1 of the plan redesign, slice 6
+   ([spec](../plans/meal-plan-phase-1.md)).
 2. **Photos as content:** dishes, restaurants, profile pictures. Needs storage, upload and display.
 
 ## What 2 costs (prices checked 2026-11-14)
