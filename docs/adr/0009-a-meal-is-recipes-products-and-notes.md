@@ -59,18 +59,30 @@ for food that is already cooked or frozen.
 This replaces the "ready-made" recipe of meal-planner-plan §8.14, a fake recipe whose only
 ingredient was its own title. **A product is never a recipe** (§8.15 A, now decided).
 
-### 2. Quick recipes belong to the kitchen; full recipes stay public
+### 2. Simple recipes belong to the kitchen; full recipes stay public
 
-A meal you put together can be kept with **"Guardar como receta"**: a title and its products,
-amounts optional, no method. That is a **quick recipe**, and only your kitchen sees it.
-"Bocatas" is not interesting to anybody else; a carefully written recipe is, so recipes with a
-method stay visible to everyone, as today.
+Lentejas and "ensalada con carne" are different things. Lentejas deserve every detail. For
+"ensalada con carne" the kitchen does not want to say which salad or which meat; it wants the
+amounts **per person**, the ingredients that always go in (lettuce, meat, cheese, olives,
+tomato) and the ones that sometimes do (corn, onion). That is a **simple recipe**: a title,
+written for one person, fixed and **optional** ingredients, no method. Only your kitchen sees
+it. "Bocatas" is not interesting to anybody else; a carefully written recipe is, so recipes with
+a method stay visible to everyone, as today.
+
+**An ingredient can be optional.** It is stored on the recipe and starts **unticked** when the
+recipe goes on the list; you tick it the week you want it. Useful in full recipes too.
+
+Whether a meal put together in the plan can be kept with "Guardar como receta" is decided in
+Block 2 (the plan), after the recipes are tested.
 
 `recipes` gains a visibility (`public` or `kitchen`) and the kitchen it belongs to. Nothing else
 about a quick recipe differs: it is the same entity (ADR-0007), and writing a method in later is
 an edit that can also make it public.
 
-### 3. Each product has a typical portion
+### 3. Each product has a typical portion — *moved to Block 2, may not be needed*
+
+*2026-11-17:* a simple recipe written per person already carries the amounts this was meant to
+supply. It is decided with the plan, once simple recipes have been used.
 
 `grocery_items` gains a typical portion per person ("carne: 150 g"). The AI proposes it,
 marked **"sin confirmar"** until a person accepts or edits it, and it never changes anything
@@ -81,14 +93,29 @@ a number.
 The portion is part of the shared vocabulary, like the aisle. Revisit with a per-kitchen
 override **when a second kitchen disagrees with the first**.
 
-### 4. Scaling stays as ADR-0001, with two changes
+### 4. Scaling stays as ADR-0001, and changing the servings scales
 
-- **Servings are required on every new recipe**, quick ones included (prefilled with the
-  kitchen's size). Existing recipes without them keep passing through unscaled.
-- **Countable amounts round up in the list total.** Totals are stored exact; a line in pieces
-  shows 2 when the dishes add up to 1.5 eggs.
+- **Servings are required on every new recipe**, simple ones included (they default to 1).
+  You set them; the import only prefills them when the text says so ("para 4 personas"), marked
+  as read from the text. Existing recipes without them keep passing through unscaled.
+- **Changing the servings scales the amounts**, while creating and while editing alike:
+  5 → 3 turns 500 g into 300 g. Right below, one link undoes it — *"No, las cantidades ya eran
+  para 3"* — for when the number was wrong rather than the amounts. One rule in both places,
+  because "I want this for 3" is the usual intent, and the original text sits alongside when it
+  is not.
+- ~~Countable amounts round up in the list total.~~ *Dropped 2026-11-17: people round at the
+  shelf themselves.* Revisit **if rounding by hand keeps annoying people at the shop**.
 
-### 5. One list line per product
+### 5. Consistent units at capture, and one list line per product
+
+**The real fix is upstream:** potatoes should be written in grams in every recipe, onions in
+pieces. The vocabulary already knows how each product is bought (`default_unit`: g for 118
+products, ml for 29, pieces for 159), so the import uses it, together with how the kitchen's
+other recipes wrote the same product, as context for the model; and when a line still arrives
+as "4 patatas", the review proposes grams, with the original line visible. A recipe that ends
+up in pieces anyway puts a second line on the list, which is acceptable.
+
+On the list, g↔kg and ml↔l are merged automatically:
 
 The merge key drops the unit: it becomes `(plan, COALESCE(grocery_key, normalised_name))`.
 Amounts on one line are kept per unit, with g↔kg and ml↔l converted, so 500 g + 1 kg of carne
@@ -106,16 +133,25 @@ The slot's picker searches your kitchen's recipes, the products, and recipes fro
 
 ### 7. Recipes carry tags from a fixed set
 
-🍱 tupper, 🔥 horno, 🌀 airfryer, 🥗 sin cocinar, stored on the recipe; ⚡ rápida is derived
-from the total time, never stored. **Tupper is positive**: a recipe without it is eaten at home.
-It exists to keep the Phase 3 AI from proposing a soup for a lunch that travels. The recipe
-import proposes tags in Phase 1; showing them across the app is Phase 2.
+Stored on the recipe: 🍱 tupper, 🔥 horno, 🌀 airfryer, 🥗 sin cocinar, ❄️ congelable,
+🌶️ picante, 🍳 una sola sartén, ♨️ olla exprés. ⚡ rápida is derived from a total time of
+30 min or less, never stored. Not included: vegetarian, difficulty (not what this kitchen
+filters by). **Tupper is positive**: a recipe without it is eaten at home; it keeps the Phase 3
+AI from proposing a soup for a lunch that travels.
+
+The AI proposes them and you correct them. They are chosen in the recipe and shown in the
+recipe book from Phase 1. Tagging the recipes that already exist is a later one-off (AI
+proposes, a person reviews).
 
 ### 8. Nothing enters the vocabulary until a recipe is saved
 
 Today parsing a recipe's ingredients writes AI-proposed rows into `grocery_items` straight away,
 and drops lines it could not match. From now on parsing proposes and **saving writes**: every
 original line is kept, and the vocabulary only grows when a person saves.
+
+The model is **`deepseek-flash`**, called with a strict tool schema (DeepSeek's `json_object`
+mode guarantees JSON but not its shape; strict tool calls do). It also reads photos. If it ever
+falls short, the adapter already speaks to GLM, Kimi and Qwen through configuration.
 
 ### 9. Phase 1 is built on the web, as an exception to ADR-0008
 

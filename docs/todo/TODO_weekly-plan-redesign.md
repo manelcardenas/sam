@@ -35,13 +35,12 @@ tightly coupled, so a simple meal costs as much as paella.
 
 ## Phase 1 — web, now · [spec](../plans/meal-plan-phase-1.md)
 
-- [ ] Slice 1: one list line per product (g↔kg, ml↔l; merge the 2 prod pairs)
-- [ ] Slice 2: countable amounts round up on the list
-- [ ] Slice 3: products as meal components, one search in the slot
-- [ ] Slice 4: typical portion per product, "sin confirmar" until accepted
-- [ ] Slice 5: quick recipes, kitchen-only ("Guardar como receta")
-- [ ] Slice 6: recipe import by link, photo and text (after comparing models on ~20 recipes);
-      replaces [better ingredient capture](./TODO_ingredient-capture-v2.md)
+- [ ] Block 1, recipes: import by text, link or photo with `deepseek-flash`, a review screen
+      that never loses a line, consistent units, servings that scale, simple kitchen-only
+      recipes with optional ingredients, tags. Replaces
+      [better ingredient capture](./TODO_ingredient-capture-v2.md)
+- [ ] Hand test of Block 1, then the real recipes
+- [ ] Block 2, the plan: designed once Block 1 is tried
 - [ ] Use it for 2–3 Saturdays and write the before/after numbers into the spec
 
 ## Phase 2 — in Expo, after Phase 1 is tested

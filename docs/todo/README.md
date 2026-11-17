@@ -24,7 +24,7 @@ Phase 1 of the plan redesign is built on the web first and tested on real Saturd
 |---|---|---|---|---|
 | ✅ | [Shared UI components](./TODO_ui-components.md) (A only), [web or mobile](./TODO_web-or-mobile-decision.md), [quick wins](./TODO_quick-wins.md) 1–3 | — | — | Done; B and C of the UI components were cancelled by the ADR |
 | 1 | [Backend off Lambda](./TODO_backend-off-lambda.md) — the API already runs on Vercel; remove Lambda | small | — | The slowness people feel: 10 of 10 sessions started with a 3.4–6.7 s request |
-| 2 | [Weekly plan redesign](./TODO_weekly-plan-redesign.md) **Phase 1, on the web** — [spec](../plans/meal-plan-phase-1.md) | ~7 days in 6 slices, then 2–3 Saturdays of use | — | The calendar was used 3 weeks out of 8. Mostly backend and model, which Expo reuses; testing now decides Phase 2. Includes [better ingredient capture](./TODO_ingredient-capture-v2.md) |
+| 2 | [Weekly plan redesign](./TODO_weekly-plan-redesign.md) **Phase 1, on the web** — [spec](../plans/meal-plan-phase-1.md) | Block 1 (recipes) then Block 2 (plan), then 2–3 Saturdays of use | — | The calendar was used 3 weeks out of 8. Mostly backend and model, which Expo reuses; testing now decides Phase 2. Includes [better ingredient capture](./TODO_ingredient-capture-v2.md) |
 | 3 | Expo app setup — mywally-app conventions, same backend and Cognito | to size | — | The base everything else is built on; can start while Phase 1 is being tested |
 | 4 | Weekly plan redesign **Phase 2, in Expo**: drag and drop, "Sin día" tray, tags; then [supermarkets](./TODO_supermarkets.md) | the big one | 2, 3 | Built on Phase 1's model and what the test taught |
 | 5 | APK on the Android phone, daily use | small | 4 | Real use before porting the rest |
